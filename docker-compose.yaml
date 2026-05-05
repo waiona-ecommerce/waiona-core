@@ -1,10 +1,14 @@
 services:
+
+  # ==========================
+  # Base de datos principal
+  # ==========================
   postgres:
     image: postgres:15-alpine
-    container_name: postgres
+    container_name: waiona_postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "${POSTGRES_PORT}:5432"
@@ -17,11 +21,35 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ==========================
+  # Base de datos para e2e tests
+  # Los tests usan dropSchema: true — base separada para no pisar datos de dev
+  # ==========================
+  postgres_test:
+    image: postgres:15-alpine
+    container_name: waiona_postgres_test
+    environment:
+      POSTGRES_DB:       ${POSTGRES_TEST_DB:-waiona_test}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_TEST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_TEST_DB:-waiona_test}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ==========================
+  # pgAdmin — interfaz visual de la DB
+  # URL: http://localhost:5050
+  # ==========================
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: pgadmin
+    container_name: waiona_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:

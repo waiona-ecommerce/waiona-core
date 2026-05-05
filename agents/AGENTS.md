@@ -11,9 +11,12 @@ Antes de generar código, la IA debe cargar la skill relevante. Cada skill tiene
 **Combinaciones frecuentes:**
 - Crear un módulo nuevo → `nestjs-core` + `typeorm-standard`
 - Implementar auth o guards → `nestjs-auth-jwt`
-- Escribir tests → `nestjs-core` (sección testing)
+- Escribir unit tests → `nestjs-core` (sección testing) + `testing-standard`
+- Escribir e2e tests → `testing-standard` + `nestjs-docker-postgres`
 - Configurar Docker/DB → `nestjs-docker-postgres` + `postgres-standard`
-- Agregar migración → `postgres-standard`
+- Trabajar con pagos → `mercadopago-payments`
+- Crear templates de email → `email-templates`
+- Operaciones SQL directas → `postgres-standard`
 
 ---
 
@@ -21,11 +24,14 @@ Antes de generar código, la IA debe cargar la skill relevante. Cada skill tiene
 
 | Skill | Archivo | Cuándo cargar |
 |---|---|---|
-| `nestjs-core` | `skills/nestjs-core/SKILL.md` | Crear módulos, controllers, services, entidades |
+| `nestjs-core` | `skills/nestjs-core/SKILL.md` | Crear módulos, controllers, services |
 | `nestjs-auth-jwt` | `skills/nestjs-auth-jwt/SKILL.md` | Auth, guards, JWT, roles |
 | `typeorm-standard` | `skills/typeorm-standard/SKILL.md` | Entidades, DTOs, relaciones, transacciones |
-| `postgres-standard` | `skills/postgres-standard/SKILL.md` | Migraciones, naming SQL, schema |
-| `nestjs-docker-postgres` | `skills/nestjs-docker-postgres/SKILL.md` | Docker, docker-compose, conexión DB |
+| `testing-standard` | `skills/testing-standard/SKILL.md` | Unit tests y e2e tests |
+| `postgres-standard` | `skills/postgres-standard/SKILL.md` | SQL, naming, sync vs migraciones |
+| `nestjs-docker-postgres` | `skills/nestjs-docker-postgres/SKILL.md` | Docker, conexión DB, e2e setup |
+| `mercadopago-payments` | `skills/mercadopago-payments/SKILL.md` | Pagos, webhook, firma MP |
+| `email-templates` | `skills/email-templates/SKILL.md` | Templates HTML, MailService, Resend |
 
 ---
 
