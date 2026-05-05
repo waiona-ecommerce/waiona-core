@@ -1,176 +1,190 @@
 ---
 name: postgres-standard
 description: >
-  PostgreSQL conventions for schema design, naming, constraints, seed data, and migrations in this repo.
-  Load when creating entities, writing SQL scripts, planning migrations, or reviewing schema consistency.
+  PostgreSQL conventions for this repo: naming, synchronize vs migrations, common queries, and day-to-day DB operations.
+  Load when working with the database schema, naming columns, debugging queries, or managing the DB in development.
 metadata:
   author: @rodrigozucchini
-  version: "1.0"
+  version: "2.0"
 ---
 
 # PostgreSQL Standard Skill
 
-Defines naming conventions, schema rules, and migration patterns for all database changes in this project. Every schema change goes through TypeORM migrations — no exceptions.
-
 ---
 
-## When to Use This Skill
+## When to Use
 
 Load when the user:
-- Creates or modifies a TypeORM entity
-- Writes a migration (additive or destructive)
-- Writes seed data or SQL fix scripts
-- Reviews column naming, constraints, or data integrity
+- Adds a new column or relation to an entity
+- Runs raw SQL against the DB
+- Debugs a TypeORM query
+- Sets up the DB for a new environment
+- Needs to reset or seed data manually
 
 Do NOT load when:
-- Only configuring the TypeORM DataSource connection (use `nestjs-docker-postgres` skill)
-- Writing application logic unrelated to schema
+- Writing TypeScript entities or DTOs (use `typeorm-standard`)
+- Configuring Docker (use `nestjs-docker-postgres`)
 
 ---
 
-## Core Rules
+## Dev Mode: `synchronize: true`
 
-1. **Incremental migrations only**: Every schema change is a focused migration file — never batch unrelated changes together.
-2. **BaseEntity fields are mandatory**: All tables must have `id`, `createdAt`, `updatedAt`, `isDeleted` — never omit them.
-3. **Column names match entity fields exactly**: If the entity field is `avatarUrl`, the SQL column is `"avatarUrl"` (camelCase, quoted).
-4. **Enums come from `src/common/enums`**: Never hardcode enum values in migrations or entities — always import from the shared enum file.
-5. **`synchronize: false` always**: Schema changes only happen through migration files, never auto-sync.
+In **development**, `synchronize: true` is active in `app.module.ts`. TypeORM automatically applies schema changes when the app restarts. **No manual migrations needed in dev.**
+
+```typescript
+// app.module.ts — current setup
+TypeOrmModule.forRoot({
+  synchronize: process.env.NODE_ENV !== 'production', // true in dev, false in prod
+  autoLoadEntities: true,
+})
+```
+
+**Day-to-day workflow in dev:**
+1. Modify the entity (add column, relation, index)
+2. Restart the app (`npm run start:dev`)
+3. TypeORM applies the change automatically
+
+**⚠️ Never use `synchronize: true` in production.** It can drop columns if you rename them.
 
 ---
 
 ## Naming Conventions
 
 | Element | Convention | Example |
-|---------|-----------|---------|
-| Table names | snake_case, plural | `persons`, `product_variants` |
-| Column names | camelCase, quoted in SQL | `"avatarUrl"`, `"basePrice"` |
-| Migration file | `{timestamp}-{description}.ts` | `1769550000000-add-avatar-url-to-persons.ts` |
-| Enum columns | match `src/common/enums` exactly | `ProductType`, `MeasureUnit` |
-| FK columns | `{relation}Id` camelCase | `categoryId`, `marginId` |
+|---|---|---|
+| Table | `snake_case` plural | `order_items`, `stock_locations` |
+| Column | `camelCase` in TS → `snake_case` in DB via `name:` | `categoryId` → `category_id` |
+| FK column | `<relation>_id` | `category_id`, `user_id` |
+| Index | Defined with `@Index` in entity | — |
+| Enum | `snake_case` values | `super_admin`, `out_of_stock` |
 
 ---
 
-## Patterns: Do This, Not That
+## Common Raw SQL Operations
 
-### Pattern 1: Additive migration (nullable column)
-
-**Do this:**
+**Ver tablas existentes:**
 ```sql
-ALTER TABLE "persons" ADD "avatarUrl" character varying(255);
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
 ```
 
-**Not this:**
+**Ver columnas de una tabla:**
 ```sql
-ALTER TABLE persons ADD avatarUrl VARCHAR(255) NOT NULL DEFAULT '';
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'products';
 ```
-> Why: Column names must be quoted (camelCase). New columns should be nullable — use a follow-up migration to add NOT NULL once data is backfilled.
 
----
-
-### Pattern 2: Safe rollback (down migration)
-
-**Do this:**
+**Agregar columna manualmente (cuando synchronize no puede por datos existentes):**
 ```sql
-ALTER TABLE "persons" DROP COLUMN "avatarUrl";
+ALTER TABLE products ADD COLUMN category_id INT NULL;
+UPDATE products SET category_id = 1 WHERE category_id IS NULL;
+-- luego reiniciar el server para que aplique NOT NULL
 ```
-> Every migration must have a working `down()` method. Never leave it empty.
+
+**Soft delete manual:**
+```sql
+UPDATE users SET "isDeleted" = true WHERE id = 5;
+```
+
+**Ver registros soft-deleted:**
+```sql
+SELECT * FROM orders WHERE "isDeleted" = true;
+```
+
+**Reset de una tabla (solo dev):**
+```sql
+TRUNCATE TABLE tokens RESTART IDENTITY CASCADE;
+```
 
 ---
 
-### Pattern 3: Enum column
+## Columnas con camelCase en SQL
 
-**Do this:**
-```typescript
-import { ProductType } from '../../../common/enums/product-type.enum';
+TypeORM usa camelCase para las columnas que no tienen `name:` explícito. En SQL hay que escaparlas con comillas dobles:
 
-@Column({ type: 'enum', enum: ProductType })
-type: ProductType;
+```sql
+-- ✅ correcto
+SELECT "isDeleted", "createdAt" FROM users;
+UPDATE users SET "isActive" = true WHERE id = 1;
+
+-- ❌ incorrecto (interpreta como lowercase)
+SELECT isdeleted FROM users;
 ```
-
-**Not this:**
-```typescript
-@Column({ type: 'enum', enum: ['physical', 'digital', 'service'] })
-type: string;
-```
-> Why: Hardcoded enum values drift from the source of truth in `src/common/enums`.
 
 ---
 
-### Pattern 4: BaseEntity fields
+## Problema: `synchronize` no puede agregar columna NOT NULL con datos existentes
 
-Every entity must extend or include:
-```typescript
-@PrimaryGeneratedColumn()
-id: number;
+Cuando agregás una columna `nullable: false` a una tabla con registros, el sync falla porque PostgreSQL no puede setear `NOT NULL` sin un valor por defecto.
 
-@CreateDateColumn()
-createdAt: Date;
+**Solución en 3 pasos:**
+```sql
+-- 1. Agregar la columna como nullable
+ALTER TABLE products ADD COLUMN category_id INT NULL;
 
-@UpdateDateColumn()
-updatedAt: Date;
+-- 2. Asignar valores a los registros existentes
+UPDATE products SET category_id = 1 WHERE category_id IS NULL;
 
-@Column({ default: false })
-isDeleted: boolean;
+-- 3. Reiniciar el server — TypeORM aplica el NOT NULL constraint
 ```
+
+---
+
+## Migraciones (producción)
+
+En producción, usar migraciones en lugar de `synchronize`. Generar desde los cambios en entidades:
+
+```bash
+# generar migración
+npx typeorm migration:generate src/database/migrations/AddCategoryToProduct -d src/database/ormconfig.ts
+
+# correr migraciones
+npx typeorm migration:run -d src/database/ormconfig.ts
+
+# revertir última migración
+npx typeorm migration:revert -d src/database/ormconfig.ts
+```
+
+---
+
+## Docker — Comandos Útiles
+
+```bash
+# levantar DB y pgAdmin
+docker compose up -d
+
+# detener sin borrar datos
+docker compose stop
+
+# detener y borrar volúmenes (reset completo)
+docker compose down -v
+
+# ver logs de postgres
+docker compose logs postgres
+
+# conectarse a psql dentro del container
+docker exec -it postgres psql -U waiona_user -d waiona_db
+```
+
+---
+
+## Acceder a pgAdmin
+
+Una vez levantado Docker:
+- URL: `http://localhost:5050`
+- Email: `PGADMIN_EMAIL` del `.env`
+- Password: `PGADMIN_PASSWORD` del `.env`
+
+Agregar servidor en pgAdmin:
+- Host: `postgres` (nombre del container)
+- Puerto: `5432`
+- Usuario/Password: los del `.env`
 
 ---
 
 ## Common Mistakes
 
-- **Adding NOT NULL column without default**: Fails on existing rows. Always add nullable first, backfill, then add constraint.
-- **Skipping `down()` in migration**: Makes rollbacks impossible. Always implement it.
-- **Unquoted camelCase column names in SQL**: PostgreSQL lowercases unquoted identifiers. Always quote `"camelCaseColumns"`.
-- **Enum values not matching `src/common/enums`**: Causes runtime errors on insert. Always import the enum.
-- **Batching unrelated changes in one migration**: Hard to roll back safely. One concern per migration file.
-
----
-
-## Expected Output
-
-A correct additive migration looks like this:
-
-```typescript
-export class AddAvatarUrlToPersons1769550000000 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "persons" ADD "avatarUrl" character varying(255)`
-    );
-  }
-
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "persons" DROP COLUMN "avatarUrl"`
-    );
-  }
-}
-```
-
-Key characteristics:
-- Timestamp in class name matches filename
-- `up()` and `down()` both implemented
-- Column name quoted and camelCase
-- Single focused change
-
----
-
-## Edge Cases
-
-| Situation | How to handle it |
-|-----------|-----------------|
-| Adding NOT NULL column to existing table | Add nullable → backfill data → add NOT NULL in separate migration |
-| Renaming a column | Add new column → copy data → drop old column (3 migrations or 1 careful one with data script) |
-| Enum value added to existing enum | Add value to `src/common/enums` file first, then alter the DB enum type in migration |
-| Migration fails halfway | Fix the issue, run `migrations:revert`, then re-run — never manually edit the DB |
-
----
-
-## Quick Reference
-
-```bash
-npm run migrations:generate   # auto-generate migration from entity diff
-npm run migrations:show       # list pending migrations
-npm run migrations:run        # apply pending migrations
-npm run migrations:revert     # rollback last migration
-```
-
----
+- **`synchronize: true` en producción**: Puede borrar columnas renombradas o alterar el schema sin control.
+- **Sin comillas en columnas camelCase**: PostgreSQL convierte a lowercase — `isDeleted` → `isdeleted` sin comillas.
+- **Hard delete en lugar de soft delete**: Siempre usar `isDeleted = true` — nunca `DELETE FROM`.
+- **Agregar NOT NULL sin datos en columnas existentes**: Siempre agregar nullable primero, poblar datos, luego aplicar NOT NULL.
