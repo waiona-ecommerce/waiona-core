@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 
 import { PaymentEntity } from '../entities/payment.entity';
 import { OrderEntity } from 'src/modules/orders/entities/order.entity';
@@ -29,6 +29,7 @@ export class PaymentsService {
     private readonly orderRepo: Repository<OrderEntity>,
 
     private readonly mercadoPagoProvider: MercadoPagoProvider,
+    private readonly dataSource: DataSource,
   ) {}
 
   // ==========================
@@ -124,8 +125,11 @@ export class PaymentsService {
 
       payment.metadata = { body, query };
 
-      await this.orderRepo.save(payment.order);
-      await this.paymentRepo.save(payment);
+      // 🔥 transacción — si falla uno, ambos se revierten
+      await this.dataSource.transaction(async manager => {
+        await manager.save(payment.order);
+        await manager.save(payment);
+      });
 
     } catch {
       // swallow — MP requiere siempre 200
