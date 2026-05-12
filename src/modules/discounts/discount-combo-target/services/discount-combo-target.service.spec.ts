@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
-import { DiscountComboTargetService } from '../../discount-combo-target/services/discount-combo-target.service';
-import { DiscountComboTargetEntity } from '../../discount-combo-target/entities/discount-combo-target.entity';
+import { DiscountComboTargetService } from './discount-combo-target.service';
+import { DiscountComboTargetEntity } from '../entities/discount-combo-target.entity';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 
 describe('DiscountComboTargetService', () => {
@@ -14,10 +14,12 @@ describe('DiscountComboTargetService', () => {
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
   const mockDiscount = () => ({ id: 1, name: 'Promo', isDeleted: false });
-  const mockTarget   = (overrides = {}) => ({ id: 1, discountId: 1, comboId: 1, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides });
+  const mockTarget   = (overrides = {}): DiscountComboTargetEntity =>
+    ({ id: 1, discountId: 1, comboId: 1, isDeleted: false,
+       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as DiscountComboTargetEntity;
 
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscountComboTargetService,
         { provide: getRepositoryToken(DiscountComboTargetEntity), useFactory: mockRepo         },
@@ -35,10 +37,13 @@ describe('DiscountComboTargetService', () => {
     it('should create a combo target', async () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
-      repo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      repo.findOne
+        .mockResolvedValueOnce(null)  // validateUniqueTarget
+        .mockResolvedValueOnce(null); // validateComboHasNoActiveDiscount
       repo.create.mockReturnValue(target);
       repo.save.mockResolvedValue(target);
-      expect((await service.create(1, { comboId: 1 } as any)).comboId).toBe(1);
+      const result = await service.create(1, { comboId: 1 } as any);
+      expect(result.comboId).toBe(1);
     });
 
     it('should throw NotFoundException if discount not found', async () => {
@@ -46,9 +51,17 @@ describe('DiscountComboTargetService', () => {
       await expect(service.create(999, { comboId: 1 } as any)).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ConflictException if target already exists', async () => {
+    it('should throw ConflictException if target already exists for this discount', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
-      repo.findOne.mockResolvedValue(mockTarget());
+      repo.findOne.mockResolvedValueOnce(mockTarget());
+      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if combo already has another active discount', async () => {
+      discountRepo.findOne.mockResolvedValue(mockDiscount());
+      repo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockTarget());
       await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(ConflictException);
     });
   });
@@ -58,6 +71,11 @@ describe('DiscountComboTargetService', () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.find.mockResolvedValue([mockTarget()]);
       expect(await service.findAll(1)).toHaveLength(1);
+    });
+
+    it('should throw NotFoundException if discount not found', async () => {
+      discountRepo.findOne.mockResolvedValue(null);
+      await expect(service.findAll(999)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -71,10 +89,15 @@ describe('DiscountComboTargetService', () => {
       expect(repo.save).toHaveBeenCalledWith({ ...target, isDeleted: true });
     });
 
-    it('should throw NotFoundException', async () => {
+    it('should throw NotFoundException if target not found', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValue(null);
       await expect(service.remove(1, 999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if discount not found', async () => {
+      discountRepo.findOne.mockResolvedValue(null);
+      await expect(service.remove(999, 1)).rejects.toThrow(NotFoundException);
     });
   });
 });
