@@ -1,8 +1,5 @@
 services:
 
-  # ==========================
-  # Base de datos principal
-  # ==========================
   postgres:
     image: postgres:15-alpine
     container_name: waiona_postgres
@@ -21,10 +18,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ==========================
-  # Base de datos para e2e tests
-  # Los tests usan dropSchema: true — base separada para no pisar datos de dev
-  # ==========================
   postgres_test:
     image: postgres:15-alpine
     container_name: waiona_postgres_test
@@ -41,10 +34,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ==========================
-  # pgAdmin — interfaz visual de la DB
-  # URL: http://localhost:5050
-  # ==========================
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: waiona_pgadmin
@@ -61,7 +50,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  api:
+    build: .
+    container_name: waiona_api
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   pgadmin_data:
-  
