@@ -22,7 +22,7 @@ export class ProductImageService {
   // CREATE
   async create(dto: CreateProductImageDto): Promise<ProductImageResponseDto> {
     const product = await this.productRepository.findOne({
-      where: { id: dto.productId, isDeleted: false },
+      where: { id: dto.productId },
     });
 
     if (!product) {
@@ -41,7 +41,7 @@ export class ProductImageService {
   // GET ALL BY PRODUCT (no eliminadas)
   async findByProduct(productId: number): Promise<ProductImageResponseDto[]> {
     const images = await this.productImageRepository.find({
-      where: { productId, isDeleted: false },
+      where: { productId },
       order: { position: 'ASC' },
     });
 
@@ -53,7 +53,7 @@ export class ProductImageService {
   // GET BY ID
   async findOne(id: number): Promise<ProductImageResponseDto> {
     const image = await this.productImageRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!image) {
@@ -71,7 +71,7 @@ export class ProductImageService {
     dto: UpdateProductImageDto,
   ): Promise<ProductImageResponseDto> {
     const image = await this.productImageRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!image) {
@@ -90,7 +90,7 @@ export class ProductImageService {
   // SOFT DELETE
   async remove(id: number): Promise<void> {
     const image = await this.productImageRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!image) {
@@ -99,8 +99,6 @@ export class ProductImageService {
       );
     }
 
-    image.isDeleted = true;
-
-    await this.productImageRepository.save(image);
+    await this.productImageRepository.softDelete(image.id);
   }
 }

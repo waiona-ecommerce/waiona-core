@@ -7,12 +7,14 @@ import {
     Body,
     Param,
     ParseIntPipe,
+    Query,
     HttpCode,
     HttpStatus,
     UseGuards,
   } from '@nestjs/common';
-  
+
   import { StockLocationsService } from '../services/stock-locations.service';
+  import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
   import { CreateStockLocationDto } from '../dto/create-stock-location.dto';
   import { UpdateStockLocationDto } from '../dto/update-stock-location.dto';
   import { StockLocationResponseDto } from '../dto/stock-location-response.dto';
@@ -46,8 +48,8 @@ import {
     // ==========================
   
     @Get()
-    async findAll(): Promise<StockLocationResponseDto[]> {
-      return this.stockLocationsService.findAll();
+    async findAll(@Query() { page, limit }: PaginationQueryDto) {
+      return this.stockLocationsService.findAll(page, limit);
     }
   
     // ==========================

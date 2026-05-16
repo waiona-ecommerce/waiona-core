@@ -5,10 +5,12 @@ import {
     Param,
     Body,
     ParseIntPipe,
+    Query,
     UseGuards,
   } from '@nestjs/common';
-  
+
   import { StockWriteOffService } from '../services/stock-writeoff.service';
+  import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
   import { UpdateStockWriteOffDto } from '../dto/update-stock-writeoff.dto';
   import { StockWriteOffResponseDto } from '../dto/stock-writeoff-response.dto';
   
@@ -31,8 +33,8 @@ import {
     // ==========================
   
     @Get()
-    async findAll(): Promise<StockWriteOffResponseDto[]> {
-      return this.stockWriteOffService.findAll();
+    async findAll(@Query() { page, limit }: PaginationQueryDto) {
+      return this.stockWriteOffService.findAll(page, limit);
     }
   
     // ==========================

@@ -11,6 +11,7 @@ import { ProductEntity } from '../entities/product.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class ProductService {
@@ -24,20 +25,22 @@ export class ProductService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<ProductResponseDto[]> {
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ProductResponseDto>> {
 
-    const products = await this.productRepository.find({
-      where: {
-        isDeleted: false,
-      },
+    const [products, total] = await this.productRepository.findAndCount({
       relations: ['category'], // 🔥 para exponer categoryName en la respuesta
       order: {
         name: 'ASC',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return products.map(
-      product => new ProductResponseDto(product),
+    return new PaginatedResponseDto(
+      products.map(product => new ProductResponseDto(product)),
+      total,
+      page,
+      limit,
     );
   }
 
@@ -134,9 +137,7 @@ export class ProductService {
 
     const product = await this.findOne(id);
 
-    product.isDeleted = true;
-
-    await this.productRepository.save(product);
+    await this.productRepository.softDelete(product.id);
   }
 
   // ==========================
@@ -148,7 +149,6 @@ export class ProductService {
     const product = await this.productRepository.findOne({
       where: {
         id,
-        isDeleted: false,
       },
       relations: ['category'], // 🔥 siempre con categoría
     });

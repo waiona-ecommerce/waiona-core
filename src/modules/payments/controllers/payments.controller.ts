@@ -104,7 +104,7 @@ export class PaymentsController {
     query: Record<string, string>,
   ): void {
     const secret = this.configService.get('MP_WEBHOOK_SECRET', { infer: true });
-    if (!secret) return; // si no hay secret configurado skip — útil en dev
+    if (!secret) throw new UnauthorizedException('Webhook secret not configured');
 
     const xSignature  = headers['x-signature'];
     const xRequestId  = headers['x-request-id'];

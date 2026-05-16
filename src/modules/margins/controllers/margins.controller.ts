@@ -5,11 +5,12 @@ import {
     Body,
     Patch,
     Param,
+    Query,
     Delete,
     ParseIntPipe,
     UseGuards,
   } from '@nestjs/common';
-  
+
   import { MarginsService } from '../services/margins.service';
   import { CreateMarginDto } from '../dto/create-margin.dto';
   import { UpdateMarginDto } from '../dto/update-margin.dto';
@@ -18,6 +19,8 @@ import {
   import { RolesGuard } from 'src/common/guards/roles.guard';
   import { Roles } from 'src/common/decorators/roles.decorator';
   import { RoleType } from 'src/common/enums/role-type.enum';
+  import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+  import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
   
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -35,8 +38,8 @@ import {
   
     // GET ALL
     @Get()
-    async findAll(): Promise<MarginResponseDto[]> {
-      return this.marginsService.findAll();
+    async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<MarginResponseDto>> {
+      return this.marginsService.findAll(page, limit);
     }
   
     // GET ONE

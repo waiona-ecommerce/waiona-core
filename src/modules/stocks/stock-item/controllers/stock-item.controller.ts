@@ -5,11 +5,13 @@ import {
   Param,
   Body,
   ParseIntPipe,
+  Query,
   Patch,
   UseGuards,
 } from '@nestjs/common';
 
 import { StockItemsService } from '../services/stock-item.service';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 import { CreateStockItemDto } from '../dto/create-stock-item.dto';
 import { UpdateStockThresholdsDto } from '../dto/update-stock-thresholds.dto';
@@ -38,8 +40,8 @@ export class StockItemsController {
   ) {}
 
   @Get()
-  async findAll(): Promise<StockItemResponseDto[]> {
-    return this.stockItemsService.findAll();
+  async findAll(@Query() { page, limit }: PaginationQueryDto) {
+    return this.stockItemsService.findAll(page, limit);
   }
 
   @Get(':id')

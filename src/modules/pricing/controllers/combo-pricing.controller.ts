@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -15,6 +16,7 @@ import { ComboPricingService } from '../services/combo-pricing.service';
 import { CreateComboPricingDto } from '../dto/create-combo-pricing.dto';
 import { UpdateComboPricingDto } from '../dto/update-combo-pricing.dto';
 import { ComboPricingResponseDto } from '../dto/combo-pricing-response.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -32,8 +34,8 @@ export class ComboPricingController {
   }
 
   @Get()
-  async findAll(): Promise<ComboPricingResponseDto[]> {
-    return this.service.findAll();
+  async findAll(@Query() { page, limit }: PaginationQueryDto) {
+    return this.service.findAll(page, limit);
   }
 
   // 🔥 antes de GET :id para evitar conflicto de rutas

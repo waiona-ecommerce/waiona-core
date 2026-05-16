@@ -11,6 +11,7 @@ import {
   import { CreateCategoryDto } from '../dto/create-category.dto';
   import { UpdateCategoryDto } from '../dto/update-category.dto';
   import { CategoryResponseDto } from '../dto/category-response.dto';
+  import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
   import { CategoryTreeResponseDto } from '../dto/category-tree-response.dto';
   
   @Injectable()
@@ -25,20 +26,13 @@ import {
     // GET ALL (plano)
     // ==========================
   
-    async findAll(): Promise<CategoryResponseDto[]> {
-  
-      const entities = await this.categoryRepository.find({
-        where: {
-          isDeleted: false,
-        },
-        order: {
-          name: 'ASC',
-        },
+    async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<CategoryResponseDto>> {
+      const [entities, total] = await this.categoryRepository.findAndCount({
+        order: { name: 'ASC' },
+        skip: (page - 1) * limit,
+        take: limit,
       });
-  
-      return entities.map(
-        entity => new CategoryResponseDto(entity),
-      );
+      return new PaginatedResponseDto(entities.map(e => new CategoryResponseDto(e)), total, page, limit);
     }
   
     // ==========================
@@ -66,7 +60,7 @@ import {
         parent = await this.categoryRepository.findOne({
           where: {
             id: dto.parentId,
-            isDeleted: false,
+            
           },
         });
   
@@ -100,24 +94,20 @@ import {
   
       const entity = await this.findOne(id);
   
-      // 🚨 evitar que sea su propio padre
-      if (changes.parentId && changes.parentId === id) {
-        throw new BadRequestException(
-          'Category cannot be its own parent',
-        );
-      }
-  
       if (changes.parentId) {
         const parent = await this.categoryRepository.findOne({
-          where: {
-            id: changes.parentId,
-            isDeleted: false,
-          },
+          where: { id: changes.parentId },
         });
-  
+
         if (!parent) {
           throw new BadRequestException(
             `Parent category with id ${changes.parentId} not found`,
+          );
+        }
+
+        if (await this.wouldCreateCycle(id, changes.parentId)) {
+          throw new BadRequestException(
+            'Setting this parent would create a circular category hierarchy',
           );
         }
       }
@@ -137,9 +127,7 @@ import {
   
       const entity = await this.findOne(id);
   
-      entity.isDeleted = true;
-  
-      await this.categoryRepository.save(entity);
+      await this.categoryRepository.softDelete(entity.id);
     }
   
     // ==========================
@@ -151,7 +139,7 @@ import {
       const roots = await this.categoryRepository.find({
         where: {
           parentId: IsNull(),
-          isDeleted: false,
+          
         },
         relations: ['children'],
         order: {
@@ -165,6 +153,22 @@ import {
     }
   
     // ==========================
+    // PRIVATE HELPERS
+    // ==========================
+
+    private async wouldCreateCycle(categoryId: number, newParentId: number): Promise<boolean> {
+      let currentId: number | null = newParentId;
+      while (currentId !== null) {
+        if (currentId === categoryId) return true;
+        const cat = await this.categoryRepository.findOne({
+          where: { id: currentId },
+        });
+        currentId = cat?.parentId ?? null;
+      }
+      return false;
+    }
+
+    // ==========================
     // PRIVATE FIND ONE
     // ==========================
   
@@ -173,7 +177,7 @@ import {
       const entity = await this.categoryRepository.findOne({
         where: {
           id,
-          isDeleted: false,
+          
         },
       });
   

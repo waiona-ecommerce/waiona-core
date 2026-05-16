@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ProductPricingEntity } from '../entities/product-pricing.entity';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
 import { CreateProductPricingDto } from '../dto/create-product-pricing.dto';
 import { UpdateProductPricingDto } from '../dto/update-product-pricing-dto';
@@ -31,7 +32,7 @@ export class ProductPricingService {
   async create(dto: CreateProductPricingDto): Promise<ProductPricingResponseDto> {
 
     const existing = await this.repo.findOne({
-      where: { productId: dto.productId, isDeleted: false },
+      where: { productId: dto.productId },
     });
 
     if (existing) {
@@ -63,7 +64,7 @@ export class ProductPricingService {
 
     if (dto.productId && dto.productId !== entity.productId) {
       const existing = await this.repo.findOne({
-        where: { productId: dto.productId, isDeleted: false },
+        where: { productId: dto.productId },
       });
       if (existing) {
         throw new BadRequestException('Product already has pricing');
@@ -90,12 +91,13 @@ export class ProductPricingService {
   // FIND ALL
   // ==========================
 
-  async findAll(): Promise<ProductPricingResponseDto[]> {
-    const entities = await this.repo.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ProductPricingResponseDto>> {
+    const [entities, total] = await this.repo.findAndCount({
       relations: ['margin'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    return entities.map((e) => new ProductPricingResponseDto(e));
+    return new PaginatedResponseDto(entities.map((e) => new ProductPricingResponseDto(e)), total, page, limit);
   }
 
   // ==========================
@@ -113,7 +115,7 @@ export class ProductPricingService {
 
   async findByProduct(productId: number): Promise<ProductPricingResponseDto> {
     const entity = await this.repo.findOne({
-      where: { productId, isDeleted: false },
+      where: { productId },
       relations: ['margin'],
     });
 
@@ -130,8 +132,7 @@ export class ProductPricingService {
 
   async remove(id: number): Promise<void> {
     const entity = await this.findOneEntity(id);
-    entity.isDeleted = true;
-    await this.repo.save(entity);
+    await this.repo.softDelete(entity.id);
   }
 
   // ==========================
@@ -140,7 +141,7 @@ export class ProductPricingService {
 
   private async findOneEntity(id: number): Promise<ProductPricingEntity> {
     const entity = await this.repo.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
       relations: ['margin'],
     });
 
@@ -153,7 +154,7 @@ export class ProductPricingService {
 
   private async resolveMargin(marginId: number): Promise<MarginEntity> {
     const margin = await this.marginRepo.findOne({
-      where: { id: marginId, isDeleted: false },
+      where: { id: marginId },
     });
 
     if (!margin) {

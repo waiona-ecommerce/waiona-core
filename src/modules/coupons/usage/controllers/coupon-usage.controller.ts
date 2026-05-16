@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { CouponUsageService } from '../services/coupon-usage.service';
 import { CouponUsageResponseDto } from '../dto/coupon-usage-response.dto';
 import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 @Controller('coupon-usage')
 export class CouponUsageController {
@@ -16,8 +17,8 @@ export class CouponUsageController {
   }
 
   @Get()
-  findAll(): Promise<CouponUsageResponseDto[]> {
-    return this.couponUsageService.findAll();
+  findAll(@Query() { page, limit }: PaginationQueryDto) {
+    return this.couponUsageService.findAll(page, limit);
   }
 
   @Get('coupon/:couponId')

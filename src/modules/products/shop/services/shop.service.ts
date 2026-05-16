@@ -46,51 +46,57 @@ export class ShopService {
     }
 
     const skip = (page - 1) * limit;
+    const hasPriceFilter = minPrice !== undefined || maxPrice !== undefined;
 
-    let allItems: ShopItemResponseDto[] = [];
+    type Candidate =
+      | { kind: 'product'; entity: ProductEntity }
+      | { kind: 'combo';   entity: ComboEntity   };
 
-    // ==========================
-    // PRODUCTS
-    // ==========================
+    const candidates: Candidate[] = [];
+
     if (!type || type === 'product') {
-      const where: any = { isDeleted: false, isActive: true };
+      const where: any = { isActive: true };
       if (search)     where.name       = ILike(`%${search}%`);
       if (categoryId) where.categoryId = categoryId;
-
-      const products = await this.productRepository.find({
-        where,
-        relations: ['images'],
-        order: { name: 'ASC' },
-      });
-
-      const productItems = await Promise.all(
-        products.map(p => this.buildProductListItem(p, minPrice, maxPrice)),
-      );
-      allItems.push(...productItems.filter((i): i is ShopItemResponseDto => i !== null));
+      const products = await this.productRepository.find({ where, relations: ['images'], order: { name: 'ASC' } });
+      candidates.push(...products.map(entity => ({ kind: 'product' as const, entity })));
     }
 
-    // ==========================
-    // COMBOS
-    // ==========================
     if (!type || type === 'combo') {
-      const where: any = { isDeleted: false, isActive: true };
+      const where: any = { isActive: true };
       if (search)     where.name       = ILike(`%${search}%`);
       if (categoryId) where.categoryId = categoryId;
-
-      const combos = await this.comboRepository.find({
-        where,
-        relations: ['images'],
-        order: { name: 'ASC' },
-      });
-
-      const comboItems = await Promise.all(
-        combos.map(c => this.buildComboListItem(c, minPrice, maxPrice)),
-      );
-      allItems.push(...comboItems.filter((i): i is ShopItemResponseDto => i !== null));
+      const combos = await this.comboRepository.find({ where, relations: ['images'], order: { name: 'ASC' } });
+      candidates.push(...combos.map(entity => ({ kind: 'combo' as const, entity })));
     }
 
-    // Orden alfabético consistente en la lista combinada
-    allItems.sort((a, b) => a.name.localeCompare(b.name));
+    candidates.sort((a, b) => a.entity.name.localeCompare(b.entity.name));
+
+    if (!hasPriceFilter) {
+      // Sin filtro de precio: paginamos primero y calculamos solo los items de la página
+      const total      = candidates.length;
+      const totalPages = Math.ceil(total / limit);
+      const page_slice = candidates.slice(skip, skip + limit);
+
+      const data = (await Promise.all(
+        page_slice.map(c =>
+          c.kind === 'product'
+            ? this.buildProductListItem(c.entity, undefined, undefined)
+            : this.buildComboListItem(c.entity, undefined, undefined),
+        ),
+      )).filter((i): i is ShopItemResponseDto => i !== null);
+
+      return { total, page, limit, totalPages, hasNextPage: page < totalPages, data };
+    }
+
+    // Con filtro de precio: hay que calcular todos para saber cuáles pasan el filtro
+    const allItems = (await Promise.all(
+      candidates.map(c =>
+        c.kind === 'product'
+          ? this.buildProductListItem(c.entity, minPrice, maxPrice)
+          : this.buildComboListItem(c.entity, minPrice, maxPrice),
+      ),
+    )).filter((i): i is ShopItemResponseDto => i !== null);
 
     const total      = allItems.length;
     const totalPages = Math.ceil(total / limit);
@@ -202,7 +208,7 @@ export class ShopService {
   private async buildProductDetail(id: number): Promise<ShopDetailResponseDto> {
 
     const product = await this.productRepository.findOne({
-      where: { id, isDeleted: false, isActive: true },
+      where: { id, isActive: true },
       relations: ['images'],
     });
 
@@ -242,7 +248,7 @@ export class ShopService {
   private async buildComboDetail(id: number): Promise<ShopDetailResponseDto> {
 
     const combo = await this.comboRepository.findOne({
-      where: { id, isDeleted: false, isActive: true },
+      where: { id, isActive: true },
       relations: ['images', 'items', 'items.product'],
     });
 

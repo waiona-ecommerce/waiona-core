@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 
 import { OrderEntity } from '../entities/order.entity';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { OrderItemEntity } from '../entities/order-item.entity';
 import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
 import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
@@ -59,7 +60,7 @@ export class OrdersService {
     const now = new Date();
 
     const user = await this.userRepo.findOne({
-      where: { id: userId, isDeleted: false },
+      where: { id: userId },
     });
     if (!user) throw new NotFoundException('User not found');
 
@@ -81,14 +82,14 @@ export class OrdersService {
     // 3. Calcular precios, validar stock y cupón ANTES de la transacción
     const orderItems: OrderItemEntity[] = [];
     const stockReservations: { productId: number; locationId: number; quantity: number }[] = [];
-    let subtotal       = 0;
-    let couponDiscount = 0;
+    let subtotal = 0;
+    const couponItems: Array<{ productId?: number; comboId?: number; subtotal: number }> = [];
 
     for (const item of dto.items) {
 
       if (item.productId) {
         const product = await this.productRepo.findOne({
-          where: { id: item.productId, isDeleted: false },
+          where: { id: item.productId },
         });
         if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
 
@@ -96,14 +97,15 @@ export class OrdersService {
 
         const breakdown = await this.calculationService.calculateProduct({
           productId: item.productId,
-          couponCode: dto.couponCode,
         });
+
+        const itemSubtotal = breakdown.finalPrice * item.quantity;
 
         const orderItem = this.orderItemRepo.create({
           product,
           quantity:   item.quantity,
           unitPrice:  breakdown.unitPrice,
-          finalPrice: breakdown.finalPrice * item.quantity,
+          finalPrice: itemSubtotal,
           locationId: stockItem.locationId,
         });
 
@@ -113,12 +115,12 @@ export class OrdersService {
           locationId: stockItem.locationId,
           quantity:   item.quantity,
         });
-        subtotal       += breakdown.finalPrice * item.quantity;
-        couponDiscount += breakdown.coupon * item.quantity;
+        subtotal += itemSubtotal;
+        couponItems.push({ productId: item.productId, subtotal: itemSubtotal });
 
       } else if (item.comboId) {
         const combo = await this.comboRepo.findOne({
-          where: { id: item.comboId, isDeleted: false },
+          where: { id: item.comboId },
           relations: ['items'],
         });
         if (!combo) throw new NotFoundException(`Combo ${item.comboId} not found`);
@@ -141,22 +143,27 @@ export class OrdersService {
 
         const breakdown = await this.calculationService.calculateCombo({
           comboId: item.comboId,
-          couponCode: dto.couponCode,
         });
+
+        const itemSubtotal = breakdown.finalPrice * item.quantity;
 
         const orderItem = this.orderItemRepo.create({
           combo,
           quantity:          item.quantity,
           unitPrice:         breakdown.unitPrice,
-          finalPrice:        breakdown.finalPrice * item.quantity,
+          finalPrice:        itemSubtotal,
           comboReservations,
         });
 
         orderItems.push(orderItem);
-        subtotal       += breakdown.finalPrice * item.quantity;
-        couponDiscount += breakdown.coupon * item.quantity;
+        subtotal += itemSubtotal;
+        couponItems.push({ comboId: item.comboId, subtotal: itemSubtotal });
       }
     }
+
+    const couponDiscount = dto.couponCode
+      ? await this.calculationService.computeOrderCouponDiscount(dto.couponCode, couponItems)
+      : 0;
 
     const total = Math.max(0, subtotal - couponDiscount);
 
@@ -169,7 +176,7 @@ export class OrdersService {
 
       if (dto.couponCode) {
         lockedCoupon = await manager.findOne(CouponEntity, {
-          where: { code: dto.couponCode, isDeleted: false },
+          where: { code: dto.couponCode },
           lock: { mode: 'pessimistic_write' },
         });
 
@@ -242,12 +249,14 @@ export class OrdersService {
   // FIND ALL
   // ==========================
 
-  async findAll(): Promise<OrderEntity[]> {
-    return this.orderRepo.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<OrderEntity>> {
+    const [orders, total] = await this.orderRepo.findAndCount({
       relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return new PaginatedResponseDto(orders, total, page, limit);
   }
 
   // ==========================
@@ -256,7 +265,7 @@ export class OrdersService {
 
   async findOne(id: number): Promise<OrderEntity> {
     const order = await this.orderRepo.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
       relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -269,7 +278,7 @@ export class OrdersService {
 
   async findByUser(userId: number): Promise<OrderEntity[]> {
     return this.orderRepo.find({
-      where: { user: { id: userId }, isDeleted: false },
+      where: { user: { id: userId } },
       relations: ['items', 'items.product', 'items.combo', 'coupon'],
       order: { createdAt: 'DESC' },
     });
@@ -282,8 +291,8 @@ export class OrdersService {
   async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<OrderEntity> {
     return this.dataSource.transaction(async manager => {
       const order = await manager.findOne(OrderEntity, {
-        where: { id, isDeleted: false },
-        relations: ['items', 'items.product', 'items.combo'],
+        where: { id },
+        relations: ['items', 'items.product', 'items.combo', 'coupon'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!order) throw new NotFoundException('Order not found');
@@ -330,8 +339,9 @@ export class OrdersService {
   async releaseStockForOrder(orderId: number, manager?: EntityManager): Promise<void> {
     const repo  = manager?.getRepository(OrderEntity) ?? this.orderRepo;
     const order = await repo.findOne({
-      where: { id: orderId, isDeleted: false },
-      relations: ['items', 'items.product', 'items.combo'],
+      where: { id: orderId },
+      relations: ['items', 'items.product', 'items.combo', 'coupon'],
+      lock: manager ? { mode: 'pessimistic_write' } : undefined,
     });
     if (!order) return;
     if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.CONFIRMED) return;
@@ -347,7 +357,7 @@ export class OrdersService {
     quantity: number,
   ): Promise<StockItemEntity> {
     const items = await this.stockItemRepo.find({
-      where: { productId, isDeleted: false },
+      where: { productId },
     });
 
     if (!items.length) {
@@ -423,6 +433,14 @@ export class OrdersService {
           );
         }
       }
+    }
+
+    if (order.coupon) {
+      const couponRepo  = manager ? manager.getRepository(CouponEntity) : this.dataSource.getRepository(CouponEntity);
+      const usageRepo   = manager ? manager.getRepository(CouponUsageEntity) : this.dataSource.getRepository(CouponUsageEntity);
+      order.coupon.usageCount = Math.max(0, order.coupon.usageCount - 1);
+      await couponRepo.save(order.coupon);
+      await usageRepo.softDelete({ couponId: order.coupon.id, orderId: order.id });
     }
   }
 }

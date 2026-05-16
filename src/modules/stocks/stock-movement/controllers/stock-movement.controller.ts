@@ -1,7 +1,8 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 
 import { StockMovementService } from '../services/stock-movement.service';
 import { StockMovementResponseDto } from '../dto/stock-movement-respose.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -18,8 +19,8 @@ export class StockMovementController {
   ) {}
 
   @Get()
-  async findAll(): Promise<StockMovementResponseDto[]> {
-    return this.stockMovementService.findAll();
+  async findAll(@Query() { page, limit }: PaginationQueryDto) {
+    return this.stockMovementService.findAll(page, limit);
   }
 
   @Get('stock-item/:stockItemId') // 🔥 antes que :id para evitar conflicto de rutas

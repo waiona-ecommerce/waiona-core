@@ -125,8 +125,10 @@ export class AuthService {
 
     await this.usersService.updatePassword(tokenEntity.userId, dto.password);
 
-    tokenEntity.usedAt = new Date();
-    await this.tokenRepo.save(tokenEntity);
+    await this.tokenRepo.update(
+      { userId: tokenEntity.userId, type: TokenType.PASSWORD_RESET },
+      { usedAt: new Date() },
+    );
   }
 
   // ==========================
@@ -160,7 +162,7 @@ export class AuthService {
 
   private async findValidToken(raw: string, type: TokenType): Promise<TokenEntity> {
     const tokenEntity = await this.tokenRepo.findOne({
-      where: { token: raw, type, isDeleted: false },
+      where: { token: raw, type },
     });
 
     if (!tokenEntity) throw new BadRequestException('Invalid or expired token');

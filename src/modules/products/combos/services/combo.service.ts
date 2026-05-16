@@ -14,6 +14,7 @@ import { ProductEntity } from '../../product/entities/product.entity';
 import { CreateComboDto } from '../dto/create-combo.dto';
 import { UpdateComboDto } from '../dto/update-combo.dto';
 import { ComboResponseDto } from '../dto/combo-response.dto';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class ComboService {
@@ -35,15 +36,21 @@ export class ComboService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<ComboResponseDto[]> {
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ComboResponseDto>> {
 
-    const combos = await this.comboRepository.find({
-      where: { isDeleted: false },
+    const [combos, total] = await this.comboRepository.findAndCount({
       relations: ['category', 'items', 'items.product'], // 🔥 agrega category
       order: { name: 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return combos.map(combo => new ComboResponseDto(combo));
+    return new PaginatedResponseDto(
+      combos.map(combo => new ComboResponseDto(combo)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -105,7 +112,7 @@ export class ComboService {
     return this.dataSource.transaction(async manager => {
 
       const combo = await manager.findOne(ComboEntity, {
-        where: { id, isDeleted: false },
+        where: { id },
       });
 
       if (!combo) {
@@ -155,16 +162,14 @@ export class ComboService {
   async delete(id: number): Promise<void> {
 
     const combo = await this.comboRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!combo) {
       throw new NotFoundException(`Combo with id ${id} not found`);
     }
 
-    combo.isDeleted = true;
-
-    await this.comboRepository.save(combo);
+    await this.comboRepository.softDelete(combo.id);
   }
 
   // ==========================
@@ -174,7 +179,7 @@ export class ComboService {
   private async findOne(id: number): Promise<ComboEntity> {
 
     const combo = await this.comboRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
       relations: ['category', 'items', 'items.product'], // 🔥 agrega category
     });
 
@@ -202,7 +207,7 @@ export class ComboService {
       uniqueIds.add(item.productId);
 
       const product = await this.productRepository.findOne({
-        where: { id: item.productId, isDeleted: false },
+        where: { id: item.productId },
       });
 
       if (!product) {

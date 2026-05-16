@@ -8,6 +8,7 @@ import {
   import { StockWriteOffEntity } from '../entities/stock-writeoff.entity';
   import { UpdateStockWriteOffDto } from '../dto/update-stock-writeoff.dto';
   import { StockWriteOffResponseDto } from '../dto/stock-writeoff-response.dto';
+  import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
   
   @Injectable()
   export class StockWriteOffService {
@@ -21,13 +22,13 @@ import {
     // GET ALL
     // ==========================
   
-    async findAll(): Promise<StockWriteOffResponseDto[]> {
-      const writeOffs = await this.stockWriteOffRepository.find({
-        where: { isDeleted: false },
+    async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<StockWriteOffResponseDto>> {
+      const [writeOffs, total] = await this.stockWriteOffRepository.findAndCount({
         order: { createdAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
       });
-  
-      return writeOffs.map((w) => new StockWriteOffResponseDto(w));
+      return new PaginatedResponseDto(writeOffs.map((w) => new StockWriteOffResponseDto(w)), total, page, limit);
     }
   
     // ==========================
@@ -45,7 +46,7 @@ import {
   
     async findByStockItemId(stockItemId: number): Promise<StockWriteOffResponseDto[]> {
       const writeOffs = await this.stockWriteOffRepository.find({
-        where: { stockItemId, isDeleted: false },
+        where: { stockItemId },
         order: { createdAt: 'DESC' },
       });
   
@@ -77,7 +78,7 @@ import {
   
     private async findEntity(id: number): Promise<StockWriteOffEntity> {
       const writeOff = await this.stockWriteOffRepository.findOne({
-        where: { id, isDeleted: false },
+        where: { id },
       });
   
       if (!writeOff) {

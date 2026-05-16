@@ -13,6 +13,7 @@ import { CreateCouponDto } from '../dto/create-coupon.dto';
 import { UpdateCouponDto } from '../dto/update-coupon.dto';
 import { CouponResponseDto } from '../dto/coupon-response.dto';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class CouponService {
@@ -64,13 +65,19 @@ export class CouponService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<CouponResponseDto[]> {
-    const coupons = await this.couponRepository.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<CouponResponseDto>> {
+    const [coupons, total] = await this.couponRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return coupons.map((coupon) => new CouponResponseDto(coupon));
+    return new PaginatedResponseDto(
+      coupons.map((coupon) => new CouponResponseDto(coupon)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -131,8 +138,7 @@ export class CouponService {
 
   async remove(id: number): Promise<void> {
     const coupon = await this.findEntity(id);
-    coupon.isDeleted = true;
-    await this.couponRepository.save(coupon);
+    await this.couponRepository.softDelete(coupon.id);
   }
 
   // ==========================
@@ -141,7 +147,7 @@ export class CouponService {
 
   private async findEntity(id: number): Promise<CouponEntity> {
     const coupon = await this.couponRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!coupon) {
@@ -153,7 +159,7 @@ export class CouponService {
 
   private async validateUniqueCode(code: string): Promise<void> {
     const existing = await this.couponRepository.findOne({
-      where: { code, isDeleted: false },
+      where: { code },
     });
 
     if (existing) {

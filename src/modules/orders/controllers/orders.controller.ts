@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   ParseIntPipe,
+  Query,
   UseGuards,
   Req,
   ForbiddenException,
@@ -14,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
 
 import { OrdersService } from '../services/orders.service';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -43,8 +45,8 @@ export class OrdersController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @UseGuards(RolesGuard)
   @Get()
-  findAll() {
-    return this.ordersService.findAll();
+  findAll(@Query() { page, limit }: PaginationQueryDto) {
+    return this.ordersService.findAll(page, limit);
   }
 
   // ==========================

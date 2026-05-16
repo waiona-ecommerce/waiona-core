@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   HttpCode,
   HttpStatus,
@@ -20,6 +21,8 @@ import { CouponResponseDto } from '../dto/coupon-response.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -37,8 +40,8 @@ export class CouponController {
   }
 
   @Get()
-  async findAll(): Promise<CouponResponseDto[]> {
-    return this.couponService.findAll();
+  async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<CouponResponseDto>> {
+    return this.couponService.findAll(page, limit);
   }
 
   @Get(':id')

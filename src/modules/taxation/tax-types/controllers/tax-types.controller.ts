@@ -6,6 +6,7 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  Query,
   HttpCode,
   HttpStatus,
   Patch,
@@ -13,6 +14,7 @@ import {
 } from '@nestjs/common';
 
 import { TaxTypesService } from '../services/tax-types.service';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { CreateTaxTypeDto } from '../dto/create-tax-type.dto';
 import { UpdateTaxTypeDto } from '../dto/update-tax-type.dto';
 import { TaxTypeResponseDto } from '../dto/tax-type-response.dto';
@@ -28,8 +30,8 @@ export class TaxTypesController {
   constructor(private taxTypesService: TaxTypesService) {}
 
   @Get()
-  getTaxTypes(): Promise<TaxTypeResponseDto[]> {
-    return this.taxTypesService.findAll();
+  getTaxTypes(@Query() { page, limit }: PaginationQueryDto) {
+    return this.taxTypesService.findAll(page, limit);
   }
 
   @Get(':id')

@@ -27,7 +27,7 @@ export class ProductTaxesService {
   async create(dto: CreateProductTaxDto & { productId: number }): Promise<ProductTaxResponseDto> {
 
     const tax = await this.taxRepository.findOne({
-      where: { id: dto.taxId, isDeleted: false },
+      where: { id: dto.taxId },
     });
 
     if (!tax) {
@@ -53,7 +53,7 @@ export class ProductTaxesService {
 
   async findAll(productId: number): Promise<ProductTaxResponseDto[]> {
     const productTaxes = await this.productTaxRepository.find({
-      where: { productId, isDeleted: false },
+      where: { productId },
       order: { createdAt: 'DESC' },
     });
 
@@ -66,7 +66,7 @@ export class ProductTaxesService {
 
   async findOne(id: number): Promise<ProductTaxResponseDto> {
     const productTax = await this.productTaxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!productTax) {
@@ -82,7 +82,7 @@ export class ProductTaxesService {
 
   async update(id: number, dto: UpdateProductTaxDto): Promise<ProductTaxResponseDto> {
     const productTax = await this.productTaxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!productTax) {
@@ -100,14 +100,13 @@ export class ProductTaxesService {
 
   async remove(id: number): Promise<void> {
     const productTax = await this.productTaxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!productTax) {
       throw new NotFoundException(`ProductTax with id ${id} not found`);
     }
 
-    productTax.isDeleted = true;
-    await this.productTaxRepository.save(productTax);
+    await this.productTaxRepository.softDelete(productTax.id);
   }
 }

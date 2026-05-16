@@ -30,7 +30,7 @@ export class TaxesService {
 
   async findAll(taxTypeId: number): Promise<TaxResponseDto[]> {
     const entities = await this.taxRepository.find({
-      where: { taxTypeId, isDeleted: false },
+      where: { taxTypeId },
       relations: ['taxType'],
       order: { createdAt: 'DESC' },
     });
@@ -54,7 +54,7 @@ export class TaxesService {
   async create(taxTypeId: number, dto: CreateTaxDto): Promise<TaxResponseDto> {
 
     const taxType = await this.taxTypeRepository.findOne({
-      where: { id: taxTypeId, isDeleted: false },
+      where: { id: taxTypeId },
     });
 
     if (!taxType) {
@@ -111,8 +111,7 @@ export class TaxesService {
 
   async delete(id: number): Promise<void> {
     const entity = await this.findOne(id);
-    entity.isDeleted = true;
-    await this.taxRepository.save(entity);
+    await this.taxRepository.softDelete(entity.id);
   }
 
   // ==========================
@@ -121,7 +120,7 @@ export class TaxesService {
 
   private async findOne(id: number): Promise<TaxEntity> {
     const entity = await this.taxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
       relations: ['taxType'],
     });
 

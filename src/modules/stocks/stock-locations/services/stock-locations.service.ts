@@ -6,6 +6,7 @@ import { StockLocationEntity } from '../entities/stock-locations.entity';
 import { CreateStockLocationDto } from '../dto/create-stock-location.dto';
 import { UpdateStockLocationDto } from '../dto/update-stock-location.dto';
 import { StockLocationResponseDto } from '../dto/stock-location-response.dto';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class StockLocationsService {
@@ -34,13 +35,13 @@ export class StockLocationsService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<StockLocationResponseDto[]> {
-    const locations = await this.stockLocationRepository.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<StockLocationResponseDto>> {
+    const [locations, total] = await this.stockLocationRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-
-    return locations.map((location) => new StockLocationResponseDto(location));
+    return new PaginatedResponseDto(locations.map((l) => new StockLocationResponseDto(l)), total, page, limit);
   }
 
   // ==========================
@@ -78,8 +79,7 @@ export class StockLocationsService {
 
   async remove(id: number): Promise<void> {
     const location = await this.findEntity(id);
-    location.isDeleted = true;
-    await this.stockLocationRepository.save(location);
+    await this.stockLocationRepository.softDelete(location.id);
   }
 
   // ==========================
@@ -88,7 +88,7 @@ export class StockLocationsService {
 
   private async findEntity(id: number): Promise<StockLocationEntity> {
     const location = await this.stockLocationRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!location) {

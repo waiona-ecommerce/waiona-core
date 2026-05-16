@@ -1,6 +1,7 @@
 import { IsOptional, IsString, IsEmail, MaxLength } from 'class-validator';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
-export class SearchUsersDto {
+export class SearchUsersDto extends PaginationQueryDto {
 
   @IsOptional()
   @IsEmail()

@@ -53,7 +53,7 @@ export class DiscountComboTargetService {
     await this.findDiscount(discountId);
 
     const targets = await this.repo.find({
-      where: { discountId, isDeleted: false },
+      where: { discountId },
     });
 
     return targets.map((t) => new DiscountComboTargetResponseDto(t));
@@ -67,7 +67,7 @@ export class DiscountComboTargetService {
     await this.findDiscount(discountId);
 
     const entity = await this.repo.findOne({
-      where: { discountId, comboId, isDeleted: false },
+      where: { discountId, comboId },
     });
 
     if (!entity) {
@@ -76,8 +76,7 @@ export class DiscountComboTargetService {
       );
     }
 
-    entity.isDeleted = true;
-    await this.repo.save(entity);
+    await this.repo.softDelete(entity.id);
   }
 
   // ==========================
@@ -86,7 +85,7 @@ export class DiscountComboTargetService {
 
   private async findDiscount(discountId: number): Promise<DiscountEntity> {
     const discount = await this.discountRepository.findOne({
-      where: { id: discountId, isDeleted: false },
+      where: { id: discountId },
     });
 
     if (!discount) {
@@ -101,7 +100,7 @@ export class DiscountComboTargetService {
     comboId: number,
   ): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { discountId, comboId, isDeleted: false },
+      where: { discountId, comboId },
     });
 
     if (existing) {
@@ -114,7 +113,7 @@ export class DiscountComboTargetService {
   // 🔥 chequea que el combo no esté asociado a NINGÚN descuento activo
   private async validateComboHasNoActiveDiscount(comboId: number): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { comboId, isDeleted: false },
+      where: { comboId },
     });
 
     if (existing) {

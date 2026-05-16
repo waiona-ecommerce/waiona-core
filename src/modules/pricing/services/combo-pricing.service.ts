@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ComboPricingEntity } from '../entities/combo-pricing.entity';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
 import { CreateComboPricingDto } from '../dto/create-combo-pricing.dto';
 import { UpdateComboPricingDto } from '../dto/update-combo-pricing.dto';
@@ -31,7 +32,7 @@ export class ComboPricingService {
   async create(dto: CreateComboPricingDto): Promise<ComboPricingResponseDto> {
 
     const existing = await this.repo.findOne({
-      where: { comboId: dto.comboId, isDeleted: false },
+      where: { comboId: dto.comboId },
     });
 
     if (existing) {
@@ -63,7 +64,7 @@ export class ComboPricingService {
 
     if (dto.comboId && dto.comboId !== entity.comboId) {
       const existing = await this.repo.findOne({
-        where: { comboId: dto.comboId, isDeleted: false },
+        where: { comboId: dto.comboId },
       });
       if (existing) {
         throw new BadRequestException('Combo already has pricing');
@@ -90,12 +91,13 @@ export class ComboPricingService {
   // FIND ALL
   // ==========================
 
-  async findAll(): Promise<ComboPricingResponseDto[]> {
-    const entities = await this.repo.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ComboPricingResponseDto>> {
+    const [entities, total] = await this.repo.findAndCount({
       relations: ['margin'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    return entities.map((e) => new ComboPricingResponseDto(e));
+    return new PaginatedResponseDto(entities.map((e) => new ComboPricingResponseDto(e)), total, page, limit);
   }
 
   // ==========================
@@ -113,7 +115,7 @@ export class ComboPricingService {
 
   async findByCombo(comboId: number): Promise<ComboPricingResponseDto> {
     const entity = await this.repo.findOne({
-      where: { comboId, isDeleted: false },
+      where: { comboId },
       relations: ['margin'],
     });
 
@@ -130,8 +132,7 @@ export class ComboPricingService {
 
   async remove(id: number): Promise<void> {
     const entity = await this.findOneEntity(id);
-    entity.isDeleted = true;
-    await this.repo.save(entity);
+    await this.repo.softDelete(entity.id);
   }
 
   // ==========================
@@ -140,7 +141,7 @@ export class ComboPricingService {
 
   private async findOneEntity(id: number): Promise<ComboPricingEntity> {
     const entity = await this.repo.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
       relations: ['margin'],
     });
 
@@ -153,7 +154,7 @@ export class ComboPricingService {
 
   private async resolveMargin(marginId: number): Promise<MarginEntity> {
     const margin = await this.marginRepo.findOne({
-      where: { id: marginId, isDeleted: false },
+      where: { id: marginId },
     });
 
     if (!margin) {

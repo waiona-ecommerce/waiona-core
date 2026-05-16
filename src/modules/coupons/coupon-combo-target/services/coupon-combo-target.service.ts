@@ -52,7 +52,7 @@ export class CouponComboTargetService {
     await this.findCoupon(couponId);
 
     const targets = await this.repo.find({
-      where: { couponId, isDeleted: false },
+      where: { couponId },
     });
 
     return targets.map((t) => new CouponComboTargetResponseDto(t));
@@ -66,7 +66,7 @@ export class CouponComboTargetService {
     await this.findCoupon(couponId);
 
     const entity = await this.repo.findOne({
-      where: { couponId, comboId, isDeleted: false },
+      where: { couponId, comboId },
     });
 
     if (!entity) {
@@ -75,8 +75,7 @@ export class CouponComboTargetService {
       );
     }
 
-    entity.isDeleted = true;
-    await this.repo.save(entity);
+    await this.repo.softDelete(entity.id);
   }
 
   // ==========================
@@ -85,7 +84,7 @@ export class CouponComboTargetService {
 
   private async findCoupon(couponId: number): Promise<CouponEntity> {
     const coupon = await this.couponRepository.findOne({
-      where: { id: couponId, isDeleted: false },
+      where: { id: couponId },
     });
 
     if (!coupon) {
@@ -108,7 +107,7 @@ export class CouponComboTargetService {
     comboId: number,
   ): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { couponId, comboId, isDeleted: false },
+      where: { couponId, comboId },
     });
 
     if (existing) {

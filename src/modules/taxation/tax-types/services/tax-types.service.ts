@@ -11,6 +11,7 @@ import { TaxTypeEntity } from '../entities/tax-types.entity';
 import { CreateTaxTypeDto } from '../dto/create-tax-type.dto';
 import { UpdateTaxTypeDto } from '../dto/update-tax-type.dto';
 import { TaxTypeResponseDto } from '../dto/tax-type-response.dto';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class TaxTypesService {
@@ -19,13 +20,13 @@ export class TaxTypesService {
     private taxTypeRepository: Repository<TaxTypeEntity>,
   ) {}
 
-  async findAll(): Promise<TaxTypeResponseDto[]> {
-    const entities = await this.taxTypeRepository.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<TaxTypeResponseDto>> {
+    const [entities, total] = await this.taxTypeRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-
-    return entities.map(TaxTypeResponseDto.fromEntity);
+    return new PaginatedResponseDto(entities.map(TaxTypeResponseDto.fromEntity), total, page, limit);
   }
 
   async findById(id: number): Promise<TaxTypeResponseDto> {
@@ -61,15 +62,14 @@ export class TaxTypesService {
   async delete(id: number): Promise<void> {
     const entity = await this.findOne(id);
 
-    if (entity.isDeleted) return;
+    if (entity.deletedAt) return;
 
-    entity.isDeleted = true;
-    await this.taxTypeRepository.save(entity);
+    await this.taxTypeRepository.softDelete(entity.id);
   }
 
   private async findOne(id: number): Promise<TaxTypeEntity> {
     const entity = await this.taxTypeRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!entity) {

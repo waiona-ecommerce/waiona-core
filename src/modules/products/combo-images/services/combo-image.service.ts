@@ -22,7 +22,7 @@ export class ComboImageService {
   // CREATE
   async create(dto: CreateComboImageDto): Promise<ComboImageResponseDto> {
     const combo = await this.comboRepository.findOne({
-      where: { id: dto.comboId, isDeleted: false },
+      where: { id: dto.comboId },
     });
 
     if (!combo) {
@@ -41,7 +41,7 @@ export class ComboImageService {
   // GET ALL BY COMBO (no eliminadas)
   async findByCombo(comboId: number): Promise<ComboImageResponseDto[]> {
     const images = await this.comboImageRepository.find({
-      where: { comboId, isDeleted: false },
+      where: { comboId },
       order: { position: 'ASC' },
     });
 
@@ -53,7 +53,7 @@ export class ComboImageService {
   // GET BY ID
   async findOne(id: number): Promise<ComboImageResponseDto> {
     const image = await this.comboImageRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!image) {
@@ -71,7 +71,7 @@ export class ComboImageService {
     dto: UpdateComboImageDto,
   ): Promise<ComboImageResponseDto> {
     const image = await this.comboImageRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!image) {
@@ -90,7 +90,7 @@ export class ComboImageService {
   // SOFT DELETE
   async remove(id: number): Promise<void> {
     const image = await this.comboImageRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!image) {
@@ -99,8 +99,6 @@ export class ComboImageService {
       );
     }
 
-    image.isDeleted = true;
-
-    await this.comboImageRepository.save(image);
+    await this.comboImageRepository.softDelete(image.id);
   }
 }

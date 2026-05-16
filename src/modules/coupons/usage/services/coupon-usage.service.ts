@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { CouponUsageEntity } from '../entities/coupon-usage.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
 import { CouponUsageResponseDto } from '../dto/coupon-usage-response.dto';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
 
 @Injectable()
@@ -27,7 +28,7 @@ export class CouponUsageService {
 
     // 1. Buscar cupón por code
     const coupon = await this.couponRepository.findOne({
-      where: { code: dto.code, isDeleted: false },
+      where: { code: dto.code },
     });
 
     if (!coupon) {
@@ -52,7 +53,7 @@ export class CouponUsageService {
 
     // 4. Validar que el usuario no lo usó antes (unique constraint couponId+userId)
     const alreadyUsed = await this.repo.findOne({
-      where: { couponId: coupon.id, userId: dto.userId, isDeleted: false },
+      where: { couponId: coupon.id, userId: dto.userId },
     });
 
     if (alreadyUsed) {
@@ -85,12 +86,13 @@ export class CouponUsageService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<CouponUsageResponseDto[]> {
-    const usages = await this.repo.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<CouponUsageResponseDto>> {
+    const [usages, total] = await this.repo.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-    return usages.map(u => new CouponUsageResponseDto(u));
+    return new PaginatedResponseDto(usages.map(u => new CouponUsageResponseDto(u)), total, page, limit);
   }
 
   // ==========================
@@ -99,7 +101,7 @@ export class CouponUsageService {
 
   async findByCoupon(couponId: number): Promise<CouponUsageResponseDto[]> {
     const usages = await this.repo.find({
-      where: { couponId, isDeleted: false },
+      where: { couponId },
       order: { createdAt: 'DESC' },
     });
     return usages.map(u => new CouponUsageResponseDto(u));
@@ -111,7 +113,7 @@ export class CouponUsageService {
 
   async findByUser(userId: number): Promise<CouponUsageResponseDto[]> {
     const usages = await this.repo.find({
-      where: { userId, isDeleted: false },
+      where: { userId },
       order: { createdAt: 'DESC' },
     });
     return usages.map(u => new CouponUsageResponseDto(u));

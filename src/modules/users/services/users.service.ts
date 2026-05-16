@@ -10,6 +10,7 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { SearchUsersDto } from '../dto/search-users.dto';
 import { RoleType } from 'src/common/enums/role-type.enum';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class UsersService {
@@ -31,7 +32,7 @@ export class UsersService {
   ======================= */
   async create(dto: CreateUserDto) {
     const existing = await this.userRepo.findOne({
-      where: { email: dto.email, isDeleted: false },
+      where: { email: dto.email },
     });
     if (existing) throw new ConflictException('Email already in use');
 
@@ -70,32 +71,32 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<UserEntity | null> {
     return this.userRepo.findOne({
-      where: { email, isDeleted: false },
+      where: { email },
     });
   }
 
-  async findAll(dto?: SearchUsersDto) {
-
-    const where: any = { isDeleted: false };
-
-    if (dto?.email) {
-      where.email = ILike(`%${dto.email}%`);
-    }
+  async findAll(dto?: SearchUsersDto, page = 1, limit = 20): Promise<PaginatedResponseDto<UserEntity>> {
+    const skip = (page - 1) * limit;
 
     if (dto?.name) {
-      const nameConditions = [
-        { isDeleted: false, ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { name: ILike(`%${dto.name}%`) } },
-        { isDeleted: false, ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { lastName: ILike(`%${dto.name}%`) } },
+      const where = [
+        { ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { name: ILike(`%${dto.name}%`) } },
+        { ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { lastName: ILike(`%${dto.name}%`) } },
       ];
-      return this.userRepo.find({ where: nameConditions });
+      const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
+      return new PaginatedResponseDto(users, total, page, limit);
     }
 
-    return this.userRepo.find({ where });
+    const where: any = {};
+    if (dto?.email) where.email = ILike(`%${dto.email}%`);
+
+    const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
+    return new PaginatedResponseDto(users, total, page, limit);
   }
 
   async findOne(id: number) {
     const user = await this.userRepo.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -121,9 +122,7 @@ export class UsersService {
   ======================= */
   async remove(id: number) {
     const user = await this.findOne(id);
-    user.isDeleted         = true;
-    user.profile.isDeleted = true;
-    return this.userRepo.save(user);
+    return this.userRepo.softRemove(user);
   }
 
   /* =======================

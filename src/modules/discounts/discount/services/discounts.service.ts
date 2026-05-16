@@ -12,6 +12,7 @@ import { CreateDiscountDto } from '../dto/create-discount.dto';
 import { UpdateDiscountDto } from '../dto/update-discount.dto';
 import { DiscountResponseDto } from '../dto/response-discount.dto';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class DiscountsService {
@@ -58,13 +59,19 @@ export class DiscountsService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<DiscountResponseDto[]> {
-    const discounts = await this.discountRepository.find({
-      where: { isDeleted: false },
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<DiscountResponseDto>> {
+    const [discounts, total] = await this.discountRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return discounts.map((discount) => new DiscountResponseDto(discount));
+    return new PaginatedResponseDto(
+      discounts.map((discount) => new DiscountResponseDto(discount)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -125,8 +132,7 @@ export class DiscountsService {
 
   async remove(id: number): Promise<void> {
     const discount = await this.findEntity(id);
-    discount.isDeleted = true;
-    await this.discountRepository.save(discount);
+    await this.discountRepository.softDelete(discount.id);
   }
 
   // ==========================
@@ -135,7 +141,7 @@ export class DiscountsService {
 
   private async findEntity(id: number): Promise<DiscountEntity> {
     const discount = await this.discountRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!discount) {

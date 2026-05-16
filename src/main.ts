@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { join } from 'path';
 import * as express from 'express';
 import helmet from 'helmet';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -24,6 +25,8 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector)),

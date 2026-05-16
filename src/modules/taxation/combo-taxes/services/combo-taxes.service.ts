@@ -27,7 +27,7 @@ export class ComboTaxesService {
   async create(dto: CreateComboTaxDto & { comboId: number }): Promise<ComboTaxResponseDto> {
 
     const tax = await this.taxRepository.findOne({
-      where: { id: dto.taxId, isDeleted: false },
+      where: { id: dto.taxId },
     });
 
     if (!tax) {
@@ -53,7 +53,7 @@ export class ComboTaxesService {
 
   async findAll(comboId: number): Promise<ComboTaxResponseDto[]> {
     const comboTaxes = await this.comboTaxRepository.find({
-      where: { comboId, isDeleted: false },
+      where: { comboId },
       order: { createdAt: 'DESC' },
     });
 
@@ -66,7 +66,7 @@ export class ComboTaxesService {
 
   async findOne(id: number): Promise<ComboTaxResponseDto> {
     const comboTax = await this.comboTaxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!comboTax) {
@@ -82,7 +82,7 @@ export class ComboTaxesService {
 
   async update(id: number, dto: UpdateComboTaxDto): Promise<ComboTaxResponseDto> {
     const comboTax = await this.comboTaxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!comboTax) {
@@ -100,14 +100,13 @@ export class ComboTaxesService {
 
   async remove(id: number): Promise<void> {
     const comboTax = await this.comboTaxRepository.findOne({
-      where: { id, isDeleted: false },
+      where: { id },
     });
 
     if (!comboTax) {
       throw new NotFoundException(`ComboTax with id ${id} not found`);
     }
 
-    comboTax.isDeleted = true;
-    await this.comboTaxRepository.save(comboTax);
+    await this.comboTaxRepository.softDelete(comboTax.id);
   }
 }

@@ -17,6 +17,7 @@ import type { Request } from 'express';
 import { UsersService } from '../services/users.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { SearchUsersDto } from '../dto/search-users.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -33,7 +34,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Get()
   findAll(@Query() query: SearchUsersDto) {
-    return this.usersService.findAll(query);
+    return this.usersService.findAll(query, query.page, query.limit);
   }
 
   // ==========================

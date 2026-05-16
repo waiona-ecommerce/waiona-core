@@ -106,7 +106,7 @@ export class CalculationService {
 
     // 1. Obtener pricing del producto
     const pricing = await this.productPricingRepo.findOne({
-      where: { productId: dto.productId, isDeleted: false },
+      where: { productId: dto.productId },
       relations: ['margin'],
     });
     if (!pricing) throw new NotFoundException('Product pricing not found');
@@ -115,7 +115,7 @@ export class CalculationService {
 
     // 2. Descuento vigente del producto
     const discountTarget = await this.discountProductRepo.findOne({
-      where: { productId: dto.productId, isDeleted: false },
+      where: { productId: dto.productId },
       relations: ['discount'],
     });
 
@@ -168,7 +168,7 @@ export class CalculationService {
 
     // 1. Obtener pricing del combo
     const pricing = await this.comboPricingRepo.findOne({
-      where: { comboId: dto.comboId, isDeleted: false },
+      where: { comboId: dto.comboId },
       relations: ['margin'],
     });
     if (!pricing) throw new NotFoundException('Combo pricing not found');
@@ -177,7 +177,7 @@ export class CalculationService {
 
     // 2. Descuento vigente del combo
     const discountTarget = await this.discountComboRepo.findOne({
-      where: { comboId: dto.comboId, isDeleted: false },
+      where: { comboId: dto.comboId },
       relations: ['discount'],
     });
 
@@ -218,6 +218,46 @@ export class CalculationService {
   }
 
   // ==========================
+  // COUPON — nivel orden (público)
+  // ==========================
+
+  async computeOrderCouponDiscount(
+    couponCode: string,
+    items: Array<{ productId?: number; comboId?: number; subtotal: number }>,
+  ): Promise<number> {
+    const now = new Date();
+
+    const coupon = await this.couponRepo.findOne({ where: { code: couponCode } });
+    if (!coupon) return 0;
+    if (!this.isActive(coupon.startsAt, coupon.endsAt, now)) return 0;
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
+
+    if (coupon.isGlobal) {
+      const total = items.reduce((sum, i) => sum + i.subtotal, 0);
+      return this.applyValue(total, coupon.value, coupon.isPercentage);
+    }
+
+    let eligibleSubtotal = 0;
+    for (const item of items) {
+      if (item.productId) {
+        const target = await this.couponProductTargetRepo.findOne({
+          where: { couponId: coupon.id, productId: item.productId },
+        });
+        if (target) eligibleSubtotal += item.subtotal;
+      }
+      if (item.comboId) {
+        const target = await this.couponComboTargetRepo.findOne({
+          where: { couponId: coupon.id, comboId: item.comboId },
+        });
+        if (target) eligibleSubtotal += item.subtotal;
+      }
+    }
+
+    if (eligibleSubtotal === 0) return 0;
+    return this.applyValue(eligibleSubtotal, coupon.value, coupon.isPercentage);
+  }
+
+  // ==========================
   // HELPERS PRIVADOS
   // ==========================
 
@@ -246,18 +286,18 @@ export class CalculationService {
   private async calculateTaxesForProduct(productId: number, base: number): Promise<number> {
     const [productTaxes, globalTaxes] = await Promise.all([
       this.productTaxRepo.find({
-        where: { productId, isDeleted: false },
+        where: { productId },
         relations: ['tax'],
       }),
       this.taxRepo.find({
-        where: { isGlobal: true, isDeleted: false },
+        where: { isGlobal: true },
       }),
     ]);
 
-    const allTaxes = [
-      ...productTaxes.map(pt => pt.tax),
-      ...globalTaxes,
-    ];
+    const seen = new Set<number>();
+    const allTaxes: TaxEntity[] = [];
+    for (const pt of productTaxes) { seen.add(pt.tax.id); allTaxes.push(pt.tax); }
+    for (const t of globalTaxes)   { if (!seen.has(t.id)) allTaxes.push(t); }
 
     return allTaxes.reduce((acc, tax) => {
       return acc + this.applyValue(base, Number(tax.value), tax.isPercentage);
@@ -271,18 +311,18 @@ export class CalculationService {
   private async calculateTaxesForCombo(comboId: number, base: number): Promise<number> {
     const [comboTaxes, globalTaxes] = await Promise.all([
       this.comboTaxRepo.find({
-        where: { comboId, isDeleted: false },
+        where: { comboId },
         relations: ['tax'],
       }),
       this.taxRepo.find({
-        where: { isGlobal: true, isDeleted: false },
+        where: { isGlobal: true },
       }),
     ]);
 
-    const allTaxes = [
-      ...comboTaxes.map(ct => ct.tax),
-      ...globalTaxes,
-    ];
+    const seen = new Set<number>();
+    const allTaxes: TaxEntity[] = [];
+    for (const ct of comboTaxes) { seen.add(ct.tax.id); allTaxes.push(ct.tax); }
+    for (const t of globalTaxes)  { if (!seen.has(t.id)) allTaxes.push(t); }
 
     return allTaxes.reduce((acc, tax) => {
       return acc + this.applyValue(base, Number(tax.value), tax.isPercentage);
@@ -301,7 +341,7 @@ export class CalculationService {
   ): Promise<number> {
 
     const coupon = await this.couponRepo.findOne({
-      where: { code, isDeleted: false },
+      where: { code },
     });
 
     if (!coupon) return 0;
@@ -313,14 +353,14 @@ export class CalculationService {
 
       if (context.productId) {
         const target = await this.couponProductTargetRepo.findOne({
-          where: { couponId: coupon.id, productId: context.productId, isDeleted: false },
+          where: { couponId: coupon.id, productId: context.productId },
         });
         if (!target) return 0; // cupón no aplica a este producto
       }
 
       if (context.comboId) {
         const target = await this.couponComboTargetRepo.findOne({
-          where: { couponId: coupon.id, comboId: context.comboId, isDeleted: false },
+          where: { couponId: coupon.id, comboId: context.comboId },
         });
         if (!target) return 0; // cupón no aplica a este combo
       }

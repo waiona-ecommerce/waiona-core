@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 
 import { StockMovementEntity } from '../entities/stock-movement.entity';
 import { StockMovementResponseDto } from '../dto/stock-movement-respose.dto';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class StockMovementService {
@@ -17,12 +18,13 @@ export class StockMovementService {
   // GET ALL
   // ==========================
 
-  async findAll(): Promise<StockMovementResponseDto[]> {
-    const movements = await this.stockMovementRepository.find({
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<StockMovementResponseDto>> {
+    const [movements, total] = await this.stockMovementRepository.findAndCount({
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
-
-    return movements.map((movement) => new StockMovementResponseDto(movement));
+    return new PaginatedResponseDto(movements.map((m) => new StockMovementResponseDto(m)), total, page, limit);
   }
 
   // ==========================

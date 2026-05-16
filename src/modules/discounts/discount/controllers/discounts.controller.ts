@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
@@ -18,6 +19,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -43,8 +46,8 @@ export class DiscountsController {
   // ==========================
 
   @Get()
-  async findAll(): Promise<DiscountResponseDto[]> {
-    return this.discountsService.findAll();
+  async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<DiscountResponseDto>> {
+    return this.discountsService.findAll(page, limit);
   }
 
   // ==========================

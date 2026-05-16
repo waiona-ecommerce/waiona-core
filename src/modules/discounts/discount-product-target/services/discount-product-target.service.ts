@@ -53,7 +53,7 @@ export class DiscountProductTargetService {
     await this.findDiscount(discountId);
 
     const targets = await this.repo.find({
-      where: { discountId, isDeleted: false },
+      where: { discountId },
     });
 
     return targets.map((t) => new DiscountProductTargetResponseDto(t));
@@ -67,7 +67,7 @@ export class DiscountProductTargetService {
     await this.findDiscount(discountId);
 
     const entity = await this.repo.findOne({
-      where: { discountId, productId, isDeleted: false },
+      where: { discountId, productId },
     });
 
     if (!entity) {
@@ -76,8 +76,7 @@ export class DiscountProductTargetService {
       );
     }
 
-    entity.isDeleted = true;
-    await this.repo.save(entity);
+    await this.repo.softDelete(entity.id);
   }
 
   // ==========================
@@ -86,7 +85,7 @@ export class DiscountProductTargetService {
 
   private async findDiscount(discountId: number): Promise<DiscountEntity> {
     const discount = await this.discountRepository.findOne({
-      where: { id: discountId, isDeleted: false },
+      where: { id: discountId },
     });
 
     if (!discount) {
@@ -101,7 +100,7 @@ export class DiscountProductTargetService {
     productId: number,
   ): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { discountId, productId, isDeleted: false },
+      where: { discountId, productId },
     });
 
     if (existing) {
@@ -114,7 +113,7 @@ export class DiscountProductTargetService {
   // 🔥 chequea que el producto no esté asociado a NINGÚN descuento activo
   private async validateProductHasNoActiveDiscount(productId: number): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { productId, isDeleted: false },
+      where: { productId },
     });
 
     if (existing) {

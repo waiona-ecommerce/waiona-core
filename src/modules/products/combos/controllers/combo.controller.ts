@@ -6,12 +6,13 @@ import {
     Delete,
     Body,
     Param,
+    Query,
     ParseIntPipe,
     UseGuards,
   } from '@nestjs/common';
-  
+
   import { ComboService } from '../services/combo.service';
-  
+
   import { CreateComboDto } from '../dto/create-combo.dto';
   import { UpdateComboDto } from '../dto/update-combo.dto';
   import { ComboResponseDto } from '../dto/combo-response.dto';
@@ -19,6 +20,8 @@ import {
   import { RoleType } from 'src/common/enums/role-type.enum';
   import { AuthGuard } from '@nestjs/passport';
   import { RolesGuard } from 'src/common/guards/roles.guard';
+  import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+  import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
   
   
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
@@ -35,8 +38,8 @@ import {
     // ==========================
   
     @Get()
-    async findAll(): Promise<ComboResponseDto[]> {
-      return this.comboService.findAll();
+    async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<ComboResponseDto>> {
+      return this.comboService.findAll(page, limit);
     }
   
     // ==========================

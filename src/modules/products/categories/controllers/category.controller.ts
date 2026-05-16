@@ -7,10 +7,12 @@ import {
     Body,
     Param,
     ParseIntPipe,
+    Query,
     UseGuards,
   } from '@nestjs/common';
 
   import { CategoryService } from '../services/category.service';
+  import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
   import { CreateCategoryDto } from '../dto/create-category.dto';
   import { UpdateCategoryDto } from '../dto/update-category.dto';
@@ -36,8 +38,8 @@ import {
     // ==========================
 
     @Get()
-    async findAll(): Promise<CategoryResponseDto[]> {
-      return this.categoryService.findAll();
+    async findAll(@Query() { page, limit }: PaginationQueryDto) {
+      return this.categoryService.findAll(page, limit);
     }
 
     // ==========================
