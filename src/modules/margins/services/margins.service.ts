@@ -52,14 +52,7 @@ export class MarginsService {
 
   // GET BY ID
   async findOne(id: number): Promise<MarginResponseDto> {
-    const margin = await this.marginRepository.findOne({
-      where: { id },
-    });
-
-    if (!margin) {
-      throw new NotFoundException(`Margin with id ${id} not found`);
-    }
-
+    const margin = await this.findEntity(id);
     return new MarginResponseDto(margin);
   }
 
@@ -68,13 +61,7 @@ export class MarginsService {
     id: number,
     dto: UpdateMarginDto,
   ): Promise<MarginResponseDto> {
-    const margin = await this.marginRepository.findOne({
-      where: { id },
-    });
-
-    if (!margin) {
-      throw new NotFoundException(`Margin with id ${id} not found`);
-    }
+    const margin = await this.findEntity(id);
 
     if (dto.name && dto.name !== margin.name) {
       await this.validateUniqueName(dto.name);
@@ -92,13 +79,7 @@ export class MarginsService {
 
   // SOFT DELETE
   async remove(id: number): Promise<void> {
-    const margin = await this.marginRepository.findOne({
-      where: { id },
-    });
-
-    if (!margin) {
-      throw new NotFoundException(`Margin with id ${id} not found`);
-    }
+    const margin = await this.findEntity(id);
 
     const [productUsage, comboUsage] = await Promise.all([
       this.productPricingRepository.findOne({ where: { margin: { id } } }),
@@ -113,6 +94,12 @@ export class MarginsService {
   }
 
   // PRIVATE HELPERS
+
+  private async findEntity(id: number): Promise<MarginEntity> {
+    const margin = await this.marginRepository.findOne({ where: { id } });
+    if (!margin) throw new NotFoundException(`Margin with id ${id} not found`);
+    return margin;
+  }
 
   private async validateUniqueName(name: string): Promise<void> {
     const existing = await this.marginRepository.findOne({ where: { name } });

@@ -1,5 +1,6 @@
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import * as express from 'express';
@@ -31,6 +32,16 @@ async function bootstrap() {
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector)),
   );
+
+  const config = new DocumentBuilder()
+    .setTitle('Waiona API')
+    .setDescription('API REST para la plataforma Waiona')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
 }

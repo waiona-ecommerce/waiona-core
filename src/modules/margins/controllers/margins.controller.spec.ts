@@ -82,16 +82,16 @@ describe('MarginsController', () => {
       const margins = [mockMarginResponse()];
       service.findAll.mockResolvedValue(margins as any);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({ page: 1, limit: 20 });
 
-      expect(service.findAll).toHaveBeenCalled();
+      expect(service.findAll).toHaveBeenCalledWith(1, 20);
       expect(result).toEqual(margins);
     });
 
     it('should return empty array if no margins', async () => {
-      service.findAll.mockResolvedValue([]);
+      service.findAll.mockResolvedValue([] as any);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({ page: 1, limit: 20 });
 
       expect(result).toEqual([]);
     });

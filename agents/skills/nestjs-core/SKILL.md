@@ -32,9 +32,9 @@ Do NOT load when:
 
 ## Core Rules
 
-1. **All entities extend `BaseEntity`**: Every entity gets `id`, `createdAt`, `updatedAt`, `isDeleted`.
-2. **Soft delete only**: Never hard delete. Set `isDeleted = true` and save.
-3. **Always filter `isDeleted: false`**: Every query includes this condition.
+1. **All entities extend `BaseEntity`**: Every entity gets `id`, `createdAt`, `updatedAt`, `deletedAt`.
+2. **Soft delete only**: Never hard delete. Use `repo.softDelete(id)`.
+3. **No manual filter needed**: TypeORM auto-adds `WHERE deletedAt IS NULL` via `@DeleteDateColumn`.
 4. **Services return DTOs**: Never return raw entities from a service.
 5. **`ParseIntPipe` on all ID params**: Every `:id` route param uses it.
 6. **Specific routes before generic ones**: `GET /user/:userId` must come before `GET /:id`.
@@ -106,6 +106,10 @@ bootstrap();
 ## Controller Pattern
 
 ```typescript
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+
+@ApiTags('Nombres')
+@ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('nombres')
@@ -113,9 +117,15 @@ export class NombreController {
   constructor(private readonly service: NombreService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Crear un nombre' })
+  @ApiResponse({ status: 201, type: NombreResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 409, description: 'Ya existe' })
   create(@Body() dto: CreateNombreDto) { return this.service.create(dto); }
 
   @Get()
+  @ApiOperation({ summary: 'Listar nombres paginados' })
+  @ApiResponse({ status: 200, type: NombreResponseDto, isArray: true })
   findAll() { return this.service.findAll(); }
 
   // ⚠️ Specific routes BEFORE generic /:id
@@ -125,9 +135,17 @@ export class NombreController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener por ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, type: NombreResponseDto })
+  @ApiResponse({ status: 404, description: 'No encontrado' })
   findById(@Param('id', ParseIntPipe) id: number) { return this.service.findById(id); }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar (parcial)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, type: NombreResponseDto })
+  @ApiResponse({ status: 404, description: 'No encontrado' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateNombreDto,
@@ -135,6 +153,10 @@ export class NombreController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar (soft delete)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 204, description: 'Eliminado' })
+  @ApiResponse({ status: 404, description: 'No encontrado' })
   delete(@Param('id', ParseIntPipe) id: number) { return this.service.delete(id); }
 }
 ```
@@ -174,7 +196,7 @@ describe('NombreService', () => {
 
   // factory — always use overrides pattern
   const mockEntity = (overrides = {}): NombreEntity =>
-    ({ id: 1, name: 'Test', isDeleted: false,
+    ({ id: 1, name: 'Test', deletedAt: null,
        createdAt: new Date(), updatedAt: new Date(), ...overrides }) as NombreEntity;
 
   beforeEach(async () => {
@@ -287,7 +309,7 @@ export interface Env {
 
 ## Common Mistakes
 
-- **Missing `isDeleted: false`**: Soft-deleted records appear in results.
+- **Manual `isDeleted = true`**: Use `repo.softDelete(id)` — `@DeleteDateColumn` handles filtering automatically.
 - **Returning entities from services**: Always return DTOs.
 - **Missing `ParseIntPipe`**: Allows string IDs to reach the service.
 - **Specific route after `/:id`**: `GET /user/:userId` after `GET /:id` never matches — swap them.

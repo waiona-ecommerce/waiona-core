@@ -17,6 +17,7 @@ Antes de generar código, la IA debe cargar la skill relevante. Cada skill tiene
 - Trabajar con pagos → `mercadopago-payments`
 - Crear templates de email → `email-templates`
 - Operaciones SQL directas → `postgres-standard`
+- Documentar un módulo → `module-docs`
 
 ---
 
@@ -32,6 +33,7 @@ Antes de generar código, la IA debe cargar la skill relevante. Cada skill tiene
 | `nestjs-docker-postgres` | `skills/nestjs-docker-postgres/SKILL.md` | Docker, conexión DB, e2e setup |
 | `mercadopago-payments` | `skills/mercadopago-payments/SKILL.md` | Pagos, webhook, firma MP |
 | `email-templates` | `skills/email-templates/SKILL.md` | Templates HTML, MailService, Resend |
+| `module-docs` | `skills/module-docs/SKILL.md` | Documentar módulos (doc técnico + doc de negocio) |
 
 ---
 

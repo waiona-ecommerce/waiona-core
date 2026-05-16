@@ -29,9 +29,9 @@ Do NOT load when:
 
 ## Core Rules
 
-1. **All entities extend `BaseEntity`**: Gets `id`, `createdAt`, `updatedAt`, `isDeleted` for free.
-2. **Always filter `isDeleted: false`**: Every query must include this condition.
-3. **Soft delete only**: `entity.isDeleted = true` + `save()` — never `.delete()`.
+1. **All entities extend `BaseEntity`**: Gets `id`, `createdAt`, `updatedAt`, `deletedAt` for free.
+2. **No manual filter needed**: TypeORM auto-adds `WHERE deletedAt IS NULL` on all queries when `@DeleteDateColumn` is present.
+3. **Soft delete only**: `repo.softDelete(id)` — never `.delete()`, `.remove()`, or `entity.isDeleted = true`.
 4. **Always return DTOs**: Services return `ResponseDto`, never raw entities.
 5. **Transactions for multi-table writes**: Use `dataSource.transaction()` when touching 2+ tables.
 
@@ -51,8 +51,8 @@ export abstract class BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ default: false })
-  isDeleted: boolean;
+  @DeleteDateColumn({ nullable: true })
+  deletedAt: Date | null;
 }
 ```
 
@@ -103,26 +103,55 @@ export class NombreEntity extends BaseEntity {
 
 ---
 
-## Response DTO Pattern
+## DTO Patterns
+
+### CreateDto
 
 ```typescript
-export class NombreResponseDto {
-  id: number;
+import { ApiProperty } from '@nestjs/swagger';
+
+export class CreateNombreDto {
+  @ApiProperty({ example: 'Ejemplo', minLength: 3, maxLength: 100 })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  @MaxLength(100)
   name: string;
-  isActive: boolean;
-  categoryId: number;
-  categoryName: string;   // flatten relations when useful
+}
+```
+
+### UpdateDto — usar `PartialType` de `@nestjs/swagger`, no de `@nestjs/mapped-types`
+
+```typescript
+import { PartialType } from '@nestjs/swagger';
+import { CreateNombreDto } from './create-nombre.dto';
+
+export class UpdateNombreDto extends PartialType(CreateNombreDto) {}
+```
+
+### ResponseDto
+
+```typescript
+import { ApiProperty } from '@nestjs/swagger';
+
+export class NombreResponseDto {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 'Ejemplo' })
+  name: string;
+
+  @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty()
   updatedAt: Date;
 
   constructor(entity: NombreEntity) {
-    this.id           = entity.id;
-    this.name         = entity.name;
-    this.isActive     = entity.isActive;
-    this.categoryId   = entity.categoryId;
-    this.categoryName = entity.category?.name ?? '';
-    this.createdAt    = entity.createdAt;
-    this.updatedAt    = entity.updatedAt;
+    this.id        = entity.id;
+    this.name      = entity.name;
+    this.createdAt = entity.createdAt;
+    this.updatedAt = entity.updatedAt;
   }
 }
 ```
@@ -132,10 +161,9 @@ export class NombreResponseDto {
 ## Query Patterns
 
 ```typescript
-// findAll — always isDeleted: false
+// findAll — TypeORM auto-filters deletedAt IS NULL
 async findAll(): Promise<NombreResponseDto[]> {
   const items = await this.repo.find({
-    where: { isDeleted: false },
     relations: ['category'],
     order: { name: 'ASC' },
   });
@@ -145,7 +173,7 @@ async findAll(): Promise<NombreResponseDto[]> {
 // findOne — with NotFoundException
 private async findEntity(id: number): Promise<NombreEntity> {
   const entity = await this.repo.findOne({
-    where: { id, isDeleted: false },
+    where: { id },
     relations: ['category'],
   });
   if (!entity) throw new NotFoundException(`Nombre with id ${id} not found`);
@@ -169,9 +197,8 @@ async update(id: number, dto: UpdateNombreDto): Promise<NombreResponseDto> {
 
 // soft delete
 async delete(id: number): Promise<void> {
-  const entity    = await this.findEntity(id);
-  entity.isDeleted = true;
-  await this.repo.save(entity);
+  await this.findEntity(id);
+  await this.repo.softDelete(id);
 }
 ```
 
@@ -225,9 +252,9 @@ findOne({ where: { id, isDeleted: false }, relations: ['category', 'items'] })
 
 ## Common Mistakes
 
-- **Missing `isDeleted: false`**: Soft-deleted records appear in results.
-- **Using `findOneBy`**: Always use `findOne({ where: { id, isDeleted: false } })`.
-- **Hard delete**: Never call `.delete()` or `.remove()` on the repository.
+- **Using `findOneBy`**: Always use `findOne({ where: { id } })`.
+- **Hard delete**: Never call `.delete()` or `.remove()` — use `softDelete(id)`.
+- **Manual `isDeleted = true`**: Don't set flags manually — `softDelete()` handles it via `@DeleteDateColumn`.
 - **Returning entities from services**: Always return DTOs.
 - **Missing FK column**: Always declare `@Column({ name: 'x_id' })` alongside `@ManyToOne`.
 - **Multi-table writes without transaction**: Use `dataSource.transaction()`.
