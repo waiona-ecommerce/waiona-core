@@ -2,7 +2,6 @@ import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
 
 @Entity('margins')
-@Index(['isPercentage'])
 @Index(['name'], { unique: true })
 export class MarginEntity extends BaseEntity {
   @Column({

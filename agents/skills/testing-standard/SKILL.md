@@ -51,18 +51,19 @@ describe('NombreService', () => {
 
   // mock del repositorio — sin DB real
   const mockRepo = () => ({
-    find:    jest.fn(),
-    findOne: jest.fn(),
-    create:  jest.fn(),
-    save:    jest.fn(),
-    merge:   jest.fn(),
-    update:  jest.fn(),
+    find:         jest.fn(),
+    findOne:      jest.fn(),
+    findAndCount: jest.fn(),
+    create:       jest.fn(),
+    save:         jest.fn(),
+    merge:        jest.fn(),
+    softDelete:   jest.fn(),
   });
 
   // factory de datos de prueba — siempre con overrides
   const mockEntity = (overrides = {}): NombreEntity =>
     ({
-      id: 1, name: 'Test', isActive: true, isDeleted: false,
+      id: 1, name: 'Test', isActive: true, deletedAt: null,
       createdAt: new Date(), updatedAt: new Date(),
       ...overrides,
     }) as unknown as NombreEntity;
@@ -120,9 +121,9 @@ describe('NombreService', () => {
     it('should soft delete', async () => {
       const entity = mockEntity();
       repo.findOne.mockResolvedValue(entity);
-      repo.save.mockResolvedValue({ ...entity, isDeleted: true });
+      repo.softDelete.mockResolvedValue(undefined);
       await service.delete(1);
-      expect(repo.save).toHaveBeenCalledWith({ ...entity, isDeleted: true });
+      expect(repo.softDelete).toHaveBeenCalledWith(entity.id);
     });
 
     it('should throw NotFoundException', async () => {
@@ -201,13 +202,27 @@ describe('NombreController', () => {
 
 ## E2E Test — PostgreSQL Real
 
-Los e2e usan la **misma DB de desarrollo** levantada con Docker. No SQLite — PostgreSQL garantiza tipos de datos correctos (enums, timestamps, etc.).
+Los e2e usan la **DB de test** (puerto 5433) levantada con Docker. No SQLite — PostgreSQL garantiza tipos de datos correctos (enums, timestamps, soft delete, etc.).
+
+Variables de entorno para e2e:
+```
+POSTGRES_TEST_PORT=5433
+POSTGRES_TEST_DB=waiona_test
+```
 
 ### Setup requerido
 
-La DB debe estar corriendo antes de los tests:
 ```bash
 docker compose up -d
+npx jest --config test/jest-e2e.json --testPathPattern="nombre"
+```
+
+### Ubicación
+
+```
+test/
+└── {modulo}/
+    └── {modulo}.e2e-spec.ts
 ```
 
 ### Configuración del módulo e2e
@@ -218,7 +233,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -236,12 +251,12 @@ describe('Nombre (e2e)', () => {
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
             host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_PORT') || '5432'),
+            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
-            database: config.get('POSTGRES_DB'),
-            entities: [NombreEntity],   // solo las entidades necesarias
-            synchronize: true,          // solo en tests
+            database: config.get('POSTGRES_TEST_DB'),
+            entities: [NombreEntity],   // solo las entidades del módulo
+            synchronize: true,
             dropSchema: true,           // limpia la DB antes de cada suite
           }),
         }),
@@ -263,7 +278,7 @@ describe('Nombre (e2e)', () => {
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
-  });
+  }, 30000); // timeout para conexión inicial a PostgreSQL
 
   afterAll(async () => {
     await dataSource.destroy();
@@ -324,6 +339,23 @@ describe('Nombre (e2e)', () => {
 });
 ```
 
+### Cross-module repo dependencies en e2e
+
+Cuando el service inyecta repositorios de otros módulos (solo para validaciones, no para crear datos), incluirlos en el schema arrastraría toda su cadena de entidades relacionadas. En ese caso: **mockeá esos repos** y registrá solo la entidad principal del módulo.
+
+```typescript
+// El service inyecta ProductPricingEntity para verificar si un margen está en uso.
+// ProductPricingEntity → ProductEntity → CategoryEntity... demasiadas dependencias.
+// Se mockea con findOne: null (sin uso) — el caso 409 queda cubierto en unit tests.
+
+const mockPricingRepo = () => ({ findOne: jest.fn().mockResolvedValue(null) });
+
+providers: [
+  NombreService,
+  { provide: getRepositoryToken(RelatedEntity), useFactory: mockPricingRepo },
+],
+```
+
 ### Correr los e2e
 
 ```bash
@@ -334,7 +366,7 @@ docker compose up -d
 npx jest --config test/jest-e2e.json
 
 # correr módulo específico
-npx jest --config test/jest-e2e.json --testPathPattern="taxation"
+npx jest --config test/jest-e2e.json --testPathPattern="margins"
 ```
 
 ---

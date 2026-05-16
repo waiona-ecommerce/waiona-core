@@ -2,38 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MarginsService } from './margins.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { MarginEntity } from '../entities/margin.entity';
-import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ProductPricingEntity } from 'src/modules/pricing/entities/product-pricing.entity';
+import { ComboPricingEntity } from 'src/modules/pricing/entities/combo-pricing.entity';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 
 describe('MarginsService', () => {
   let service: MarginsService;
-  let marginRepository: jest.Mocked<Repository<MarginEntity>>;
+  let marginRepository: any;
+  let productPricingRepository: any;
+  let comboPricingRepository: any;
 
-  const mockMarginRepository = () => ({
-    find: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    merge: jest.fn(),
-  });
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        MarginsService,
-        {
-          provide: getRepositoryToken(MarginEntity),
-          useFactory: mockMarginRepository,
-        },
-      ],
-    }).compile();
-
-    service = module.get<MarginsService>(MarginsService);
-    marginRepository = module.get(getRepositoryToken(MarginEntity));
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+  const mockRepo = () => ({
+    find:         jest.fn(),
+    findOne:      jest.fn(),
+    findAndCount: jest.fn(),
+    create:       jest.fn(),
+    save:         jest.fn(),
+    merge:        jest.fn(),
+    softDelete:   jest.fn(),
   });
 
   const mockMargin = (overrides = {}): MarginEntity =>
@@ -42,11 +28,29 @@ describe('MarginsService', () => {
       name: 'Margen estándar',
       value: 20,
       isPercentage: true,
-      isDeleted: false,
+      deletedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
     }) as unknown as MarginEntity;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MarginsService,
+        { provide: getRepositoryToken(MarginEntity),        useFactory: mockRepo },
+        { provide: getRepositoryToken(ProductPricingEntity), useFactory: mockRepo },
+        { provide: getRepositoryToken(ComboPricingEntity),   useFactory: mockRepo },
+      ],
+    }).compile();
+
+    service                  = module.get<MarginsService>(MarginsService);
+    marginRepository         = module.get(getRepositoryToken(MarginEntity));
+    productPricingRepository = module.get(getRepositoryToken(ProductPricingEntity));
+    comboPricingRepository   = module.get(getRepositoryToken(ComboPricingEntity));
+  });
+
+  afterEach(() => jest.clearAllMocks());
 
   // ==========================
   // create
@@ -54,9 +58,10 @@ describe('MarginsService', () => {
 
   describe('create', () => {
     it('should create a margin', async () => {
-      const dto = { name: 'Margen estándar', value: 20, isPercentage: true };
+      const dto    = { name: 'Margen estándar', value: 20, isPercentage: true };
       const entity = mockMargin();
 
+      marginRepository.findOne.mockResolvedValue(null);
       marginRepository.create.mockReturnValue(entity);
       marginRepository.save.mockResolvedValue(entity);
 
@@ -64,8 +69,24 @@ describe('MarginsService', () => {
 
       expect(marginRepository.create).toHaveBeenCalledWith(dto);
       expect(marginRepository.save).toHaveBeenCalledWith(entity);
-      expect(result.value).toBe(20);
       expect(result.name).toBe('Margen estándar');
+      expect(result.value).toBe(20);
+    });
+
+    it('should throw ConflictException if name already exists', async () => {
+      marginRepository.findOne.mockResolvedValue(mockMargin());
+
+      await expect(
+        service.create({ name: 'Margen estándar', value: 20, isPercentage: true } as any),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw BadRequestException if percentage value exceeds 100', async () => {
+      marginRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.create({ name: 'Alto', value: 150, isPercentage: true } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -74,26 +95,29 @@ describe('MarginsService', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('should return all margins', async () => {
+    it('should return paginated margins', async () => {
       const entities = [mockMargin()];
-      marginRepository.find.mockResolvedValue(entities);
+      marginRepository.findAndCount.mockResolvedValue([entities, 1]);
 
-      const result = await service.findAll();
+      const result = await service.findAll(1, 20);
 
-      expect(marginRepository.find).toHaveBeenCalledWith({
-        where: { isDeleted: false },
+      expect(marginRepository.findAndCount).toHaveBeenCalledWith({
         order: { createdAt: 'DESC' },
+        skip: 0,
+        take: 20,
       });
-      expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Margen estándar');
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
     });
 
-    it('should return empty array if no margins', async () => {
-      marginRepository.find.mockResolvedValue([]);
+    it('should return empty page when no margins', async () => {
+      marginRepository.findAndCount.mockResolvedValue([[], 0]);
 
-      const result = await service.findAll();
+      const result = await service.findAll(1, 20);
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 
@@ -107,16 +131,14 @@ describe('MarginsService', () => {
 
       const result = await service.findOne(1);
 
-      expect(marginRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 1, isDeleted: false },
-      });
+      expect(marginRepository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
       expect(result.id).toBe(1);
     });
 
     it('should throw NotFoundException if not found', async () => {
       marginRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -126,7 +148,7 @@ describe('MarginsService', () => {
 
   describe('update', () => {
     it('should update a margin', async () => {
-      const entity = mockMargin();
+      const entity  = mockMargin();
       const updated = mockMargin({ value: 30 });
 
       marginRepository.findOne.mockResolvedValue(entity);
@@ -142,9 +164,28 @@ describe('MarginsService', () => {
     it('should throw NotFoundException if not found', async () => {
       marginRepository.findOne.mockResolvedValue(null);
 
+      await expect(service.update(1, { value: 30 } as any)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException if new name already taken', async () => {
+      const entity   = mockMargin({ name: 'Viejo' });
+      const existing = mockMargin({ id: 2, name: 'Nuevo' });
+
+      marginRepository.findOne
+        .mockResolvedValueOnce(entity)
+        .mockResolvedValueOnce(existing);
+
       await expect(
-        service.update(1, { value: 30 } as any),
-      ).rejects.toThrow(NotFoundException);
+        service.update(1, { name: 'Nuevo' } as any),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw BadRequestException if percentage value exceeds 100', async () => {
+      marginRepository.findOne.mockResolvedValue(mockMargin({ isPercentage: true }));
+
+      await expect(
+        service.update(1, { value: 150 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -157,20 +198,35 @@ describe('MarginsService', () => {
       const entity = mockMargin();
 
       marginRepository.findOne.mockResolvedValue(entity);
-      marginRepository.save.mockResolvedValue({ ...entity, isDeleted: true });
+      productPricingRepository.findOne.mockResolvedValue(null);
+      comboPricingRepository.findOne.mockResolvedValue(null);
+      marginRepository.softDelete.mockResolvedValue(undefined);
 
       await service.remove(1);
 
-      expect(marginRepository.save).toHaveBeenCalledWith({
-        ...entity,
-        isDeleted: true,
-      });
+      expect(marginRepository.softDelete).toHaveBeenCalledWith(entity.id);
     });
 
     it('should throw NotFoundException if not found', async () => {
       marginRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.remove(1)).rejects.toThrow(NotFoundException);
+      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException if margin is used by a product pricing', async () => {
+      marginRepository.findOne.mockResolvedValue(mockMargin());
+      productPricingRepository.findOne.mockResolvedValue({ id: 5 });
+      comboPricingRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.remove(1)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if margin is used by a combo pricing', async () => {
+      marginRepository.findOne.mockResolvedValue(mockMargin());
+      productPricingRepository.findOne.mockResolvedValue(null);
+      comboPricingRepository.findOne.mockResolvedValue({ id: 7 });
+
+      await expect(service.remove(1)).rejects.toThrow(ConflictException);
     });
   });
 });
