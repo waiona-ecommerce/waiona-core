@@ -31,17 +31,16 @@ import {
     // Jerarquía
     // ==========================
   
-    // FK explícita (MUY recomendable)
     @Column({
       name: 'parent_id',
       type: 'int',
       nullable: true,
     })
     parentId?: number | null;
-  
+
     @ManyToOne(() => CategoryEntity, (category) => category.children, {
       nullable: true,
-      onDelete: 'SET NULL', // si se borra el padre, no rompe hijos
+      onDelete: 'SET NULL',
     })
     @JoinColumn({ name: 'parent_id' })
     parent?: CategoryEntity | null;

@@ -9,7 +9,7 @@ export class ProductResponseDto {
   isActive: boolean;
 
   categoryId: number;
-  categoryName: string;        // 🔥 útil para el front sin join extra
+  categoryName: string;
 
   measurementUnit: string;
   measurementValue?: number;

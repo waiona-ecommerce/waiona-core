@@ -10,8 +10,6 @@ import {
   MinLength,
   IsNotEmpty,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
-
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
 
 export class CreateProductDto {

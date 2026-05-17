@@ -42,7 +42,7 @@ describe('ComboController', () => {
   describe('findAll', () => {
     it('should return all combos', async () => {
       service.findAll.mockResolvedValue([mockResponse() as any]);
-      const result = await controller.findAll();
+      const result = await controller.findAll({} as any);
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });

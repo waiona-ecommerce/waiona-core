@@ -20,6 +20,8 @@ import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-
 import { PriceBreakdownDto } from 'src/modules/pricing/calculation/dto/price-breakdown.dto';
 import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
 
+const PRICE_FILTER_SCAN_LIMIT = 500;
+
 @Injectable()
 export class ShopService {
 
@@ -71,6 +73,10 @@ export class ShopService {
     }
 
     candidates.sort((a, b) => a.entity.name.localeCompare(b.entity.name));
+
+    if (hasPriceFilter && candidates.length > PRICE_FILTER_SCAN_LIMIT) {
+      candidates.length = PRICE_FILTER_SCAN_LIMIT;
+    }
 
     if (!hasPriceFilter) {
       // Sin filtro de precio: paginamos primero y calculamos solo los items de la página

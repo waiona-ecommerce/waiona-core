@@ -28,11 +28,11 @@ describe('ShopService', () => {
   });
 
   const mockProduct = (overrides = {}): ProductEntity =>
-    ({ id: 1, name: 'Coca Cola 500ml', description: 'Gaseosa', isActive: true, isDeleted: false,
+    ({ id: 1, name: 'Coca Cola 500ml', description: 'Gaseosa', isActive: true, deletedAt: null,
        categoryId: 1, images: [], ...overrides }) as unknown as ProductEntity;
 
   const mockCombo = (overrides = {}): ComboEntity =>
-    ({ id: 1, name: 'Combo Coca x3', description: 'Tres Coca Cola', isActive: true, isDeleted: false,
+    ({ id: 1, name: 'Combo Coca x3', description: 'Tres Coca Cola', isActive: true, deletedAt: null,
        categoryId: 2, images: [], items: [{ productId: 1, quantity: 3, product: { name: 'Coca Cola 500ml' } }], ...overrides }) as unknown as ComboEntity;
 
   beforeEach(async () => {

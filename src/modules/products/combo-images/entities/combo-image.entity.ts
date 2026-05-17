@@ -11,18 +11,17 @@ import {
   
   @Entity('combo_images')
   @Index(['comboId'])
-  @Index(['comboId', 'position'], { unique: true }) // evita posiciones duplicadas por combo
+  @Index(['comboId', 'position'], { unique: true })
   export class ComboImageEntity extends BaseEntity {
   
-    // FK explícita
-    @Column()
+    @Column({ name: 'combo_id' })
     comboId: number;
-  
+
     @ManyToOne(() => ComboEntity, {
       nullable: false,
-      onDelete: 'RESTRICT', // usás soft delete
+      onDelete: 'RESTRICT',
     })
-    @JoinColumn({ name: 'comboId' })
+    @JoinColumn({ name: 'combo_id' })
     combo: ComboEntity;
   
     @Column({
@@ -36,5 +35,5 @@ import {
       type: 'int',
       nullable: false,
     })
-    position: number; // orden manual
+    position: number;
   }

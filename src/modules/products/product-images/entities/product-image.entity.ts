@@ -11,18 +11,17 @@ import { ProductEntity } from '../../product/entities/product.entity';
 
 @Entity('product_images')
 @Index(['productId'])
-@Index(['productId', 'position'], { unique: true }) // 👈 evita posiciones duplicadas por producto
+@Index(['productId', 'position'], { unique: true })
 export class ProductImageEntity extends BaseEntity {
 
-  // FK explícita
-  @Column()
+  @Column({ name: 'product_id' })
   productId: number;
 
   @ManyToOne(() => ProductEntity, {
     nullable: false,
-    onDelete: 'RESTRICT', // porque usás soft delete
+    onDelete: 'RESTRICT',
   })
-  @JoinColumn({ name: 'productId' })
+  @JoinColumn({ name: 'product_id' })
   product: ProductEntity;
 
   @Column({
@@ -36,5 +35,5 @@ export class ProductImageEntity extends BaseEntity {
     type: 'int',
     nullable: false,
   })
-  position: number; // 👈 orden manual de las imágenes
+  position: number;
 }

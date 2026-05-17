@@ -2,12 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ProductEntity } from '../entities/product.entity';
+import { CategoryEntity } from '../../categories/entities/category.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -19,6 +21,9 @@ export class ProductService {
   constructor(
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
+
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepository: Repository<CategoryEntity>,
   ) {}
 
   // ==========================
@@ -28,7 +33,7 @@ export class ProductService {
   async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ProductResponseDto>> {
 
     const [products, total] = await this.productRepository.findAndCount({
-      relations: ['category'], // 🔥 para exponer categoryName en la respuesta
+      relations: ['category'],
       order: {
         name: 'ASC',
       },
@@ -63,7 +68,8 @@ export class ProductService {
     dto: CreateProductDto,
   ): Promise<ProductResponseDto> {
 
-    // 🔥 Validar SKU único
+    await this.validateCategoryExists(dto.categoryId);
+
     const existingSku = await this.productRepository.findOne({
       where: {
         sku: dto.sku,
@@ -71,7 +77,7 @@ export class ProductService {
     });
 
     if (existingSku) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `Product with SKU ${dto.sku} already exists`,
       );
     }
@@ -84,7 +90,6 @@ export class ProductService {
 
     const saved = await this.productRepository.save(product);
 
-    // 🔥 recargar con relación para tener categoryName en la respuesta
     return new ProductResponseDto(
       await this.findOne(saved.id),
     );
@@ -101,7 +106,10 @@ export class ProductService {
 
     const product = await this.findOne(id);
 
-    // 🔥 Validar SKU si se quiere cambiar
+    if (changes.categoryId !== undefined) {
+      await this.validateCategoryExists(changes.categoryId);
+    }
+
     if (changes.sku && changes.sku !== product.sku) {
 
       const existingSku = await this.productRepository.findOne({
@@ -123,7 +131,6 @@ export class ProductService {
 
     await this.productRepository.save(merged);
 
-    // 🔥 recargar con relación para tener categoryName actualizado
     return new ProductResponseDto(
       await this.findOne(merged.id),
     );
@@ -144,13 +151,22 @@ export class ProductService {
   // PRIVATE FIND ONE
   // ==========================
 
+  private async validateCategoryExists(categoryId: number): Promise<void> {
+
+    const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
+
+    if (!category) {
+      throw new BadRequestException(`Category with id ${categoryId} not found`);
+    }
+  }
+
   private async findOne(id: number): Promise<ProductEntity> {
 
     const product = await this.productRepository.findOne({
       where: {
         id,
       },
-      relations: ['category'], // 🔥 siempre con categoría
+      relations: ['category'],
     });
 
     if (!product) {

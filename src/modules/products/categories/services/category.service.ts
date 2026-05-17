@@ -2,24 +2,33 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    ConflictException,
   } from '@nestjs/common';
-  
+
   import { InjectRepository } from '@nestjs/typeorm';
-  import { Repository, IsNull } from 'typeorm';
-  
+  import { Repository } from 'typeorm';
+
   import { CategoryEntity } from '../entities/category.entity';
+  import { ProductEntity } from '../../product/entities/product.entity';
+  import { ComboEntity } from '../../combos/entities/combo.entity';
   import { CreateCategoryDto } from '../dto/create-category.dto';
   import { UpdateCategoryDto } from '../dto/update-category.dto';
   import { CategoryResponseDto } from '../dto/category-response.dto';
   import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
   import { CategoryTreeResponseDto } from '../dto/category-tree-response.dto';
-  
+
   @Injectable()
   export class CategoryService {
-  
+
     constructor(
       @InjectRepository(CategoryEntity)
       private readonly categoryRepository: Repository<CategoryEntity>,
+
+      @InjectRepository(ProductEntity)
+      private readonly productRepository: Repository<ProductEntity>,
+
+      @InjectRepository(ComboEntity)
+      private readonly comboRepository: Repository<ComboEntity>,
     ) {}
   
     // ==========================
@@ -58,10 +67,7 @@ import {
   
       if (dto.parentId) {
         parent = await this.categoryRepository.findOne({
-          where: {
-            id: dto.parentId,
-            
-          },
+          where: { id: dto.parentId },
         });
   
         if (!parent) {
@@ -122,11 +128,25 @@ import {
     // ==========================
     // SOFT DELETE
     // ==========================
-  
+
     async delete(id: number): Promise<void> {
-  
+
       const entity = await this.findOne(id);
-  
+
+      const productCount = await this.productRepository.count({ where: { categoryId: id } });
+      if (productCount > 0) {
+        throw new ConflictException(
+          `Cannot delete category: it has ${productCount} active product(s) assigned`,
+        );
+      }
+
+      const comboCount = await this.comboRepository.count({ where: { categoryId: id } });
+      if (comboCount > 0) {
+        throw new ConflictException(
+          `Cannot delete category: it has ${comboCount} active combo(s) assigned`,
+        );
+      }
+
       await this.categoryRepository.softDelete(entity.id);
     }
   
@@ -135,25 +155,31 @@ import {
     // ==========================
   
     async getTree(): Promise<CategoryTreeResponseDto[]> {
-  
-      const roots = await this.categoryRepository.find({
-        where: {
-          parentId: IsNull(),
-          
-        },
-        relations: ['children'],
-        order: {
-          name: 'ASC',
-        },
+
+      const all = await this.categoryRepository.find({
+        order: { name: 'ASC' },
       });
-  
-      return roots.map(
-        root => new CategoryTreeResponseDto(root),
-      );
+
+      for (const cat of all) {
+        cat.children = [];
+      }
+
+      const map   = new Map(all.map(cat => [cat.id, cat]));
+      const roots: CategoryEntity[] = [];
+
+      for (const cat of all) {
+        if (cat.parentId != null) {
+          map.get(cat.parentId)?.children?.push(cat);
+        } else {
+          roots.push(cat);
+        }
+      }
+
+      return roots.map(root => new CategoryTreeResponseDto(root));
     }
   
     // ==========================
-    // PRIVATE HELPERS
+    // PRIVATE
     // ==========================
 
     private async wouldCreateCycle(categoryId: number, newParentId: number): Promise<boolean> {
@@ -168,17 +194,10 @@ import {
       return false;
     }
 
-    // ==========================
-    // PRIVATE FIND ONE
-    // ==========================
-  
     private async findOne(id: number): Promise<CategoryEntity> {
   
       const entity = await this.categoryRepository.findOne({
-        where: {
-          id,
-          
-        },
+        where: { id },
       });
   
       if (!entity) {

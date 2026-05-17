@@ -72,7 +72,7 @@ describe('ProductController', () => {
       const products = [mockProductResponse()];
       service.findAll.mockResolvedValue(products as any);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({} as any);
 
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toEqual(products);
@@ -81,7 +81,7 @@ describe('ProductController', () => {
     it('should return empty array if no products', async () => {
       service.findAll.mockResolvedValue([]);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({} as any);
 
       expect(result).toEqual([]);
     });

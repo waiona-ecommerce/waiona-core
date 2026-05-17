@@ -19,7 +19,10 @@ export class ComboImageService {
     private readonly comboRepository: Repository<ComboEntity>,
   ) {}
 
+  // ==========================
   // CREATE
+  // ==========================
+
   async create(dto: CreateComboImageDto): Promise<ComboImageResponseDto> {
     const combo = await this.comboRepository.findOne({
       where: { id: dto.comboId },
@@ -38,7 +41,10 @@ export class ComboImageService {
     return new ComboImageResponseDto(saved);
   }
 
-  // GET ALL BY COMBO (no eliminadas)
+  // ==========================
+  // GET ALL BY COMBO
+  // ==========================
+
   async findByCombo(comboId: number): Promise<ComboImageResponseDto[]> {
     const images = await this.comboImageRepository.find({
       where: { comboId },
@@ -50,55 +56,41 @@ export class ComboImageService {
     );
   }
 
+  // ==========================
   // GET BY ID
+  // ==========================
+
   async findOne(id: number): Promise<ComboImageResponseDto> {
-    const image = await this.comboImageRepository.findOne({
-      where: { id },
-    });
-
-    if (!image) {
-      throw new NotFoundException(
-        `ComboImage with id ${id} not found`,
-      );
-    }
-
-    return new ComboImageResponseDto(image);
+    return new ComboImageResponseDto(await this.findEntity(id));
   }
 
+  // ==========================
   // UPDATE
-  async update(
-    id: number,
-    dto: UpdateComboImageDto,
-  ): Promise<ComboImageResponseDto> {
-    const image = await this.comboImageRepository.findOne({
-      where: { id },
-    });
+  // ==========================
 
-    if (!image) {
-      throw new NotFoundException(
-        `ComboImage with id ${id} not found`,
-      );
-    }
-
+  async update(id: number, dto: UpdateComboImageDto): Promise<ComboImageResponseDto> {
+    const image = await this.findEntity(id);
     const merged = this.comboImageRepository.merge(image, dto);
-
     const updated = await this.comboImageRepository.save(merged);
-
     return new ComboImageResponseDto(updated);
   }
 
-  // SOFT DELETE
+  // ==========================
+  // DELETE (soft)
+  // ==========================
+
   async remove(id: number): Promise<void> {
-    const image = await this.comboImageRepository.findOne({
-      where: { id },
-    });
-
-    if (!image) {
-      throw new NotFoundException(
-        `ComboImage with id ${id} not found`,
-      );
-    }
-
+    const image = await this.findEntity(id);
     await this.comboImageRepository.softDelete(image.id);
+  }
+
+  // ==========================
+  // PRIVATE
+  // ==========================
+
+  private async findEntity(id: number): Promise<ComboImageEntity> {
+    const image = await this.comboImageRepository.findOne({ where: { id } });
+    if (!image) throw new NotFoundException(`ComboImage with id ${id} not found`);
+    return image;
   }
 }

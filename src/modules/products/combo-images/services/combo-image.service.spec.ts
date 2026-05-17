@@ -8,11 +8,11 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 describe('ComboImageService', () => {
   let service: ComboImageService;
 
-  const mockImageRepo = { find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn() };
+  const mockImageRepo = { find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn(), softDelete: jest.fn() };
   const mockComboRepo = { findOne: jest.fn() };
 
   const mockImage = (overrides = {}): ComboImageEntity =>
-    ({ id: 1, comboId: 1, url: 'https://img.com/combo1.jpg', position: 1, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ComboImageEntity;
+    ({ id: 1, comboId: 1, url: 'https://img.com/combo1.jpg', position: 1, deletedAt: null, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ComboImageEntity;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -82,9 +82,9 @@ describe('ComboImageService', () => {
     it('should soft delete an image', async () => {
       const image = mockImage();
       mockImageRepo.findOne.mockResolvedValue(image);
-      mockImageRepo.save.mockResolvedValue({ ...image, isDeleted: true } as any);
+      mockImageRepo.softDelete.mockResolvedValue({} as any);
       await service.remove(1);
-      expect(mockImageRepo.save).toHaveBeenCalledWith({ ...image, isDeleted: true });
+      expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
     it('should throw NotFoundException', async () => {

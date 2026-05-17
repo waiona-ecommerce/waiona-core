@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -19,7 +19,10 @@ export class ProductImageService {
     private readonly productRepository: Repository<ProductEntity>,
   ) {}
 
+  // ==========================
   // CREATE
+  // ==========================
+
   async create(dto: CreateProductImageDto): Promise<ProductImageResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id: dto.productId },
@@ -38,7 +41,10 @@ export class ProductImageService {
     return new ProductImageResponseDto(saved);
   }
 
-  // GET ALL BY PRODUCT (no eliminadas)
+  // ==========================
+  // GET ALL BY PRODUCT
+  // ==========================
+
   async findByProduct(productId: number): Promise<ProductImageResponseDto[]> {
     const images = await this.productImageRepository.find({
       where: { productId },
@@ -50,55 +56,44 @@ export class ProductImageService {
     );
   }
 
+  // ==========================
   // GET BY ID
+  // ==========================
+
   async findOne(id: number): Promise<ProductImageResponseDto> {
-    const image = await this.productImageRepository.findOne({
-      where: { id },
-    });
-
-    if (!image) {
-      throw new NotFoundException(
-        `ProductImage with id ${id} not found`,
-      );
-    }
-
-    return new ProductImageResponseDto(image);
+    return new ProductImageResponseDto(await this.findEntity(id));
   }
 
-  // UPDATE (parcial)
+  // ==========================
+  // UPDATE
+  // ==========================
+
   async update(
     id: number,
     dto: UpdateProductImageDto,
   ): Promise<ProductImageResponseDto> {
-    const image = await this.productImageRepository.findOne({
-      where: { id },
-    });
-
-    if (!image) {
-      throw new NotFoundException(
-        `ProductImage with id ${id} not found`,
-      );
-    }
-
+    const image = await this.findEntity(id);
     const merged = this.productImageRepository.merge(image, dto);
-
     const updated = await this.productImageRepository.save(merged);
-
     return new ProductImageResponseDto(updated);
   }
 
-  // SOFT DELETE
+  // ==========================
+  // DELETE (soft)
+  // ==========================
+
   async remove(id: number): Promise<void> {
-    const image = await this.productImageRepository.findOne({
-      where: { id },
-    });
-
-    if (!image) {
-      throw new NotFoundException(
-        `ProductImage with id ${id} not found`,
-      );
-    }
-
+    const image = await this.findEntity(id);
     await this.productImageRepository.softDelete(image.id);
+  }
+
+  // ==========================
+  // PRIVATE
+  // ==========================
+
+  private async findEntity(id: number): Promise<ProductImageEntity> {
+    const image = await this.productImageRepository.findOne({ where: { id } });
+    if (!image) throw new NotFoundException(`ProductImage with id ${id} not found`);
+    return image;
   }
 }

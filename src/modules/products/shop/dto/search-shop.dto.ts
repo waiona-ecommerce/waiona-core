@@ -31,15 +31,14 @@ export class SearchShopDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  categoryId?: number;          // 🔥 antes aceptaba 0, mínimo debe ser 1
- 
+  categoryId?: number;
+
   @IsOptional()
   @IsIn(['product', 'combo'])
   type?: 'product' | 'combo';
- 
+
   // ==========================
   // FILTRO DE PRECIO
-  // 🔥 antes tenía @IsInt() — precio es decimal
   // ==========================
  
   @IsOptional()

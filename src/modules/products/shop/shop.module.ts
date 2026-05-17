@@ -18,7 +18,7 @@ import { StocksModule } from 'src/modules/stocks/stocks.module';
       ComboEntity,
     ]),
     CalculationModule,
-    StocksModule, // 👈 🔥 ESTO FALTABA
+    StocksModule,
   ],
   providers: [ShopService],
   controllers: [ShopController],

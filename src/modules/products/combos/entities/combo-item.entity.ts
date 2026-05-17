@@ -14,7 +14,6 @@ import { ProductEntity } from '../../product/entities/product.entity';
 @Index(['comboId'])
 @Index(['productId'])
 
-@Index(['comboId', 'productId'], { unique: true }) // 🔥 evita duplicados
 
 export class ComboItemEntity extends BaseEntity {
 

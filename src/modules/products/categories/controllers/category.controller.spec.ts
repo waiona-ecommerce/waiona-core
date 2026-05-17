@@ -38,7 +38,7 @@ describe('CategoryController', () => {
   describe('findAll', () => {
     it('should return all categories', async () => {
       service.findAll.mockResolvedValue([mockResponse() as any]);
-      const result = await controller.findAll();
+      const result = await controller.findAll({} as any);
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });
