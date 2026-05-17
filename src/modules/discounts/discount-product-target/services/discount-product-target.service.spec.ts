@@ -10,11 +10,13 @@ describe('DiscountProductTargetService', () => {
   let repo: any;
   let discountRepo: any;
 
-  const mockRepo         = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockRepo         = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), softDelete: jest.fn() });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
-  const mockDiscount = () => ({ id: 1, name: 'Promo', isDeleted: false });
-  const mockTarget   = (overrides = {}) => ({ id: 1, discountId: 1, productId: 1, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides });
+  const mockDiscount = () => ({ id: 1, name: 'Promo', deletedAt: null });
+  const mockTarget   = (overrides = {}) =>
+    ({ id: 1, discountId: 1, productId: 1, deletedAt: null,
+       createdAt: new Date(), updatedAt: new Date(), ...overrides });
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -35,8 +37,9 @@ describe('DiscountProductTargetService', () => {
     it('should create a product target', async () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
-      repo.findOne.mockResolvedValueOnce(null)  // validateUniqueTarget
-               .mockResolvedValueOnce(null);    // validateProductHasNoActiveDiscount
+      repo.findOne
+        .mockResolvedValueOnce(null)  // validateUniqueTarget
+        .mockResolvedValueOnce(null); // validateProductHasNoActiveDiscount
       repo.create.mockReturnValue(target);
       repo.save.mockResolvedValue(target);
       expect((await service.create(1, { productId: 1 } as any)).productId).toBe(1);
@@ -47,9 +50,17 @@ describe('DiscountProductTargetService', () => {
       await expect(service.create(999, { productId: 1 } as any)).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ConflictException if target already exists', async () => {
+    it('should throw ConflictException if target already exists for this discount', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
-      repo.findOne.mockResolvedValue(mockTarget());
+      repo.findOne.mockResolvedValueOnce(mockTarget());
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw ConflictException if product already has another active discount', async () => {
+      discountRepo.findOne.mockResolvedValue(mockDiscount());
+      repo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockTarget());
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(ConflictException);
     });
   });
@@ -60,6 +71,11 @@ describe('DiscountProductTargetService', () => {
       repo.find.mockResolvedValue([mockTarget()]);
       expect(await service.findAll(1)).toHaveLength(1);
     });
+
+    it('should throw NotFoundException if discount not found', async () => {
+      discountRepo.findOne.mockResolvedValue(null);
+      await expect(service.findAll(999)).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('remove', () => {
@@ -67,15 +83,20 @@ describe('DiscountProductTargetService', () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValue(target);
-      repo.save.mockResolvedValue({ ...target, isDeleted: true });
+      repo.softDelete.mockResolvedValue(undefined);
       await service.remove(1, 1);
-      expect(repo.save).toHaveBeenCalledWith({ ...target, isDeleted: true });
+      expect(repo.softDelete).toHaveBeenCalledWith(target.id);
     });
 
     it('should throw NotFoundException if not found', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValue(null);
       await expect(service.remove(1, 999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if discount not found', async () => {
+      discountRepo.findOne.mockResolvedValue(null);
+      await expect(service.remove(999, 1)).rejects.toThrow(NotFoundException);
     });
   });
 });

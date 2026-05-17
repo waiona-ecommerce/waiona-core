@@ -9,7 +9,16 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { DiscountsService } from '../services/discounts.service';
 import { CreateDiscountDto } from '../dto/create-discount.dto';
@@ -22,6 +31,8 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
+@ApiTags('Discounts')
+@ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('discounts')
@@ -35,6 +46,9 @@ export class DiscountsController {
   // ==========================
 
   @Post()
+  @ApiOperation({ summary: 'Crear un descuento' })
+  @ApiResponse({ status: 201, type: DiscountResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   async create(
     @Body() dto: CreateDiscountDto,
   ): Promise<DiscountResponseDto> {
@@ -46,6 +60,8 @@ export class DiscountsController {
   // ==========================
 
   @Get()
+  @ApiOperation({ summary: 'Listar descuentos paginados' })
+  @ApiResponse({ status: 200, type: DiscountResponseDto, isArray: true })
   async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<DiscountResponseDto>> {
     return this.discountsService.findAll(page, limit);
   }
@@ -55,6 +71,10 @@ export class DiscountsController {
   // ==========================
 
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener descuento por ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, type: DiscountResponseDto })
+  @ApiResponse({ status: 404, description: 'No encontrado' })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<DiscountResponseDto> {
@@ -66,6 +86,11 @@ export class DiscountsController {
   // ==========================
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar descuento (parcial)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, type: DiscountResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'No encontrado' })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDiscountDto,
@@ -78,6 +103,11 @@ export class DiscountsController {
   // ==========================
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar descuento (soft delete)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 204, description: 'Eliminado' })
+  @ApiResponse({ status: 404, description: 'No encontrado' })
   async remove(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
