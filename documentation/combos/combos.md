@@ -377,3 +377,86 @@ calculation/              → motor de precio final
 shop/                     → endpoint público para el cliente
 orders/                   → combos dentro de pedidos
 ```
+
+---
+
+## Imágenes del combo (combo-images)
+
+Las imágenes se gestionan en el módulo `combo-images`, idéntico en estructura a `product-images`. Cada imagen tiene URL y posición; la de menor posición es la portada del combo en el shop.
+
+### Entidad
+
+```typescript
+class ComboImageEntity extends BaseEntity {
+  id: number;
+  comboId: number;          // FK → combos.id (RESTRICT on delete)
+  url: string;              // varchar(255)
+  position: number;         // int >= 1 — orden de visualización
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;   // soft delete
+}
+```
+
+Índice único compuesto: `(comboId, position)` — no pueden existir dos imágenes con la misma posición en el mismo combo.
+
+### DTOs de imágenes
+
+**Crear (`CreateComboImageDto`):**
+```typescript
+{
+  comboId: number;   // int >= 1, el combo debe existir
+  url: string;       // 5–255 chars, trimmed
+  position: number;  // int >= 1
+}
+```
+
+**Actualizar (`UpdateComboImageDto`):** `PartialType(CreateComboImageDto)` — todos los campos opcionales.
+
+**Response (`ComboImageResponseDto`):**
+```typescript
+{
+  id: number;
+  comboId: number;
+  url: string;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Endpoints de imágenes
+
+| Método | Ruta | Descripción | Auth |
+|---|---|---|---|
+| `POST` | `/combo-images` | Agrega una imagen al combo | ADMIN / SUPER_ADMIN |
+| `GET` | `/combo-images/combo/:comboId` | Lista todas las imágenes de un combo ordenadas por posición | ADMIN / SUPER_ADMIN |
+| `GET` | `/combo-images/:id` | Obtiene una imagen por ID | ADMIN / SUPER_ADMIN |
+| `PATCH` | `/combo-images/:id` | Actualiza URL o posición | ADMIN / SUPER_ADMIN |
+| `DELETE` | `/combo-images/:id` | Soft delete de la imagen | ADMIN / SUPER_ADMIN |
+
+**Errores posibles:**
+
+| Endpoint | Error | Motivo |
+|---|---|---|
+| POST | 400 | Datos inválidos |
+| POST | 404 | `comboId` no existe |
+| GET /:id | 404 | Imagen no encontrada |
+| PATCH | 404 | Imagen no encontrada |
+| DELETE | 404 | Imagen no encontrada |
+
+### Reglas de imágenes
+
+| Regla | Dónde se aplica |
+|---|---|
+| El combo debe existir antes de agregar imagen | `create()` → `NotFoundException` si el combo no existe |
+| No se puede borrar un combo que tiene imágenes activas | `onDelete: 'RESTRICT'` en la FK de la entidad |
+| El orden se controla con `position` | El shop toma la imagen de menor posición como portada |
+| Soft delete: las imágenes eliminadas no se muestran | TypeORM filtra `WHERE deleted_at IS NULL` |
+
+### Tests de imágenes
+
+```bash
+npx jest --testPathPattern="products/combo-images"
+npx jest --config test/jest-e2e.json --testPathPattern="combo-images.e2e"
+```

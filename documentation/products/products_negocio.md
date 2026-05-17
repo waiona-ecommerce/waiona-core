@@ -68,6 +68,19 @@ Solo los administradores y superadministradores pueden gestionar productos. Los 
 > **Eliminar un producto discontinuado:**
 > El admin elimina "Jugo Tang Naranja" que ya no se vende. El producto desaparece del catálogo y del shop, pero queda registrado internamente.
 
+## Imágenes del producto
+
+Cada producto puede tener varias imágenes cargadas. Las imágenes se ordenan por posición: la primera (posición más baja) es la que aparece como portada en el shop cuando el cliente navega el catálogo. Las demás se pueden ver en el detalle del producto.
+
+| Acción | Descripción |
+|---|---|
+| Agregar una imagen | El admin sube la URL de la imagen y le asigna una posición |
+| Ver las imágenes de un producto | Lista ordenada por posición |
+| Cambiar la posición de una imagen | El admin edita la imagen y cambia el número de posición |
+| Eliminar una imagen | La imagen desaparece del shop pero queda registrada internamente |
+
+**Regla importante:** no se puede eliminar un producto que todavía tiene imágenes activas. Primero hay que eliminar las imágenes.
+
 ## ¿Cómo se conecta con el resto del sistema?
 
-Los productos son el núcleo del catálogo. Al producto se le asigna un **precio base** desde el módulo de precios, **descuentos** desde el módulo de descuentos, e **impuestos** desde el módulo de impuestos. El módulo de **stock** controla cuántas unidades hay disponibles. Las **imágenes** del producto se gestionan desde un módulo propio. Finalmente, los productos aparecen en el **shop** donde los clientes los pueden ver y agregar a sus pedidos. También pueden formar parte de **combos**, que son paquetes de múltiples productos vendidos juntos a un precio especial.
+Los productos son el núcleo del catálogo. Al producto se le asigna un **precio base** desde el módulo de precios, **descuentos** desde el módulo de descuentos, e **impuestos** desde el módulo de impuestos. El módulo de **stock** controla cuántas unidades hay disponibles. Las **imágenes** del producto se cargan directamente sobre el producto y se muestran en el **shop**. Finalmente, los productos aparecen en el shop donde los clientes los pueden ver y agregar a sus pedidos. También pueden formar parte de **combos**, que son paquetes de múltiples productos vendidos juntos a un precio especial.
