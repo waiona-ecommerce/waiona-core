@@ -71,6 +71,19 @@ Solo los administradores y superadministradores pueden gestionar combos. Los cli
 > **Eliminar un combo descontinuado:**
 > El admin elimina "Combo Navidad 2025". El combo desaparece del catálogo y del shop, pero queda registrado internamente.
 
+## Imágenes del combo
+
+Cada combo puede tener varias imágenes cargadas. Las imágenes se ordenan por posición: la primera (posición más baja) es la que aparece como portada en el shop. Las demás se pueden ver en el detalle del combo.
+
+| Acción | Descripción |
+|---|---|
+| Agregar una imagen | El admin sube la URL de la imagen y le asigna una posición |
+| Ver las imágenes de un combo | Lista ordenada por posición |
+| Cambiar la posición de una imagen | El admin edita la imagen y cambia el número de posición |
+| Eliminar una imagen | La imagen desaparece del shop pero queda registrada internamente |
+
+**Regla importante:** no se puede eliminar un combo que todavía tiene imágenes activas. Primero hay que eliminar las imágenes.
+
 ## ¿Cómo se conecta con el resto del sistema?
 
-Los combos son una unidad de venta alternativa a los productos individuales. Se les asigna un **precio base** desde el módulo de precios, **descuentos** desde el módulo de descuentos, e **impuestos** específicos desde el módulo de impuestos de combos. Las **imágenes** del combo se gestionan desde un módulo propio. Finalmente, los combos aparecen en el **shop** donde los clientes los pueden ver y agregar a sus pedidos, igual que los productos individuales.
+Los combos son una unidad de venta alternativa a los productos individuales. Se les asigna un **precio base** desde el módulo de precios, **descuentos** desde el módulo de descuentos, e **impuestos** específicos desde el módulo de impuestos de combos. Las **imágenes** del combo se cargan directamente sobre el combo y se muestran en el **shop**. Finalmente, los combos aparecen en el shop donde los clientes los pueden ver y agregar a sus pedidos, igual que los productos individuales.
