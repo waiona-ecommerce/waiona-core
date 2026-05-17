@@ -1,6 +1,5 @@
 export enum DiscountStatus {
-    ACTIVE = 'active',
-    INACTIVE = 'inactive',
-    SCHEDULED = 'scheduled',
-    EXPIRED = 'expired',
-  }
+  ACTIVE = 'active',
+  SCHEDULED = 'scheduled',
+  EXPIRED = 'expired',
+}

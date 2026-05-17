@@ -9,11 +9,17 @@ describe('DiscountsService', () => {
   let service: DiscountsService;
   let repo: any;
 
-  const mockRepo = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockRepo = () => ({
+    findAndCount: jest.fn(),
+    findOne:      jest.fn(),
+    create:       jest.fn(),
+    save:         jest.fn(),
+    softDelete:   jest.fn(),
+  });
 
   const mockDiscount = (overrides = {}): DiscountEntity =>
     ({ id: 1, name: 'Promo 10%', description: 'Descuento de prueba', value: 10, isPercentage: true,
-       currency: null, startsAt: null, endsAt: null, isDeleted: false,
+       currency: null, startsAt: null, endsAt: null, deletedAt: null,
        createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as DiscountEntity;
 
   beforeEach(async () => {
@@ -62,14 +68,18 @@ describe('DiscountsService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all discounts', async () => {
-      repo.find.mockResolvedValue([mockDiscount()]);
-      expect(await service.findAll()).toHaveLength(1);
+    it('should return paginated discounts', async () => {
+      repo.findAndCount.mockResolvedValue([[mockDiscount()], 1]);
+      const result = await service.findAll(1, 20);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
 
-    it('should return empty array', async () => {
-      repo.find.mockResolvedValue([]);
-      expect(await service.findAll()).toEqual([]);
+    it('should return empty data when no discounts', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      const result = await service.findAll(1, 20);
+      expect(result.data).toHaveLength(0);
+      expect(result.total).toBe(0);
     });
   });
 
@@ -104,9 +114,9 @@ describe('DiscountsService', () => {
     it('should soft delete', async () => {
       const entity = mockDiscount();
       repo.findOne.mockResolvedValue(entity);
-      repo.save.mockResolvedValue({ ...entity, isDeleted: true });
+      repo.softDelete.mockResolvedValue(undefined);
       await service.remove(1);
-      expect(repo.save).toHaveBeenCalledWith({ ...entity, isDeleted: true });
+      expect(repo.softDelete).toHaveBeenCalledWith(entity.id);
     });
 
     it('should throw NotFoundException', async () => {

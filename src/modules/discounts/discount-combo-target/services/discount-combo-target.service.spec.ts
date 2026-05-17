@@ -10,12 +10,12 @@ describe('DiscountComboTargetService', () => {
   let repo: any;
   let discountRepo: any;
 
-  const mockRepo         = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockRepo         = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), softDelete: jest.fn() });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
-  const mockDiscount = () => ({ id: 1, name: 'Promo', isDeleted: false });
+  const mockDiscount = () => ({ id: 1, name: 'Promo', deletedAt: null });
   const mockTarget   = (overrides = {}): DiscountComboTargetEntity =>
-    ({ id: 1, discountId: 1, comboId: 1, isDeleted: false,
+    ({ id: 1, discountId: 1, comboId: 1, deletedAt: null,
        createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as DiscountComboTargetEntity;
 
   beforeEach(async () => {
@@ -84,9 +84,9 @@ describe('DiscountComboTargetService', () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValue(target);
-      repo.save.mockResolvedValue({ ...target, isDeleted: true });
+      repo.softDelete.mockResolvedValue(undefined);
       await service.remove(1, 1);
-      expect(repo.save).toHaveBeenCalledWith({ ...target, isDeleted: true });
+      expect(repo.softDelete).toHaveBeenCalledWith(target.id);
     });
 
     it('should throw NotFoundException if target not found', async () => {

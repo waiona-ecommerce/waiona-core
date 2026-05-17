@@ -1,22 +1,41 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 import { DiscountEntity } from '../entities/discounts.entity';
 import { DiscountStatus } from '../enums/discount-status.enum';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class DiscountResponseDto {
+  @ApiProperty({ example: 1 })
   id: number;
+
+  @ApiProperty({ example: 'Black Friday' })
   name: string;
+
+  @ApiPropertyOptional({ example: 'Descuento de temporada' })
   description?: string;
 
+  @ApiProperty({ enum: DiscountStatus, example: DiscountStatus.ACTIVE })
   status: DiscountStatus;
 
+  @ApiProperty({ example: 10 })
   value: number;
+
+  @ApiProperty({ example: true })
   isPercentage: boolean;
+
+  @ApiPropertyOptional({ enum: CurrencyCode, example: CurrencyCode.ARS })
   currency?: CurrencyCode;
 
+  @ApiPropertyOptional({ example: '2025-11-01T00:00:00.000Z' })
   startsAt?: Date;
+
+  @ApiPropertyOptional({ example: '2025-11-30T23:59:59.000Z' })
   endsAt?: Date;
 
+  @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty()
   updatedAt: Date;
 
   constructor(entity: DiscountEntity) {
@@ -34,7 +53,6 @@ export class DiscountResponseDto {
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;
 
-    // Se calcula al final, después de asignar todo
     this.status = this.calculateStatus(entity);
   }
 
@@ -42,13 +60,10 @@ export class DiscountResponseDto {
     const now = new Date();
     const { startsAt, endsAt } = entity;
 
-    // Guarda contra dato corrupto (endsAt anterior a startsAt)
     if (startsAt && endsAt && endsAt < startsAt) {
-      // Dato inconsistente: se reporta como inactivo para no exponer basura
       return DiscountStatus.EXPIRED;
     }
 
-    // Orden correcto: primero expirado, luego programado, luego activo
     if (endsAt && now > endsAt) {
       return DiscountStatus.EXPIRED;
     }
