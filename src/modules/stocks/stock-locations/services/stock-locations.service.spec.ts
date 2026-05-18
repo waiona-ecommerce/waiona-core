@@ -1,22 +1,33 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
-import { StockLocationsService } from '../../../stocks/stock-locations/services/stock-locations.service';
-import { StockLocationEntity } from '../../../stocks/stock-locations/entities/stock-locations.entity';
-import { StockLocationType } from '../../../stocks/stock-locations/enums/stock-location-type.enum';
+
+import { StockLocationsService } from './stock-locations.service';
+import { StockLocationEntity } from '../entities/stock-locations.entity';
+import { StockLocationType } from '../enums/stock-location-type.enum';
 
 describe('StockLocationsService', () => {
   let service: StockLocationsService;
   let repo: any;
 
-  const mockRepo = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn() });
+  const mockRepo = () => ({
+    findAndCount: jest.fn(),
+    findOne:      jest.fn(),
+    create:       jest.fn(),
+    save:         jest.fn(),
+    softDelete:   jest.fn(),
+  });
 
   const mockLocation = (overrides = {}): StockLocationEntity =>
-    ({ id: 1, name: 'Depósito Central', type: StockLocationType.WAREHOUSE,
-       address: null, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as StockLocationEntity;
+    ({
+      id: 1, name: 'Depósito Central', type: StockLocationType.WAREHOUSE,
+      address: null, deletedAt: null,
+      createdAt: new Date(), updatedAt: new Date(),
+      ...overrides,
+    }) as unknown as StockLocationEntity;
 
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       providers: [
         StockLocationsService,
         { provide: getRepositoryToken(StockLocationEntity), useFactory: mockRepo },
@@ -28,65 +39,90 @@ describe('StockLocationsService', () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  // ==========================
+  // create
+  // ==========================
+
   describe('create', () => {
-    it('should create a location', async () => {
+    it('creates a location', async () => {
       const loc = mockLocation();
       repo.create.mockReturnValue(loc);
       repo.save.mockResolvedValue(loc);
-      expect((await service.create({ name: 'Depósito Central', type: StockLocationType.WAREHOUSE } as any)).name).toBe('Depósito Central');
+      const result = await service.create({ name: 'Depósito Central', type: StockLocationType.WAREHOUSE });
+      expect(result.name).toBe('Depósito Central');
     });
   });
+
+  // ==========================
+  // findAll
+  // ==========================
 
   describe('findAll', () => {
-    it('should return all locations', async () => {
-      repo.find.mockResolvedValue([mockLocation()]);
-      expect(await service.findAll()).toHaveLength(1);
-    });
-
-    it('should return empty array', async () => {
-      repo.find.mockResolvedValue([]);
-      expect(await service.findAll()).toEqual([]);
+    it('returns paginated locations', async () => {
+      repo.findAndCount.mockResolvedValue([[mockLocation()], 1]);
+      const result = await service.findAll();
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
   });
 
+  // ==========================
+  // findOne
+  // ==========================
+
   describe('findOne', () => {
-    it('should return a location', async () => {
+    it('returns a location', async () => {
       repo.findOne.mockResolvedValue(mockLocation());
-      expect((await service.findOne(1)).id).toBe(1);
+      const result = await service.findOne(1);
+      expect(result.id).toBe(1);
     });
 
-    it('should throw NotFoundException', async () => {
+    it('throws NotFoundException when not found', async () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
   });
 
+  // ==========================
+  // update
+  // ==========================
+
   describe('update', () => {
-    it('should update a location', async () => {
-      const loc     = mockLocation();
-      const updated = mockLocation({ name: 'Actualizado' });
+    it('updates a location', async () => {
+      const loc = mockLocation();
       repo.findOne.mockResolvedValue(loc);
-      repo.merge.mockReturnValue(updated);
-      repo.save.mockResolvedValue(updated);
-      expect((await service.update(1, { name: 'Actualizado' } as any)).name).toBe('Actualizado');
+      repo.save.mockResolvedValue(mockLocation({ name: 'Actualizado' }));
+      const result = await service.update(1, { name: 'Actualizado' });
+      expect(result.name).toBe('Actualizado');
     });
 
-    it('should throw NotFoundException', async () => {
+    it('clears address when explicitly set to null', async () => {
+      const loc = mockLocation({ address: 'Calle 123' });
+      repo.findOne.mockResolvedValue(loc);
+      repo.save.mockResolvedValue(mockLocation({ address: null }));
+      const result = await service.update(1, { address: null });
+      expect(result.address).toBeUndefined();
+    });
+
+    it('throws NotFoundException when not found', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {})).rejects.toThrow(NotFoundException);
     });
   });
 
+  // ==========================
+  // remove
+  // ==========================
+
   describe('remove', () => {
-    it('should soft delete', async () => {
-      const loc = mockLocation();
-      repo.findOne.mockResolvedValue(loc);
-      repo.save.mockResolvedValue({ ...loc, isDeleted: true });
+    it('soft deletes a location', async () => {
+      repo.findOne.mockResolvedValue(mockLocation());
+      repo.softDelete.mockResolvedValue(undefined);
       await service.remove(1);
-      expect(repo.save).toHaveBeenCalledWith({ ...loc, isDeleted: true });
+      expect(repo.softDelete).toHaveBeenCalledWith(1);
     });
 
-    it('should throw NotFoundException', async () => {
+    it('throws NotFoundException when not found', async () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });

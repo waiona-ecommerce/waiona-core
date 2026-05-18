@@ -9,14 +9,15 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 
 import { StockItemsService } from '../services/stock-item.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 import { CreateStockItemDto } from '../dto/create-stock-item.dto';
 import { UpdateStockThresholdsDto } from '../dto/update-stock-thresholds.dto';
-import { StockItemAddStockDto } from '../dto/stock-item-add-stock.dto'; // 🔥
-import { StockItemWriteOffDto } from '../dto/stock-item-write-off.dto'; // 🔥
+import { StockItemAddStockDto } from '../dto/stock-item-add-stock.dto';
+import { StockItemWriteOffDto } from '../dto/stock-item-write-off.dto';
 
 import { StockItemResponseDto } from '../dto/stock-item-response.dto';
 import { StockItemWithMovementsResponseDto } from '../dto/stock-item-with-movements-response.dto';
@@ -30,6 +31,8 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 
+@ApiTags('Stock Items')
+@ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('stock-items')
@@ -39,11 +42,17 @@ export class StockItemsController {
     private readonly stockItemsService: StockItemsService,
   ) {}
 
+  @ApiOperation({ summary: 'List all stock items (paginated)' })
+  @ApiResponse({ status: 200, description: 'Paginated list of stock items' })
   @Get()
   async findAll(@Query() { page, limit }: PaginationQueryDto) {
     return this.stockItemsService.findAll(page, limit);
   }
 
+  @ApiOperation({ summary: 'Get a stock item with its movement history' })
+  @ApiResponse({ status: 200, type: StockItemWithMovementsResponseDto })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  @ApiParam({ name: 'id', type: Number })
   @Get(':id')
   async findById(
     @Param('id', ParseIntPipe) id: number,
@@ -51,6 +60,10 @@ export class StockItemsController {
     return this.stockItemsService.findById(id);
   }
 
+  @ApiOperation({ summary: 'Create a stock item for a product + location' })
+  @ApiResponse({ status: 201, type: StockItemResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid thresholds' })
+  @ApiResponse({ status: 409, description: 'Stock item already exists for this product and location' })
   @Post()
   async create(
     @Body() dto: CreateStockItemDto,
@@ -58,9 +71,13 @@ export class StockItemsController {
     return this.stockItemsService.create(dto);
   }
 
+  @ApiOperation({ summary: 'Add stock to a product at a location' })
+  @ApiResponse({ status: 201, type: StockItemWithMovementsResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid quantity' })
+  @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('add-stock')
   async addStock(
-    @Body() dto: StockItemAddStockDto, // 🔥
+    @Body() dto: StockItemAddStockDto,
   ): Promise<StockItemWithMovementsResponseDto> {
     return this.stockItemsService.addStock(
       dto.productId,
@@ -69,9 +86,13 @@ export class StockItemsController {
     );
   }
 
+  @ApiOperation({ summary: 'Write off available stock (manual adjustment)' })
+  @ApiResponse({ status: 201, type: StockItemWithMovementsResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid quantity or insufficient stock' })
+  @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('write-off')
   async writeOff(
-    @Body() dto: StockItemWriteOffDto, // 🔥
+    @Body() dto: StockItemWriteOffDto,
   ): Promise<StockItemWithMovementsResponseDto> {
     return this.stockItemsService.writeOff(
       dto.stockItemId,
@@ -79,6 +100,10 @@ export class StockItemsController {
     );
   }
 
+  @ApiOperation({ summary: 'Write off damaged stock and create a write-off record' })
+  @ApiResponse({ status: 201, type: StockItemWithMovementsResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid quantity or insufficient stock' })
+  @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('write-off-damage')
   async writeOffDamage(
     @Body() dto: CreateStockWriteOffDto,
@@ -86,6 +111,10 @@ export class StockItemsController {
     return this.stockItemsService.writeOffDamage(dto);
   }
 
+  @ApiOperation({ summary: 'Dispatch reserved stock for an order' })
+  @ApiResponse({ status: 201, description: 'Stock dispatched' })
+  @ApiResponse({ status: 400, description: 'Insufficient reserved or current stock' })
+  @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('dispatch')
   async dispatchStock(
     @Body() dto: StockDispatchDto,
@@ -98,6 +127,10 @@ export class StockItemsController {
     );
   }
 
+  @ApiOperation({ summary: 'Release a stock reservation for a cancelled order' })
+  @ApiResponse({ status: 201, description: 'Reservation released' })
+  @ApiResponse({ status: 400, description: 'Insufficient reserved stock' })
+  @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('release')
   async releaseReservation(
     @Body() dto: StockReleaseDto,
@@ -110,6 +143,11 @@ export class StockItemsController {
     );
   }
 
+  @ApiOperation({ summary: 'Update stock alert thresholds' })
+  @ApiResponse({ status: 200, type: StockItemResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid threshold values' })
+  @ApiResponse({ status: 404, description: 'Stock item not found' })
+  @ApiParam({ name: 'id', type: Number })
   @Patch(':id/thresholds')
   async updateThresholds(
     @Param('id', ParseIntPipe) id: number,

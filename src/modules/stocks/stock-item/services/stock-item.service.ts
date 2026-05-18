@@ -146,7 +146,6 @@ export class StockItemsService {
       where: {
         productId: dto.productId,
         locationId: dto.locationId,
-        
       },
     });
 
@@ -386,42 +385,44 @@ export class StockItemsService {
     orderId: number,
     manager?: EntityManager,
   ): Promise<void> {
-    const stockRepo    = manager?.getRepository(StockItemEntity)     ?? this.stockItemRepository;
-    const movementRepo = manager?.getRepository(StockMovementEntity) ?? this.stockMovementRepository;
+    const execute = async (mgr: EntityManager): Promise<void> => {
+      const stockRepo    = mgr.getRepository(StockItemEntity);
+      const movementRepo = mgr.getRepository(StockMovementEntity);
 
-    const stockItem = await stockRepo.findOne({
-      where: { productId, locationId },
-      lock: manager ? { mode: 'pessimistic_write' } : undefined,
-    });
+      const stockItem = await stockRepo.findOne({
+        where: { productId, locationId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
+      if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
 
-    if (stockItem.quantityReserved < quantity) {
-      throw new BadRequestException(
-        `Cannot dispatch ${quantity} units — only ${stockItem.quantityReserved} reserved for product ${productId}`,
-      );
-    }
+      if (stockItem.quantityReserved < quantity) {
+        throw new BadRequestException(
+          `Cannot dispatch ${quantity} units — only ${stockItem.quantityReserved} reserved for product ${productId}`,
+        );
+      }
 
-    if (stockItem.quantityCurrent < quantity) {
-      throw new BadRequestException(
-        `Cannot dispatch ${quantity} units — only ${stockItem.quantityCurrent} in stock for product ${productId}`,
-      );
-    }
+      if (stockItem.quantityCurrent < quantity) {
+        throw new BadRequestException(
+          `Cannot dispatch ${quantity} units — only ${stockItem.quantityCurrent} in stock for product ${productId}`,
+        );
+      }
 
-    stockItem.quantityCurrent -= quantity;
-    stockItem.quantityReserved -= quantity;
-    await stockRepo.save(stockItem);
+      stockItem.quantityCurrent -= quantity;
+      stockItem.quantityReserved -= quantity;
+      await stockRepo.save(stockItem);
 
-    const movement = movementRepo.create({
-      stockItemId: stockItem.id,
-      operationType: StockOperationType.EXIT,
-      stockFlow: StockFlow.OUTBOUND,
-      quantity,
-      referenceType: StockReferenceType.ORDER,
-      referenceId: orderId,
-    });
+      await movementRepo.save(movementRepo.create({
+        stockItemId: stockItem.id,
+        operationType: StockOperationType.EXIT,
+        stockFlow: StockFlow.OUTBOUND,
+        quantity,
+        referenceType: StockReferenceType.ORDER,
+        referenceId: orderId,
+      }));
+    };
 
-    await movementRepo.save(movement);
+    manager ? await execute(manager) : await this.dataSource.transaction(execute);
   }
 
   // ==========================
@@ -435,35 +436,37 @@ export class StockItemsService {
     orderId: number,
     manager?: EntityManager,
   ): Promise<void> {
-    const stockRepo    = manager?.getRepository(StockItemEntity)     ?? this.stockItemRepository;
-    const movementRepo = manager?.getRepository(StockMovementEntity) ?? this.stockMovementRepository;
+    const execute = async (mgr: EntityManager): Promise<void> => {
+      const stockRepo    = mgr.getRepository(StockItemEntity);
+      const movementRepo = mgr.getRepository(StockMovementEntity);
 
-    const stockItem = await stockRepo.findOne({
-      where: { productId, locationId },
-      lock: manager ? { mode: 'pessimistic_write' } : undefined,
-    });
+      const stockItem = await stockRepo.findOne({
+        where: { productId, locationId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
+      if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
 
-    if (stockItem.quantityReserved < quantity) {
-      throw new BadRequestException(
-        `Cannot release ${quantity} units — only ${stockItem.quantityReserved} reserved for product ${productId}`,
-      );
-    }
+      if (stockItem.quantityReserved < quantity) {
+        throw new BadRequestException(
+          `Cannot release ${quantity} units — only ${stockItem.quantityReserved} reserved for product ${productId}`,
+        );
+      }
 
-    stockItem.quantityReserved -= quantity;
-    await stockRepo.save(stockItem);
+      stockItem.quantityReserved -= quantity;
+      await stockRepo.save(stockItem);
 
-    const movement = movementRepo.create({
-      stockItemId: stockItem.id,
-      operationType: StockOperationType.RETURN,
-      stockFlow: StockFlow.INBOUND,
-      quantity,
-      referenceType: StockReferenceType.ORDER,
-      referenceId: orderId,
-    });
+      await movementRepo.save(movementRepo.create({
+        stockItemId: stockItem.id,
+        operationType: StockOperationType.RETURN,
+        stockFlow: StockFlow.INBOUND,
+        quantity,
+        referenceType: StockReferenceType.ORDER,
+        referenceId: orderId,
+      }));
+    };
 
-    await movementRepo.save(movement);
+    manager ? await execute(manager) : await this.dataSource.transaction(execute);
   }
 
   // ==========================

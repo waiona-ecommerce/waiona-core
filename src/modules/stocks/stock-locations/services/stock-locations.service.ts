@@ -63,10 +63,11 @@ export class StockLocationsService {
   ): Promise<StockLocationResponseDto> {
     const location = await this.findEntity(id);
 
-    // 🔥 asignación campo a campo — sin merge ni spread
     location.name = dto.name ?? location.name;
     location.type = dto.type ?? location.type;
-    location.address = dto.address ?? location.address;
+    if (dto.address !== undefined) {
+      location.address = dto.address ?? null;
+    }
 
     const updated = await this.stockLocationRepository.save(location);
 

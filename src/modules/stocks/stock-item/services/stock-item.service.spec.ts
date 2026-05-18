@@ -1,188 +1,377 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { StockItemsService } from '../../../stocks/stock-item/services/stock-item.service';
-import { StockItemEntity } from '../../../stocks/stock-item/entities/stock-item.entity';
-import { StockMovementEntity } from '../../../stocks/stock-movement/entities/stock-movement.entity';
-import { StockWriteOffEntity } from '../../../stocks/stock-writeoff/entities/stock-writeoff.entity';
+import { DataSource } from 'typeorm';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+
+import { StockItemsService } from './stock-item.service';
+import { StockItemEntity } from '../entities/stock-item.entity';
+import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
+import { StockWriteOffEntity } from '../../stock-writeoff/entities/stock-writeoff.entity';
 import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
+import { StockWriteOffReason } from '../../stock-writeoff/enums/stock-writeoff-reason.enum';
 
 describe('StockItemsService', () => {
   let service: StockItemsService;
   let stockRepo: any;
-  let movementRepo: any;
-  let writeOffRepo: any;
   let comboItemRepo: any;
-
-  const mockStockRepo    = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
-  const mockMovementRepo = () => ({ create: jest.fn(), save: jest.fn() });
-  const mockWriteOffRepo = () => ({ create: jest.fn(), save: jest.fn() });
-  const mockComboRepo    = () => ({ find: jest.fn() });
+  let managerStockRepo: any;
+  let managerMovementRepo: any;
+  let mockManager: any;
+  let mockDataSource: any;
 
   const mockStockItem = (overrides = {}): StockItemEntity =>
-    ({ id: 1, productId: 1, locationId: 1, quantityCurrent: 20, quantityReserved: 5,
-       stockMin: 5, stockCritical: 2, stockMax: 100, isDeleted: false,
-       get quantityAvailable() { return this.quantityCurrent - this.quantityReserved; },
-       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as StockItemEntity;
+    ({
+      id: 1, productId: 1, locationId: 1,
+      quantityCurrent: 20, quantityReserved: 5,
+      stockMin: 5, stockCritical: 2, stockMax: 100,
+      deletedAt: null, movements: [],
+      createdAt: new Date(), updatedAt: new Date(),
+      get quantityAvailable() { return this.quantityCurrent - this.quantityReserved; },
+      ...overrides,
+    }) as unknown as StockItemEntity;
 
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
+    managerStockRepo    = { findOne: jest.fn(), save: jest.fn(), create: jest.fn() };
+    managerMovementRepo = { findOne: jest.fn(), save: jest.fn(), create: jest.fn() };
+
+    mockManager = {
+      findOne: jest.fn(),
+      save:    jest.fn(),
+      create:  jest.fn(),
+      getRepository: jest.fn().mockImplementation((Entity: any) =>
+        Entity === StockItemEntity ? managerStockRepo : managerMovementRepo,
+      ),
+    };
+
+    mockDataSource = {
+      transaction: jest.fn().mockImplementation((fn: any) => fn(mockManager)),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
       providers: [
         StockItemsService,
-        { provide: getRepositoryToken(StockItemEntity),    useFactory: mockStockRepo    },
-        { provide: getRepositoryToken(StockMovementEntity), useFactory: mockMovementRepo },
-        { provide: getRepositoryToken(StockWriteOffEntity), useFactory: mockWriteOffRepo },
-        { provide: getRepositoryToken(ComboItemEntity),    useFactory: mockComboRepo    },
+        {
+          provide: getRepositoryToken(StockItemEntity),
+          useValue: { findAndCount: jest.fn(), find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(StockMovementEntity),
+          useValue: { create: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(StockWriteOffEntity),
+          useValue: { create: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useValue: { find: jest.fn() },
+        },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
-    service      = module.get<StockItemsService>(StockItemsService);
-    stockRepo    = module.get(getRepositoryToken(StockItemEntity));
-    movementRepo = module.get(getRepositoryToken(StockMovementEntity));
-    writeOffRepo = module.get(getRepositoryToken(StockWriteOffEntity));
+    service       = module.get<StockItemsService>(StockItemsService);
+    stockRepo     = module.get(getRepositoryToken(StockItemEntity));
     comboItemRepo = module.get(getRepositoryToken(ComboItemEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
 
+  // ==========================
+  // findAll
+  // ==========================
+
   describe('findAll', () => {
-    it('should return all stock items', async () => {
-      stockRepo.find.mockResolvedValue([mockStockItem()]);
-      expect(await service.findAll()).toHaveLength(1);
+    it('returns paginated stock items', async () => {
+      stockRepo.findAndCount.mockResolvedValue([[mockStockItem()], 1]);
+      const result = await service.findAll();
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
   });
 
+  // ==========================
+  // findById
+  // ==========================
+
   describe('findById', () => {
-    it('should return stock item with movements', async () => {
+    it('returns stock item with movements', async () => {
       stockRepo.findOne.mockResolvedValue(mockStockItem());
-      expect((await service.findById(1)).id).toBe(1);
+      const result = await service.findById(1);
+      expect(result.id).toBe(1);
     });
 
-    it('should throw NotFoundException', async () => {
+    it('throws NotFoundException when not found', async () => {
       stockRepo.findOne.mockResolvedValue(null);
       await expect(service.findById(999)).rejects.toThrow(NotFoundException);
     });
   });
 
+  // ==========================
+  // findByProduct
+  // ==========================
+
   describe('findByProduct', () => {
-    it('should return stock item with highest availability', async () => {
-      stockRepo.find.mockResolvedValue([mockStockItem(), mockStockItem({ id: 2, quantityCurrent: 50, quantityReserved: 2 })]);
+    it('returns stock item with highest availability', async () => {
+      stockRepo.find.mockResolvedValue([
+        mockStockItem({ id: 1, quantityCurrent: 10, quantityReserved: 5 }),   // available = 5
+        mockStockItem({ id: 2, quantityCurrent: 50, quantityReserved: 2 }),   // available = 48
+      ]);
       const result = await service.findByProduct(1);
-      expect(result.quantityAvailable).toBe(48); // 50-2
+      expect(result.quantityAvailable).toBe(48);
     });
 
-    it('should throw NotFoundException if no stock', async () => {
+    it('throws NotFoundException when no stock found', async () => {
       stockRepo.find.mockResolvedValue([]);
       await expect(service.findByProduct(999)).rejects.toThrow(NotFoundException);
     });
   });
 
+  // ==========================
+  // findByCombo
+  // ==========================
+
   describe('findByCombo', () => {
-    it('should calculate min available combos', async () => {
+    it('calculates min available combos across products', async () => {
       comboItemRepo.find.mockResolvedValue([
-        { productId: 1, quantity: 3 },
-        { productId: 2, quantity: 1 },
+        { productId: 1, quantity: 3 },  // 9 / 3 = 3
+        { productId: 2, quantity: 1 },  // 10 / 1 = 10
       ]);
       stockRepo.find
-        .mockResolvedValueOnce([mockStockItem({ quantityCurrent: 9, quantityReserved: 0 })])  // prod 1: 9/3 = 3
-        .mockResolvedValueOnce([mockStockItem({ quantityCurrent: 10, quantityReserved: 0 })]); // prod 2: 10/1 = 10
+        .mockResolvedValueOnce([mockStockItem({ quantityCurrent: 9, quantityReserved: 0 })])
+        .mockResolvedValueOnce([mockStockItem({ quantityCurrent: 10, quantityReserved: 0 })]);
       const result = await service.findByCombo(1);
       expect(result.quantityAvailable).toBe(3);
       expect(result.inStock).toBe(true);
     });
 
-    it('should return inStock: false if no combo items', async () => {
+    it('returns inStock: false when no combo items', async () => {
       comboItemRepo.find.mockResolvedValue([]);
       const result = await service.findByCombo(1);
       expect(result.inStock).toBe(false);
+      expect(result.quantityAvailable).toBe(0);
     });
   });
+
+  // ==========================
+  // create
+  // ==========================
+
+  describe('create', () => {
+    const dto = { productId: 1, locationId: 1, stockMin: 5, stockCritical: 2, stockMax: 100 };
+
+    it('creates a new stock item', async () => {
+      stockRepo.findOne.mockResolvedValue(null);
+      const item = mockStockItem();
+      stockRepo.create.mockReturnValue(item);
+      stockRepo.save.mockResolvedValue(item);
+      const result = await service.create(dto);
+      expect(result.id).toBe(1);
+    });
+
+    it('throws ConflictException when already exists', async () => {
+      stockRepo.findOne.mockResolvedValue(mockStockItem());
+      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('throws BadRequestException when stockCritical >= stockMin', async () => {
+      stockRepo.findOne.mockResolvedValue(null);
+      await expect(service.create({ ...dto, stockCritical: 5, stockMin: 5 })).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ==========================
+  // addStock
+  // ==========================
 
   describe('addStock', () => {
-    it('should add stock and create movement', async () => {
+    it('adds stock and creates movement', async () => {
       const item = mockStockItem();
-      stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockResolvedValue({ ...item, quantityCurrent: 30 });
-      movementRepo.create.mockReturnValue({});
-      movementRepo.save.mockResolvedValue({});
-      await service.addStock({ stockItemId: 1, quantity: 10 } as any);
-      expect(stockRepo.save).toHaveBeenCalled();
+      mockManager.findOne.mockResolvedValue(item);
+      mockManager.save.mockResolvedValue(item);
+      mockManager.create.mockReturnValue({});
+      stockRepo.findOne.mockResolvedValue(mockStockItem());
+
+      await service.addStock(1, 1, 10);
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockManager.save).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException', async () => {
-      stockRepo.findOne.mockResolvedValue(null);
-      await expect(service.addStock({ stockItemId: 999, quantity: 10 } as any)).rejects.toThrow(NotFoundException);
+    it('throws BadRequestException for quantity <= 0', async () => {
+      await expect(service.addStock(1, 1, 0)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when stock item not found', async () => {
+      mockManager.findOne.mockResolvedValue(null);
+      await expect(service.addStock(1, 1, 10)).rejects.toThrow(NotFoundException);
     });
   });
+
+  // ==========================
+  // writeOff
+  // ==========================
 
   describe('writeOff', () => {
-    it('should throw BadRequestException if insufficient available stock', async () => {
-      stockRepo.findOne.mockResolvedValue(mockStockItem({ quantityCurrent: 20, quantityReserved: 18 }));
-      // quantityAvailable = 2, trying to write off 5
-      await expect(service.writeOff({ stockItemId: 1, quantity: 5 } as any)).rejects.toThrow(BadRequestException);
+    it('writes off available stock and creates movement', async () => {
+      const item = mockStockItem(); // available = 15
+      mockManager.findOne.mockResolvedValue(item);
+      mockManager.save.mockResolvedValue(item);
+      mockManager.create.mockReturnValue({});
+      stockRepo.findOne.mockResolvedValue(mockStockItem());
+
+      await service.writeOff(1, 5);
+      expect(mockManager.save).toHaveBeenCalled();
     });
 
-    it('should write off and create movement', async () => {
-      const item = mockStockItem();
-      stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockResolvedValue({ ...item, quantityCurrent: 15 });
-      movementRepo.create.mockReturnValue({});
-      movementRepo.save.mockResolvedValue({});
-      writeOffRepo.create.mockReturnValue({});
-      writeOffRepo.save.mockResolvedValue({});
-      await service.writeOff({ stockItemId: 1, quantity: 5 } as any);
-      expect(stockRepo.save).toHaveBeenCalled();
+    it('throws BadRequestException for quantity <= 0', async () => {
+      await expect(service.writeOff(1, 0)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when available stock is insufficient', async () => {
+      mockManager.findOne.mockResolvedValue(mockStockItem({ quantityCurrent: 20, quantityReserved: 18 })); // available = 2
+      await expect(service.writeOff(1, 5)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when stock item not found', async () => {
+      mockManager.findOne.mockResolvedValue(null);
+      await expect(service.writeOff(999, 5)).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('reserveStock', () => {
-    it('should reserve stock', async () => {
+  // ==========================
+  // writeOffDamage
+  // ==========================
+
+  describe('writeOffDamage', () => {
+    const dto = {
+      stockItemId: 1, quantity: 3,
+      reason: StockWriteOffReason.DAMAGED,
+      description: 'broken glass', attachments: null,
+      reportedBy: 99,
+    };
+
+    it('creates damage write-off with movement record', async () => {
+      const item = mockStockItem(); // available = 15
+      mockManager.findOne.mockResolvedValue(item);
+      mockManager.save.mockResolvedValue({});
+      mockManager.create.mockReturnValue({});
+      stockRepo.findOne.mockResolvedValue(mockStockItem());
+
+      await service.writeOffDamage(dto as any);
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for quantity <= 0', async () => {
+      await expect(service.writeOffDamage({ ...dto, quantity: 0 } as any)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when available stock is insufficient', async () => {
+      mockManager.findOne.mockResolvedValue(mockStockItem({ quantityCurrent: 2, quantityReserved: 0 })); // available = 2
+      await expect(service.writeOffDamage({ ...dto, quantity: 5 } as any)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ==========================
+  // updateThresholds
+  // ==========================
+
+  describe('updateThresholds', () => {
+    it('updates stock thresholds', async () => {
       const item = mockStockItem();
       stockRepo.findOne.mockResolvedValue(item);
+      stockRepo.save.mockResolvedValue(mockStockItem({ stockMin: 10, stockCritical: 3, stockMax: 200 }));
+      const result = await service.updateThresholds(1, { stockMin: 10, stockCritical: 3, stockMax: 200 });
+      expect(stockRepo.save).toHaveBeenCalled();
+      expect(result.id).toBe(1);
+    });
+
+    it('throws BadRequestException when stockCritical >= stockMin', async () => {
+      stockRepo.findOne.mockResolvedValue(mockStockItem());
+      await expect(service.updateThresholds(1, { stockMin: 5, stockCritical: 5 })).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when not found', async () => {
+      stockRepo.findOne.mockResolvedValue(null);
+      await expect(service.updateThresholds(999, { stockMin: 5, stockCritical: 2 })).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ==========================
+  // reserveStock
+  // ==========================
+
+  describe('reserveStock', () => {
+    it('reserves stock', async () => {
+      const item = mockStockItem(); // available = 15
+      stockRepo.findOne.mockResolvedValue(item);
       stockRepo.save.mockResolvedValue({ ...item, quantityReserved: 8 });
-      movementRepo.create.mockReturnValue({});
-      movementRepo.save.mockResolvedValue({});
       await service.reserveStock(1, 1, 3);
       expect(stockRepo.save).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if insufficient available stock', async () => {
-      stockRepo.findOne.mockResolvedValue(mockStockItem({ quantityCurrent: 5, quantityReserved: 4 }));
+    it('throws BadRequestException when available stock is insufficient', async () => {
+      stockRepo.findOne.mockResolvedValue(mockStockItem({ quantityCurrent: 5, quantityReserved: 4 })); // available = 1
       await expect(service.reserveStock(1, 1, 3)).rejects.toThrow(BadRequestException);
     });
+
+    it('throws NotFoundException when stock item not found', async () => {
+      stockRepo.findOne.mockResolvedValue(null);
+      await expect(service.reserveStock(1, 1, 3)).rejects.toThrow(NotFoundException);
+    });
   });
+
+  // ==========================
+  // dispatchStock
+  // ==========================
 
   describe('dispatchStock', () => {
-    it('should dispatch stock', async () => {
-      const item = mockStockItem();
-      stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockResolvedValue(item);
-      movementRepo.create.mockReturnValue({});
-      movementRepo.save.mockResolvedValue({});
-      await service.dispatchStock(1, 1, 3, 1);
-      expect(stockRepo.save).toHaveBeenCalled();
+    it('dispatches stock and creates movement', async () => {
+      const item = mockStockItem({ quantityReserved: 10, quantityCurrent: 20 });
+      managerStockRepo.findOne.mockResolvedValue(item);
+      managerStockRepo.save.mockResolvedValue(item);
+      managerMovementRepo.create.mockReturnValue({});
+      managerMovementRepo.save.mockResolvedValue({});
+
+      await service.dispatchStock(1, 1, 5, 10);
+      expect(managerStockRepo.save).toHaveBeenCalled();
+      expect(managerMovementRepo.save).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if quantityReserved < quantity', async () => {
-      stockRepo.findOne.mockResolvedValue(mockStockItem({ quantityReserved: 2 }));
-      await expect(service.dispatchStock(1, 1, 5, 1)).rejects.toThrow(BadRequestException);
+    it('throws BadRequestException when reserved < quantity', async () => {
+      managerStockRepo.findOne.mockResolvedValue(mockStockItem({ quantityReserved: 2, quantityCurrent: 20 }));
+      await expect(service.dispatchStock(1, 1, 5, 10)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when stock item not found', async () => {
+      managerStockRepo.findOne.mockResolvedValue(null);
+      await expect(service.dispatchStock(1, 1, 5, 10)).rejects.toThrow(NotFoundException);
     });
   });
 
+  // ==========================
+  // releaseReservation
+  // ==========================
+
   describe('releaseReservation', () => {
-    it('should release reservation', async () => {
-      const item = mockStockItem();
-      stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockResolvedValue(item);
-      movementRepo.create.mockReturnValue({});
-      movementRepo.save.mockResolvedValue({});
-      await service.releaseReservation(1, 1, 3, 1);
-      expect(stockRepo.save).toHaveBeenCalled();
+    it('releases reservation and creates movement', async () => {
+      const item = mockStockItem({ quantityReserved: 10 });
+      managerStockRepo.findOne.mockResolvedValue(item);
+      managerStockRepo.save.mockResolvedValue(item);
+      managerMovementRepo.create.mockReturnValue({});
+      managerMovementRepo.save.mockResolvedValue({});
+
+      await service.releaseReservation(1, 1, 5, 10);
+      expect(managerStockRepo.save).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if quantityReserved < quantity', async () => {
-      stockRepo.findOne.mockResolvedValue(mockStockItem({ quantityReserved: 1 }));
-      await expect(service.releaseReservation(1, 1, 5, 1)).rejects.toThrow(BadRequestException);
+    it('throws BadRequestException when reserved < quantity', async () => {
+      managerStockRepo.findOne.mockResolvedValue(mockStockItem({ quantityReserved: 2 }));
+      await expect(service.releaseReservation(1, 1, 5, 10)).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when stock item not found', async () => {
+      managerStockRepo.findOne.mockResolvedValue(null);
+      await expect(service.releaseReservation(1, 1, 5, 10)).rejects.toThrow(NotFoundException);
     });
   });
 });

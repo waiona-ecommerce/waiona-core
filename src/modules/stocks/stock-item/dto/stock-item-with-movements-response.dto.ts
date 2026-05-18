@@ -1,37 +1,61 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementResponseDto } from '../../stock-movement/dto/stock-movement-respose.dto';
 
 export class StockItemWithMovementsResponseDto {
 
+  @ApiProperty({ example: 1 })
   id: number;
+
+  @ApiProperty({ example: 1 })
   productId: number;
+
+  @ApiProperty({ example: 1 })
   locationId: number;
 
+  @ApiProperty({ example: 'Depósito Central' })
+  locationName: string;
+
+  @ApiProperty({ example: 100 })
   quantityCurrent: number;
+
+  @ApiProperty({ example: 5 })
   quantityReserved: number;
+
+  @ApiProperty({ example: 95 })
   quantityAvailable: number;
 
+  @ApiProperty({ example: 10 })
   stockMin: number;
+
+  @ApiProperty({ example: 5 })
   stockCritical: number;
+
+  @ApiPropertyOptional({ example: 200 })
   stockMax?: number;
 
+  @ApiProperty({ type: [StockMovementResponseDto] })
   movements: StockMovementResponseDto[];
 
+  @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty()
   updatedAt: Date;
 
   constructor(entity: StockItemEntity) {
-    this.id = entity.id;
-    this.productId = entity.productId;
-    this.locationId = entity.locationId;
+    this.id              = entity.id;
+    this.productId       = entity.productId;
+    this.locationId      = entity.locationId;
+    this.locationName    = entity.location?.name ?? '';
 
-    this.quantityCurrent = entity.quantityCurrent;
+    this.quantityCurrent  = entity.quantityCurrent;
     this.quantityReserved = entity.quantityReserved;
     this.quantityAvailable = entity.quantityAvailable;
 
-    this.stockMin = entity.stockMin;
+    this.stockMin      = entity.stockMin;
     this.stockCritical = entity.stockCritical;
-    this.stockMax = entity.stockMax ?? undefined; // 🔥 null → undefined
+    this.stockMax      = entity.stockMax ?? undefined;
 
     this.movements = entity.movements?.map(
       (movement) => new StockMovementResponseDto(movement),
