@@ -62,15 +62,6 @@ export class ProductPricingService {
 
     const entity = await this.findOneEntity(id);
 
-    if (dto.productId && dto.productId !== entity.productId) {
-      const existing = await this.repo.findOne({
-        where: { productId: dto.productId },
-      });
-      if (existing) {
-        throw new BadRequestException('Product already has pricing');
-      }
-    }
-
     if (dto.marginId !== undefined) {
       entity.margin = dto.marginId
         ? await this.resolveMargin(dto.marginId)
@@ -78,7 +69,6 @@ export class ProductPricingService {
     }
 
     Object.assign(entity, {
-      productId: dto.productId ?? entity.productId,
       currency: dto.currency ?? entity.currency,
       unitPrice: dto.unitPrice ?? entity.unitPrice,
     });

@@ -15,7 +15,7 @@ describe('ComboPricingService', () => {
   const mockMargin  = { id: 1, value: 20, isPercentage: true };
   const mockPricing = (overrides = {}): ComboPricingEntity =>
     ({ id: 1, comboId: 1, currency: CurrencyCode.ARS, unitPrice: 1200,
-       margin: mockMargin, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ComboPricingEntity;
+       margin: mockMargin, deletedAt: null, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ComboPricingEntity;
 
   let repo: any;
   let marginRepo: any;
@@ -105,13 +105,6 @@ describe('ComboPricingService', () => {
 
       const result = await service.update(1, { unitPrice: 1500 } as any);
       expect(result.unitPrice).toBe(1500);
-    });
-
-    it('should throw BadRequestException if new comboId already has pricing', async () => {
-      repo.findOne
-        .mockResolvedValueOnce(mockPricing({ comboId: 1 }))
-        .mockResolvedValueOnce(mockPricing({ comboId: 2 }));
-      await expect(service.update(1, { comboId: 2 } as any)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException', async () => {

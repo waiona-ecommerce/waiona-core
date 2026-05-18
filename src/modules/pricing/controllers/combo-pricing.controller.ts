@@ -9,6 +9,8 @@ import {
   ParseIntPipe,
   Query,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -60,6 +62,7 @@ export class ComboPricingController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.service.remove(id);
   }

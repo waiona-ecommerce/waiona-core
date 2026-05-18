@@ -26,12 +26,12 @@ describe('CalculationService', () => {
 
   const mockProductPricing = (overrides = {}) => ({
     id: 1, productId: 1, currency: CurrencyCode.ARS, unitPrice: 500,
-    margin: mockMargin, isDeleted: false, ...overrides,
+    margin: mockMargin, deletedAt: null, ...overrides,
   });
 
   const mockComboPricing = (overrides = {}) => ({
     id: 1, comboId: 1, currency: CurrencyCode.ARS, unitPrice: 1200,
-    margin: mockMargin, isDeleted: false, ...overrides,
+    margin: mockMargin, deletedAt: null, ...overrides,
   });
 
   let productPricingRepo: any;

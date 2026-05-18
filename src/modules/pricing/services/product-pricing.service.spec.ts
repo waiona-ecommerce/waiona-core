@@ -15,7 +15,7 @@ describe('ProductPricingService', () => {
   const mockMargin  = { id: 1, value: 20, isPercentage: true };
   const mockPricing = (overrides = {}): ProductPricingEntity =>
     ({ id: 1, productId: 1, currency: CurrencyCode.ARS, unitPrice: 500,
-       margin: mockMargin, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ProductPricingEntity;
+       margin: mockMargin, deletedAt: null, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ProductPricingEntity;
 
   let repo: any;
   let marginRepo: any;
@@ -123,13 +123,6 @@ describe('ProductPricingService', () => {
 
       const result = await service.update(1, { unitPrice: 600 } as any);
       expect(result.unitPrice).toBe(600);
-    });
-
-    it('should throw BadRequestException if new productId already has pricing', async () => {
-      repo.findOne
-        .mockResolvedValueOnce(mockPricing({ productId: 1 })) // findOneEntity
-        .mockResolvedValueOnce(mockPricing({ productId: 2 })); // validación duplicado
-      await expect(service.update(1, { productId: 2 } as any)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException', async () => {

@@ -62,15 +62,6 @@ export class ComboPricingService {
 
     const entity = await this.findOneEntity(id);
 
-    if (dto.comboId && dto.comboId !== entity.comboId) {
-      const existing = await this.repo.findOne({
-        where: { comboId: dto.comboId },
-      });
-      if (existing) {
-        throw new BadRequestException('Combo already has pricing');
-      }
-    }
-
     if (dto.marginId !== undefined) {
       entity.margin = dto.marginId
         ? await this.resolveMargin(dto.marginId)
@@ -78,7 +69,6 @@ export class ComboPricingService {
     }
 
     Object.assign(entity, {
-      comboId: dto.comboId ?? entity.comboId,
       currency: dto.currency ?? entity.currency,
       unitPrice: dto.unitPrice ?? entity.unitPrice,
     });

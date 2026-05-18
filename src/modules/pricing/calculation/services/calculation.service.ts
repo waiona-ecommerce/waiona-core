@@ -123,7 +123,8 @@ export class CalculationService {
     const priceAfterMargin = priceAfterDiscount + margin;
 
     // 4. Impuestos del producto + globales
-    const taxes = await this.calculateTaxesForProduct(dto.productId, priceAfterMargin);
+    const taxEntities = await this.fetchTaxesForProduct(dto.productId);
+    const taxes = this.sumTaxes(taxEntities, priceAfterMargin);
     const finalPrice = priceAfterMargin + taxes;
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
@@ -131,7 +132,7 @@ export class CalculationService {
       ? this.applyValue(unitPrice, Number(pricing.margin.value), pricing.margin.isPercentage)
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = await this.calculateTaxesForProduct(dto.productId, priceAfterMarginFull);
+    const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
     return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, 0, finalPrice);
@@ -179,7 +180,8 @@ export class CalculationService {
     const priceAfterMargin = priceAfterDiscount + margin;
 
     // 4. Impuestos del combo + globales
-    const taxes = await this.calculateTaxesForCombo(dto.comboId, priceAfterMargin);
+    const taxEntities = await this.fetchTaxesForCombo(dto.comboId);
+    const taxes = this.sumTaxes(taxEntities, priceAfterMargin);
     const finalPrice = priceAfterMargin + taxes;
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
@@ -187,7 +189,7 @@ export class CalculationService {
       ? this.applyValue(unitPrice, Number(pricing.margin.value), pricing.margin.isPercentage)
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = await this.calculateTaxesForCombo(dto.comboId, priceAfterMarginFull);
+    const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
     return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, 0, finalPrice);
@@ -215,54 +217,32 @@ export class CalculationService {
     return true;
   }
 
-  /**
-   * Calcula el total de impuestos para un producto.
-   * Suma impuestos propios + globales, sobre el precio base recibido.
-   */
-  private async calculateTaxesForProduct(productId: number, base: number): Promise<number> {
+  private async fetchTaxesForProduct(productId: number): Promise<TaxEntity[]> {
     const [productTaxes, globalTaxes] = await Promise.all([
-      this.productTaxRepo.find({
-        where: { productId },
-        relations: ['tax'],
-      }),
-      this.taxRepo.find({
-        where: { isGlobal: true },
-      }),
+      this.productTaxRepo.find({ where: { productId }, relations: ['tax'] }),
+      this.taxRepo.find({ where: { isGlobal: true } }),
     ]);
-
     const seen = new Set<number>();
     const allTaxes: TaxEntity[] = [];
     for (const pt of productTaxes) { seen.add(pt.tax.id); allTaxes.push(pt.tax); }
     for (const t of globalTaxes)   { if (!seen.has(t.id)) allTaxes.push(t); }
-
-    return allTaxes.reduce((acc, tax) => {
-      return acc + this.applyValue(base, Number(tax.value), tax.isPercentage);
-    }, 0);
+    return allTaxes;
   }
 
-  /**
-   * Calcula el total de impuestos para un combo.
-   * Suma impuestos propios + globales.
-   */
-  private async calculateTaxesForCombo(comboId: number, base: number): Promise<number> {
+  private async fetchTaxesForCombo(comboId: number): Promise<TaxEntity[]> {
     const [comboTaxes, globalTaxes] = await Promise.all([
-      this.comboTaxRepo.find({
-        where: { comboId },
-        relations: ['tax'],
-      }),
-      this.taxRepo.find({
-        where: { isGlobal: true },
-      }),
+      this.comboTaxRepo.find({ where: { comboId }, relations: ['tax'] }),
+      this.taxRepo.find({ where: { isGlobal: true } }),
     ]);
-
     const seen = new Set<number>();
     const allTaxes: TaxEntity[] = [];
     for (const ct of comboTaxes) { seen.add(ct.tax.id); allTaxes.push(ct.tax); }
-    for (const t of globalTaxes)  { if (!seen.has(t.id)) allTaxes.push(t); }
+    for (const t of globalTaxes) { if (!seen.has(t.id)) allTaxes.push(t); }
+    return allTaxes;
+  }
 
-    return allTaxes.reduce((acc, tax) => {
-      return acc + this.applyValue(base, Number(tax.value), tax.isPercentage);
-    }, 0);
+  private sumTaxes(taxes: TaxEntity[], base: number): number {
+    return taxes.reduce((acc, tax) => acc + this.applyValue(base, Number(tax.value), tax.isPercentage), 0);
   }
 
   /**

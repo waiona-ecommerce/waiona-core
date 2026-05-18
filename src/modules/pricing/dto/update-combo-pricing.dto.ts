@@ -1,28 +1,4 @@
-import { IsInt, IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { PartialType, OmitType } from '@nestjs/swagger';
+import { CreateComboPricingDto } from './create-combo-pricing.dto';
 
-export class UpdateComboPricingDto {
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  comboId?: number;
-
-  @IsOptional()
-  @IsEnum(CurrencyCode)
-  currency?: CurrencyCode;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  unitPrice?: number;
-
-  // ==========================
-  // Margen
-  // ==========================
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  marginId?: number;
-}
+export class UpdateComboPricingDto extends PartialType(OmitType(CreateComboPricingDto, ['comboId'] as const)) {}

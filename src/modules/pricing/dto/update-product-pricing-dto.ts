@@ -1,28 +1,4 @@
-import { IsInt, IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { PartialType, OmitType } from '@nestjs/swagger';
+import { CreateProductPricingDto } from './create-product-pricing.dto';
 
-export class UpdateProductPricingDto {
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  productId?: number;
-
-  @IsOptional()
-  @IsEnum(CurrencyCode)
-  currency?: CurrencyCode;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  unitPrice?: number;
-
-  // ==========================
-  // Margen
-  // ==========================
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  marginId?: number;
-}
+export class UpdateProductPricingDto extends PartialType(OmitType(CreateProductPricingDto, ['productId'] as const)) {}
