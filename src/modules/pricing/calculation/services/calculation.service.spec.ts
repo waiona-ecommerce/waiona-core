@@ -4,21 +4,23 @@ import { NotFoundException } from '@nestjs/common';
 import { CalculationService } from '../../calculation/services/calculation.service';
 import { ProductPricingEntity } from '../../entities/product-pricing.entity';
 import { ComboPricingEntity } from '../../entities/combo-pricing.entity';
-import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
-import { CouponProductTargetEntity } from 'src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from 'src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
+import { ProductTaxEntity } from 'src/modules/taxation/product-taxes/entities/product-taxes.entity';
+import { ComboTaxEntity } from 'src/modules/taxation/combo-taxes/entities/combo-taxes.entity';
 import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
+import { DiscountProductTargetEntity } from 'src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
+import { DiscountComboTargetEntity } from 'src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 describe('CalculationService', () => {
   let service: CalculationService;
 
-  const mockProductPricingRepo      = () => ({ findOne: jest.fn() });
-  const mockComboPricingRepo        = () => ({ findOne: jest.fn() });
-  const mockCouponRepo              = () => ({ findOne: jest.fn() });
-  const mockCouponProductTargetRepo = () => ({ findOne: jest.fn() });
-  const mockCouponComboTargetRepo   = () => ({ findOne: jest.fn() });
-  const mockTaxRepo                 = () => ({ find: jest.fn() });
+  const mockProductPricingRepo   = () => ({ findOne: jest.fn() });
+  const mockComboPricingRepo     = () => ({ findOne: jest.fn() });
+  const mockProductTaxRepo       = () => ({ find: jest.fn() });
+  const mockComboTaxRepo         = () => ({ find: jest.fn() });
+  const mockTaxRepo              = () => ({ find: jest.fn() });
+  const mockDiscountProductRepo  = () => ({ findOne: jest.fn() });
+  const mockDiscountComboRepo    = () => ({ findOne: jest.fn() });
 
   const mockMargin = { id: 1, value: 20, isPercentage: true };
 
@@ -34,27 +36,34 @@ describe('CalculationService', () => {
 
   let productPricingRepo: any;
   let comboPricingRepo: any;
-  let couponRepo: any;
+  let productTaxRepo: any;
+  let comboTaxRepo: any;
   let taxRepo: any;
+  let discountProductRepo: any;
+  let discountComboRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CalculationService,
-        { provide: getRepositoryToken(ProductPricingEntity),      useFactory: mockProductPricingRepo      },
-        { provide: getRepositoryToken(ComboPricingEntity),        useFactory: mockComboPricingRepo        },
-        { provide: getRepositoryToken(CouponEntity),              useFactory: mockCouponRepo              },
-        { provide: getRepositoryToken(CouponProductTargetEntity), useFactory: mockCouponProductTargetRepo },
-        { provide: getRepositoryToken(CouponComboTargetEntity),   useFactory: mockCouponComboTargetRepo   },
-        { provide: getRepositoryToken(TaxEntity),                 useFactory: mockTaxRepo                 },
+        { provide: getRepositoryToken(ProductPricingEntity),      useFactory: mockProductPricingRepo  },
+        { provide: getRepositoryToken(ComboPricingEntity),        useFactory: mockComboPricingRepo    },
+        { provide: getRepositoryToken(ProductTaxEntity),          useFactory: mockProductTaxRepo      },
+        { provide: getRepositoryToken(ComboTaxEntity),            useFactory: mockComboTaxRepo        },
+        { provide: getRepositoryToken(TaxEntity),                 useFactory: mockTaxRepo             },
+        { provide: getRepositoryToken(DiscountProductTargetEntity), useFactory: mockDiscountProductRepo },
+        { provide: getRepositoryToken(DiscountComboTargetEntity),   useFactory: mockDiscountComboRepo   },
       ],
     }).compile();
 
-    service            = module.get<CalculationService>(CalculationService);
-    productPricingRepo = module.get(getRepositoryToken(ProductPricingEntity));
-    comboPricingRepo   = module.get(getRepositoryToken(ComboPricingEntity));
-    couponRepo         = module.get(getRepositoryToken(CouponEntity));
-    taxRepo            = module.get(getRepositoryToken(TaxEntity));
+    service             = module.get<CalculationService>(CalculationService);
+    productPricingRepo  = module.get(getRepositoryToken(ProductPricingEntity));
+    comboPricingRepo    = module.get(getRepositoryToken(ComboPricingEntity));
+    productTaxRepo      = module.get(getRepositoryToken(ProductTaxEntity));
+    comboTaxRepo        = module.get(getRepositoryToken(ComboTaxEntity));
+    taxRepo             = module.get(getRepositoryToken(TaxEntity));
+    discountProductRepo = module.get(getRepositoryToken(DiscountProductTargetEntity));
+    discountComboRepo   = module.get(getRepositoryToken(DiscountComboTargetEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -66,6 +75,8 @@ describe('CalculationService', () => {
   describe('calculateProduct', () => {
     it('should calculate product price correctly', async () => {
       productPricingRepo.findOne.mockResolvedValue(mockProductPricing());
+      discountProductRepo.findOne.mockResolvedValue(null);
+      productTaxRepo.find.mockResolvedValue([]);
       taxRepo.find.mockResolvedValue([]);
 
       const result = await service.calculateProduct({ productId: 1 });
@@ -76,33 +87,6 @@ describe('CalculationService', () => {
       expect(result.fullPrice).toBeGreaterThanOrEqual(result.finalPrice);
       expect(result.coupon).toBe(0);
       expect(result.orderTotal).toBe(result.finalPrice);
-    });
-
-    it('should apply global coupon when provided', async () => {
-      productPricingRepo.findOne.mockResolvedValue(mockProductPricing());
-      taxRepo.find.mockResolvedValue([]);
-      couponRepo.findOne.mockResolvedValue({
-        id: 1, code: 'DESCUENTO10', value: 10, isPercentage: true, isGlobal: true,
-        usageLimit: null, usageCount: 0, startsAt: null, endsAt: null, isDeleted: false,
-      });
-
-      const result = await service.calculateProduct({ productId: 1, couponCode: 'DESCUENTO10' });
-
-      expect(result.coupon).toBeGreaterThan(0);
-      expect(result.orderTotal).toBeLessThan(result.finalPrice);
-    });
-
-    it('should not apply coupon if usage limit reached', async () => {
-      productPricingRepo.findOne.mockResolvedValue(mockProductPricing());
-      taxRepo.find.mockResolvedValue([]);
-      couponRepo.findOne.mockResolvedValue({
-        id: 1, code: 'AGOTADO', value: 10, isPercentage: true, isGlobal: true,
-        usageLimit: 5, usageCount: 5, startsAt: null, endsAt: null, isDeleted: false,
-      });
-
-      const result = await service.calculateProduct({ productId: 1, couponCode: 'AGOTADO' });
-
-      expect(result.coupon).toBe(0);
     });
 
     it('should throw NotFoundException if product has no pricing', async () => {
@@ -118,6 +102,8 @@ describe('CalculationService', () => {
   describe('calculateCombo', () => {
     it('should calculate combo price correctly', async () => {
       comboPricingRepo.findOne.mockResolvedValue(mockComboPricing());
+      discountComboRepo.findOne.mockResolvedValue(null);
+      comboTaxRepo.find.mockResolvedValue([]);
       taxRepo.find.mockResolvedValue([]);
 
       const result = await service.calculateCombo({ comboId: 1 });
@@ -142,13 +128,14 @@ describe('CalculationService', () => {
     it('should calculate preview without DB', () => {
       const result = service.preview({
         unitPrice: 500,
-        discount: { value: 10, isPercentage: true },
+        discountValue: 10,
+        discountIsPercentage: true,
         marginValue: 20,
         marginIsPercentage: true,
         taxes: [{ value: 21, isPercentage: true }],
-        couponValue: 0,
-        couponIsPercentage: true,
-      } as any);
+        couponValue: 50,
+        couponIsPercentage: false,
+      });
 
       expect(result.unitPrice).toBe(500);
       expect(result.discount).toBeGreaterThan(0);

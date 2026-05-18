@@ -14,6 +14,8 @@ import { ProductEntity } from 'src/modules/products/product/entities/product.ent
 import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
 import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
 import { CouponUsageEntity } from 'src/modules/coupons/usage/entities/coupon-usage.entity';
+import { CouponProductTargetEntity } from 'src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
+import { CouponComboTargetEntity } from 'src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 
@@ -46,6 +48,15 @@ export class OrdersService {
 
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+
+    @InjectRepository(CouponEntity)
+    private readonly couponRepo: Repository<CouponEntity>,
+
+    @InjectRepository(CouponProductTargetEntity)
+    private readonly couponProductTargetRepo: Repository<CouponProductTargetEntity>,
+
+    @InjectRepository(CouponComboTargetEntity)
+    private readonly couponComboTargetRepo: Repository<CouponComboTargetEntity>,
 
     private readonly stockItemsService: StockItemsService,
     private readonly calculationService: CalculationService,
@@ -162,7 +173,7 @@ export class OrdersService {
     }
 
     const couponDiscount = dto.couponCode
-      ? await this.calculationService.computeOrderCouponDiscount(dto.couponCode, couponItems)
+      ? await this.computeOrderCouponDiscount(dto.couponCode, couponItems)
       : 0;
 
     const total = Math.max(0, subtotal - couponDiscount);
@@ -374,6 +385,50 @@ export class OrdersService {
     }
 
     return best;
+  }
+
+  // ==========================
+  // PRIVATE — descuento de cupón sobre la orden
+  // ==========================
+
+  private async computeOrderCouponDiscount(
+    couponCode: string,
+    items: Array<{ productId?: number; comboId?: number; subtotal: number }>,
+  ): Promise<number> {
+    const now = new Date();
+
+    const coupon = await this.couponRepo.findOne({ where: { code: couponCode } });
+    if (!coupon) return 0;
+    if (coupon.startsAt && now < coupon.startsAt) return 0;
+    if (coupon.endsAt && now > coupon.endsAt) return 0;
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
+
+    const apply = (base: number) =>
+      coupon.isPercentage ? base * (coupon.value / 100) : coupon.value;
+
+    if (coupon.isGlobal) {
+      const total = items.reduce((sum, i) => sum + i.subtotal, 0);
+      return apply(total);
+    }
+
+    let eligibleSubtotal = 0;
+    for (const item of items) {
+      if (item.productId) {
+        const target = await this.couponProductTargetRepo.findOne({
+          where: { couponId: coupon.id, productId: item.productId },
+        });
+        if (target) eligibleSubtotal += item.subtotal;
+      }
+      if (item.comboId) {
+        const target = await this.couponComboTargetRepo.findOne({
+          where: { couponId: coupon.id, comboId: item.comboId },
+        });
+        if (target) eligibleSubtotal += item.subtotal;
+      }
+    }
+
+    if (eligibleSubtotal === 0) return 0;
+    return apply(eligibleSubtotal);
   }
 
   // ==========================

@@ -43,9 +43,10 @@ describe('ProductPricingController', () => {
   });
 
   it('findAll should return all pricings', async () => {
-    service.findAll.mockResolvedValue([mockResponse() as any]);
-    const result = await controller.findAll();
-    expect(result).toHaveLength(1);
+    const paginated = { data: [mockResponse()], total: 1, page: 1, limit: 20 };
+    service.findAll.mockResolvedValue(paginated as any);
+    const result = await controller.findAll({} as any);
+    expect(result.data).toHaveLength(1);
   });
 
   it('findOne should delegate to service', async () => {

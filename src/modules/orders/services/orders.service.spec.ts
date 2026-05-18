@@ -10,6 +10,8 @@ import { ProductEntity } from 'src/modules/products/product/entities/product.ent
 import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
 import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
 import { CouponUsageEntity } from 'src/modules/coupons/usage/entities/coupon-usage.entity';
+import { CouponProductTargetEntity } from 'src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
+import { CouponComboTargetEntity } from 'src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
@@ -20,12 +22,14 @@ import { DeliveryType } from '../enums/delivery-type.enum';
 describe('OrdersService', () => {
   let service: OrdersService;
 
-  const mockOrderRepo       = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
-  const mockOrderItemRepo   = () => ({ create: jest.fn() });
-  const mockProductRepo     = () => ({ findOne: jest.fn() });
-  const mockComboRepo       = () => ({ findOne: jest.fn() });
-  const mockCouponRepo      = () => ({ findOne: jest.fn(), save: jest.fn() });
-  const mockCouponUsageRepo = () => ({ findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockOrderRepo              = () => ({ find: jest.fn(), findAndCount: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockOrderItemRepo          = () => ({ create: jest.fn() });
+  const mockProductRepo            = () => ({ findOne: jest.fn() });
+  const mockComboRepo              = () => ({ findOne: jest.fn() });
+  const mockCouponRepo             = () => ({ findOne: jest.fn(), save: jest.fn() });
+  const mockCouponUsageRepo        = () => ({ findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockCouponProductTargetRepo = () => ({ findOne: jest.fn() });
+  const mockCouponComboTargetRepo   = () => ({ findOne: jest.fn() });
   const mockStockItemRepo   = () => ({ findOne: jest.fn(), find: jest.fn(), save: jest.fn() });
   const mockUserRepo        = () => ({ findOne: jest.fn() });
   const mockStockService    = () => ({ reserveStock: jest.fn(), dispatchStock: jest.fn(), releaseReservation: jest.fn() });
@@ -88,8 +92,10 @@ describe('OrdersService', () => {
         { provide: getRepositoryToken(OrderItemEntity),   useFactory: mockOrderItemRepo   },
         { provide: getRepositoryToken(ProductEntity),     useFactory: mockProductRepo     },
         { provide: getRepositoryToken(ComboEntity),       useFactory: mockComboRepo       },
-        { provide: getRepositoryToken(CouponEntity),      useFactory: mockCouponRepo      },
-        { provide: getRepositoryToken(CouponUsageEntity), useFactory: mockCouponUsageRepo },
+        { provide: getRepositoryToken(CouponEntity),              useFactory: mockCouponRepo              },
+        { provide: getRepositoryToken(CouponUsageEntity),         useFactory: mockCouponUsageRepo         },
+        { provide: getRepositoryToken(CouponProductTargetEntity), useFactory: mockCouponProductTargetRepo },
+        { provide: getRepositoryToken(CouponComboTargetEntity),   useFactory: mockCouponComboTargetRepo   },
         { provide: getRepositoryToken(StockItemEntity),   useFactory: mockStockItemRepo   },
         { provide: getRepositoryToken(UserEntity),        useFactory: mockUserRepo        },
         { provide: StockItemsService,                     useFactory: mockStockService    },
@@ -238,14 +244,15 @@ describe('OrdersService', () => {
 
   describe('findAll', () => {
     it('should return all orders', async () => {
-      orderRepo.find.mockResolvedValue([mockOrder()]);
+      orderRepo.findAndCount.mockResolvedValue([[mockOrder()], 1]);
       const result = await service.findAll();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
 
     it('should return empty array', async () => {
-      orderRepo.find.mockResolvedValue([]);
-      expect(await service.findAll()).toEqual([]);
+      orderRepo.findAndCount.mockResolvedValue([[], 0]);
+      const result = await service.findAll();
+      expect(result.data).toEqual([]);
     });
   });
 

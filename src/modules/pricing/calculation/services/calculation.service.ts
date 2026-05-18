@@ -9,9 +9,6 @@ import { ComboTaxEntity } from 'src/modules/taxation/combo-taxes/entities/combo-
 import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
 import { DiscountProductTargetEntity } from 'src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
 import { DiscountComboTargetEntity } from 'src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
-import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
-import { CouponProductTargetEntity } from 'src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from 'src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 
 import { CalculatePreviewDto } from '../dto/calculate-preview.dto';
 import { CalculateProductDto } from '../dto/calculate-product.dto';
@@ -42,15 +39,6 @@ export class CalculationService {
 
     @InjectRepository(DiscountComboTargetEntity)
     private discountComboRepo: Repository<DiscountComboTargetEntity>,
-
-    @InjectRepository(CouponEntity)
-    private couponRepo: Repository<CouponEntity>,
-
-    @InjectRepository(CouponProductTargetEntity)
-    private couponProductTargetRepo: Repository<CouponProductTargetEntity>,
-
-    @InjectRepository(CouponComboTargetEntity)
-    private couponComboTargetRepo: Repository<CouponComboTargetEntity>,
   ) {}
 
   // ==========================
@@ -146,13 +134,7 @@ export class CalculationService {
     const taxesFull = await this.calculateTaxesForProduct(dto.productId, priceAfterMarginFull);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
-    // 5. Cupón (nivel orden)
-    const coupon = dto.couponCode
-      ? await this.applyCoupon(dto.couponCode, finalPrice, now, { productId: dto.productId })
-      : 0;
-    const orderTotal = finalPrice - coupon;
-
-    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, coupon, orderTotal);
+    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, 0, finalPrice);
   }
 
   // ==========================
@@ -208,53 +190,7 @@ export class CalculationService {
     const taxesFull = await this.calculateTaxesForCombo(dto.comboId, priceAfterMarginFull);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
-    // 5. Cupón
-    const coupon = dto.couponCode
-      ? await this.applyCoupon(dto.couponCode, finalPrice, now, { comboId: dto.comboId })
-      : 0;
-    const orderTotal = finalPrice - coupon;
-
-    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, coupon, orderTotal);
-  }
-
-  // ==========================
-  // COUPON — nivel orden (público)
-  // ==========================
-
-  async computeOrderCouponDiscount(
-    couponCode: string,
-    items: Array<{ productId?: number; comboId?: number; subtotal: number }>,
-  ): Promise<number> {
-    const now = new Date();
-
-    const coupon = await this.couponRepo.findOne({ where: { code: couponCode } });
-    if (!coupon) return 0;
-    if (!this.isActive(coupon.startsAt, coupon.endsAt, now)) return 0;
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
-
-    if (coupon.isGlobal) {
-      const total = items.reduce((sum, i) => sum + i.subtotal, 0);
-      return this.applyValue(total, coupon.value, coupon.isPercentage);
-    }
-
-    let eligibleSubtotal = 0;
-    for (const item of items) {
-      if (item.productId) {
-        const target = await this.couponProductTargetRepo.findOne({
-          where: { couponId: coupon.id, productId: item.productId },
-        });
-        if (target) eligibleSubtotal += item.subtotal;
-      }
-      if (item.comboId) {
-        const target = await this.couponComboTargetRepo.findOne({
-          where: { couponId: coupon.id, comboId: item.comboId },
-        });
-        if (target) eligibleSubtotal += item.subtotal;
-      }
-    }
-
-    if (eligibleSubtotal === 0) return 0;
-    return this.applyValue(eligibleSubtotal, coupon.value, coupon.isPercentage);
+    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, 0, finalPrice);
   }
 
   // ==========================
@@ -327,46 +263,6 @@ export class CalculationService {
     return allTaxes.reduce((acc, tax) => {
       return acc + this.applyValue(base, Number(tax.value), tax.isPercentage);
     }, 0);
-  }
-
-  /**
-   * Aplica un cupón sobre el precio final.
-   * Verifica que esté vigente y tenga usos disponibles.
-   */
-  private async applyCoupon(
-    code: string,
-    base: number,
-    now: Date,
-    context?: { productId?: number; comboId?: number },
-  ): Promise<number> {
-
-    const coupon = await this.couponRepo.findOne({
-      where: { code },
-    });
-
-    if (!coupon) return 0;
-    if (!this.isActive(coupon.startsAt, coupon.endsAt, now)) return 0;
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
-
-    // 🔥 si el cupón no es global, verificar que aplica al producto/combo
-    if (!coupon.isGlobal && context) {
-
-      if (context.productId) {
-        const target = await this.couponProductTargetRepo.findOne({
-          where: { couponId: coupon.id, productId: context.productId },
-        });
-        if (!target) return 0; // cupón no aplica a este producto
-      }
-
-      if (context.comboId) {
-        const target = await this.couponComboTargetRepo.findOne({
-          where: { couponId: coupon.id, comboId: context.comboId },
-        });
-        if (!target) return 0; // cupón no aplica a este combo
-      }
-    }
-
-    return this.applyValue(base, coupon.value, coupon.isPercentage);
   }
 
   /**

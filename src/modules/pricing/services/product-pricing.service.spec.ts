@@ -9,7 +9,7 @@ import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 describe('ProductPricingService', () => {
   let service: ProductPricingService;
 
-  const mockRepo       = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+  const mockRepo       = () => ({ findAndCount: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), softDelete: jest.fn() });
   const mockMarginRepo = () => ({ findOne: jest.fn() });
 
   const mockMargin  = { id: 1, value: 20, isPercentage: true };
@@ -75,15 +75,16 @@ describe('ProductPricingService', () => {
 
   describe('findAll', () => {
     it('should return all pricings', async () => {
-      repo.find.mockResolvedValue([mockPricing()]);
+      repo.findAndCount.mockResolvedValue([[mockPricing()], 1]);
       const result = await service.findAll();
-      expect(result).toHaveLength(1);
-      expect(result[0].productId).toBe(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].productId).toBe(1);
     });
 
     it('should return empty array', async () => {
-      repo.find.mockResolvedValue([]);
-      expect(await service.findAll()).toEqual([]);
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      const result = await service.findAll();
+      expect(result.data).toEqual([]);
     });
   });
 
@@ -141,9 +142,9 @@ describe('ProductPricingService', () => {
     it('should soft delete pricing', async () => {
       const pricing = mockPricing();
       repo.findOne.mockResolvedValue(pricing);
-      repo.save.mockResolvedValue({ ...pricing, isDeleted: true });
+      repo.softDelete.mockResolvedValue({ affected: 1 });
       await service.remove(1);
-      expect(repo.save).toHaveBeenCalledWith({ ...pricing, isDeleted: true });
+      expect(repo.softDelete).toHaveBeenCalledWith(pricing.id);
     });
 
     it('should throw NotFoundException', async () => {
