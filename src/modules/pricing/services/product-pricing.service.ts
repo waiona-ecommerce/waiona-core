@@ -50,8 +50,13 @@ export class ProductPricingService {
       margin,
     });
 
-    const saved = await this.repo.save(entity);
-    return new ProductPricingResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new ProductPricingResponseDto(saved);
+    } catch (err: any) {
+      if (err.code === '23505') throw new BadRequestException('Product already has pricing');
+      throw err;
+    }
   }
 
   // ==========================

@@ -50,8 +50,13 @@ export class ComboPricingService {
       margin,
     });
 
-    const saved = await this.repo.save(entity);
-    return new ComboPricingResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new ComboPricingResponseDto(saved);
+    } catch (err: any) {
+      if (err.code === '23505') throw new BadRequestException('Combo already has pricing');
+      throw err;
+    }
   }
 
   // ==========================
