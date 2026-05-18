@@ -71,6 +71,14 @@ describe('ProductPricingService', () => {
       marginRepo.findOne.mockResolvedValue(null);
       await expect(service.create(dto as any)).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw BadRequestException on unique constraint race condition', async () => {
+      repo.findOne.mockResolvedValue(null);
+      marginRepo.findOne.mockResolvedValue(mockMargin);
+      repo.create.mockReturnValue(mockPricing());
+      repo.save.mockRejectedValue({ code: '23505' });
+      await expect(service.create(dto as any)).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('findAll', () => {
@@ -123,6 +131,15 @@ describe('ProductPricingService', () => {
 
       const result = await service.update(1, { unitPrice: 600 } as any);
       expect(result.unitPrice).toBe(600);
+    });
+
+    it('should clear margin when marginId is null', async () => {
+      const updated = mockPricing({ margin: null });
+      repo.findOne.mockResolvedValueOnce(mockPricing());
+      repo.save.mockResolvedValue(updated);
+
+      const result = await service.update(1, { marginId: null } as any);
+      expect(result.marginId).toBeNull();
     });
 
     it('should throw NotFoundException', async () => {
