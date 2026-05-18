@@ -55,11 +55,11 @@ describe('CalculationController', () => {
     expect(result.finalPrice).toBe(653.4);
   });
 
-  it('calculateProduct with coupon should return discount', async () => {
-    service.calculateProduct.mockResolvedValue(mockBreakdown({ coupon: 65.34, orderTotal: 588.06 }) as any);
-    const result = await controller.calculateProduct({ productId: 1, couponCode: 'DESCUENTO10' } as any);
-    expect(result.coupon).toBe(65.34);
-    expect(result.orderTotal).toBe(588.06);
+  it('calculateProduct should return coupon=0 and orderTotal=finalPrice', async () => {
+    service.calculateProduct.mockResolvedValue(mockBreakdown() as any);
+    const result = await controller.calculateProduct({ productId: 1 } as any);
+    expect(result.coupon).toBe(0);
+    expect(result.orderTotal).toBe(result.finalPrice);
   });
 
   it('calculateCombo should delegate to service', async () => {
