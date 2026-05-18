@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { PG_UNIQUE_VIOLATION } from 'src/common/constants/postgres-error-codes';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -50,8 +51,13 @@ export class ComboPricingService {
       margin,
     });
 
-    const saved = await this.repo.save(entity);
-    return new ComboPricingResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new ComboPricingResponseDto(saved);
+    } catch (err: any) {
+      if (err.code === PG_UNIQUE_VIOLATION) throw new BadRequestException('Combo already has pricing');
+      throw err;
+    }
   }
 
   // ==========================
@@ -62,15 +68,6 @@ export class ComboPricingService {
 
     const entity = await this.findOneEntity(id);
 
-    if (dto.comboId && dto.comboId !== entity.comboId) {
-      const existing = await this.repo.findOne({
-        where: { comboId: dto.comboId },
-      });
-      if (existing) {
-        throw new BadRequestException('Combo already has pricing');
-      }
-    }
-
     if (dto.marginId !== undefined) {
       entity.margin = dto.marginId
         ? await this.resolveMargin(dto.marginId)
@@ -78,7 +75,6 @@ export class ComboPricingService {
     }
 
     Object.assign(entity, {
-      comboId: dto.comboId ?? entity.comboId,
       currency: dto.currency ?? entity.currency,
       unitPrice: dto.unitPrice ?? entity.unitPrice,
     });

@@ -1,0 +1,309 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import request from 'supertest';
+import { DataSource } from 'typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+
+import { ComboPricingController } from '../../src/modules/pricing/controllers/combo-pricing.controller';
+import { ComboPricingService } from '../../src/modules/pricing/services/combo-pricing.service';
+import { ComboPricingEntity } from '../../src/modules/pricing/entities/combo-pricing.entity';
+import { MarginEntity } from '../../src/modules/margins/entities/margin.entity';
+import { ComboEntity } from '../../src/modules/products/combos/entities/combo.entity';
+import { ComboItemEntity } from '../../src/modules/products/combos/entities/combo-item.entity';
+import { ComboImageEntity } from '../../src/modules/products/combo-images/entities/combo-image.entity';
+import { ProductEntity } from '../../src/modules/products/product/entities/product.entity';
+import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
+import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
+import { CurrencyCode } from '../../src/common/enums/currency-code.enum';
+
+describe('ComboPricing (e2e)', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+  let comboId: number;
+  let combo2Id: number;
+  let marginId: number;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        TypeOrmModule.forRootAsync({
+          inject: [ConfigService],
+          useFactory: (config: ConfigService) => ({
+            type: 'postgres',
+            host:     config.get('POSTGRES_HOST'),
+            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            username: config.get('POSTGRES_USER'),
+            password: config.get('POSTGRES_PASSWORD'),
+            database: config.get('POSTGRES_TEST_DB'),
+            entities: [
+              ComboPricingEntity, MarginEntity,
+              ComboEntity, ComboItemEntity, ComboImageEntity,
+              ProductEntity, ProductImageEntity,
+              CategoryEntity,
+            ],
+            synchronize: true,
+            dropSchema: true,
+          }),
+        }),
+        TypeOrmModule.forFeature([ComboPricingEntity, MarginEntity]),
+      ],
+      controllers: [ComboPricingController],
+      providers: [ComboPricingService],
+    })
+      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }));
+
+    await app.init();
+    dataSource = moduleFixture.get(DataSource);
+
+    const category = await dataSource.manager.save(CategoryEntity, {
+      name: 'Test Category',
+      isActive: true,
+    });
+
+    const combo = await dataSource.manager.save(ComboEntity, {
+      name: 'Test Combo',
+      description: 'Test description',
+      isActive: true,
+      categoryId: category.id,
+    });
+    comboId = combo.id;
+
+    const combo2 = await dataSource.manager.save(ComboEntity, {
+      name: 'Test Combo 2',
+      description: 'Test description 2',
+      isActive: true,
+      categoryId: category.id,
+    });
+    combo2Id = combo2.id;
+
+    const margin = await dataSource.manager.save(MarginEntity, {
+      name: 'Test Margin',
+      value: 20,
+      isPercentage: true,
+    });
+    marginId = margin.id;
+  }, 30000);
+
+  afterAll(async () => {
+    await dataSource.destroy();
+    await app.close();
+  });
+
+  // -------------------------
+  // CREATE
+  // -------------------------
+
+  it('POST /combo-pricing -> 201 sin margen', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/combo-pricing')
+      .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1200 })
+      .expect(201);
+
+    expect(res.body.id).toBeDefined();
+    expect(res.body.comboId).toBe(comboId);
+    expect(res.body.unitPrice).toBe(1200);
+    expect(res.body.marginId).toBeNull();
+  });
+
+  it('POST /combo-pricing -> 201 con margen', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/combo-pricing')
+      .send({ comboId: combo2Id, currency: CurrencyCode.ARS, unitPrice: 1500, marginId })
+      .expect(201);
+
+    expect(res.body.marginId).toBe(marginId);
+  });
+
+  it('POST /combo-pricing -> 400 si el combo ya tiene pricing', async () => {
+    await request(app.getHttpServer())
+      .post('/combo-pricing')
+      .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1300 })
+      .expect(400);
+  });
+
+  it('POST /combo-pricing -> 400 si faltan campos', async () => {
+    await request(app.getHttpServer())
+      .post('/combo-pricing')
+      .send({})
+      .expect(400);
+  });
+
+  it('POST /combo-pricing -> 404 si el margen no existe', async () => {
+    const category = await dataSource.manager.save(CategoryEntity, {
+      name: 'Cat Extra',
+      isActive: true,
+    });
+    const extra = await dataSource.manager.save(ComboEntity, {
+      name: 'Extra Combo',
+      description: 'desc',
+      isActive: true,
+      categoryId: category.id,
+    });
+
+    await request(app.getHttpServer())
+      .post('/combo-pricing')
+      .send({ comboId: extra.id, currency: CurrencyCode.ARS, unitPrice: 1000, marginId: 999999 })
+      .expect(404);
+  });
+
+  // -------------------------
+  // GET ALL
+  // -------------------------
+
+  it('GET /combo-pricing -> 200 paginado', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/combo-pricing')
+      .expect(200);
+
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.total).toBeDefined();
+    expect(res.body.page).toBe(1);
+  });
+
+  it('GET /combo-pricing?page=1&limit=1 -> respeta paginación', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/combo-pricing?page=1&limit=1')
+      .expect(200);
+
+    expect(res.body.data.length).toBeLessThanOrEqual(1);
+    expect(res.body.limit).toBe(1);
+  });
+
+  // -------------------------
+  // GET ONE
+  // -------------------------
+
+  it('GET /combo-pricing/:id -> 200 retorna el pricing', async () => {
+    const listRes = await request(app.getHttpServer())
+      .get('/combo-pricing')
+      .expect(200);
+
+    const id = listRes.body.data[0].id;
+    const res = await request(app.getHttpServer())
+      .get(`/combo-pricing/${id}`)
+      .expect(200);
+
+    expect(res.body.id).toBe(id);
+  });
+
+  it('GET /combo-pricing/:id -> 404 si no existe', async () => {
+    await request(app.getHttpServer())
+      .get('/combo-pricing/999999')
+      .expect(404);
+  });
+
+  // -------------------------
+  // GET BY COMBO
+  // -------------------------
+
+  it('GET /combo-pricing/combo/:comboId -> 200', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/combo-pricing/combo/${comboId}`)
+      .expect(200);
+
+    expect(res.body.comboId).toBe(comboId);
+  });
+
+  it('GET /combo-pricing/combo/:comboId -> 404 si no existe', async () => {
+    await request(app.getHttpServer())
+      .get('/combo-pricing/combo/999999')
+      .expect(404);
+  });
+
+  // -------------------------
+  // UPDATE
+  // -------------------------
+
+  it('PATCH /combo-pricing/:id -> 200 actualiza precio', async () => {
+    const listRes = await request(app.getHttpServer()).get('/combo-pricing');
+    const id = listRes.body.data[0].id;
+
+    const res = await request(app.getHttpServer())
+      .patch(`/combo-pricing/${id}`)
+      .send({ unitPrice: 1800 })
+      .expect(200);
+
+    expect(res.body.unitPrice).toBe(1800);
+  });
+
+  it('PATCH /combo-pricing/:id -> 200 asigna margen', async () => {
+    const listRes = await request(app.getHttpServer()).get('/combo-pricing');
+    const item = listRes.body.data.find((p: any) => p.marginId === null);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/combo-pricing/${item.id}`)
+      .send({ marginId })
+      .expect(200);
+
+    expect(res.body.marginId).toBe(marginId);
+  });
+
+  it('PATCH /combo-pricing/:id -> 200 desvincula margen con null', async () => {
+    const listRes = await request(app.getHttpServer()).get('/combo-pricing');
+    const item = listRes.body.data.find((p: any) => p.marginId !== null);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/combo-pricing/${item.id}`)
+      .send({ marginId: null })
+      .expect(200);
+
+    expect(res.body.marginId).toBeNull();
+  });
+
+  it('PATCH /combo-pricing/:id -> 404 si no existe', async () => {
+    await request(app.getHttpServer())
+      .patch('/combo-pricing/999999')
+      .send({ unitPrice: 100 })
+      .expect(404);
+  });
+
+  // -------------------------
+  // DELETE
+  // -------------------------
+
+  it('DELETE /combo-pricing/:id -> 204 y luego 404', async () => {
+    const category = await dataSource.manager.save(CategoryEntity, {
+      name: 'Cat Delete',
+      isActive: true,
+    });
+    const toDelete = await dataSource.manager.save(ComboEntity, {
+      name: 'Delete Combo',
+      description: 'desc',
+      isActive: true,
+      categoryId: category.id,
+    });
+
+    const createRes = await request(app.getHttpServer())
+      .post('/combo-pricing')
+      .send({ comboId: toDelete.id, currency: CurrencyCode.ARS, unitPrice: 100 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .delete(`/combo-pricing/${createRes.body.id}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get(`/combo-pricing/${createRes.body.id}`)
+      .expect(404);
+  });
+
+  it('DELETE /combo-pricing/:id -> 404 si no existe', async () => {
+    await request(app.getHttpServer())
+      .delete('/combo-pricing/999999')
+      .expect(404);
+  });
+});

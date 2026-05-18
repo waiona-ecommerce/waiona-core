@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { PG_UNIQUE_VIOLATION } from 'src/common/constants/postgres-error-codes';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,7 +12,7 @@ import { ProductPricingEntity } from '../entities/product-pricing.entity';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
 import { CreateProductPricingDto } from '../dto/create-product-pricing.dto';
-import { UpdateProductPricingDto } from '../dto/update-product-pricing-dto';
+import { UpdateProductPricingDto } from '../dto/update-product-pricing.dto';
 import { ProductPricingResponseDto } from '../dto/product-pricing-response.dto';
 
 @Injectable()
@@ -50,8 +51,13 @@ export class ProductPricingService {
       margin,
     });
 
-    const saved = await this.repo.save(entity);
-    return new ProductPricingResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new ProductPricingResponseDto(saved);
+    } catch (err: any) {
+      if (err.code === PG_UNIQUE_VIOLATION) throw new BadRequestException('Product already has pricing');
+      throw err;
+    }
   }
 
   // ==========================
@@ -62,15 +68,6 @@ export class ProductPricingService {
 
     const entity = await this.findOneEntity(id);
 
-    if (dto.productId && dto.productId !== entity.productId) {
-      const existing = await this.repo.findOne({
-        where: { productId: dto.productId },
-      });
-      if (existing) {
-        throw new BadRequestException('Product already has pricing');
-      }
-    }
-
     if (dto.marginId !== undefined) {
       entity.margin = dto.marginId
         ? await this.resolveMargin(dto.marginId)
@@ -78,7 +75,6 @@ export class ProductPricingService {
     }
 
     Object.assign(entity, {
-      productId: dto.productId ?? entity.productId,
       currency: dto.currency ?? entity.currency,
       unitPrice: dto.unitPrice ?? entity.unitPrice,
     });

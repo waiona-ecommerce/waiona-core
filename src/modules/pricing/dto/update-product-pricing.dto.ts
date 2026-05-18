@@ -1,8 +1,8 @@
 import { PartialType, OmitType } from '@nestjs/swagger';
 import { IsInt, IsOptional, Min, ValidateIf } from 'class-validator';
-import { CreateComboPricingDto } from './create-combo-pricing.dto';
+import { CreateProductPricingDto } from './create-product-pricing.dto';
 
-export class UpdateComboPricingDto extends PartialType(OmitType(CreateComboPricingDto, ['comboId', 'marginId'] as const)) {
+export class UpdateProductPricingDto extends PartialType(OmitType(CreateProductPricingDto, ['productId', 'marginId'] as const)) {
 
   @IsOptional()
   @ValidateIf(o => o.marginId !== null)
