@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+import { Env } from 'src/env.model';
 import { activationTemplate } from '../templates/activation.template';
 import { resetPasswordTemplate } from '../templates/reset-password.template';
 
@@ -11,17 +12,13 @@ export class MailService {
   private resend: Resend;
   private from: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.resend = new Resend(this.configService.get('RESEND_API_KEY'));
-    this.from   = this.configService.get('MAIL_FROM') ?? 'Waiona <onboarding@resend.dev>';
+  constructor(private readonly configService: ConfigService<Env>) {
+    this.resend = new Resend(this.configService.get('RESEND_API_KEY', { infer: true }));
+    this.from   = this.configService.get('MAIL_FROM', { infer: true }) ?? 'Waiona <onboarding@resend.dev>';
   }
 
-  // ==========================
-  // ACTIVACIÓN DE CUENTA
-  // ==========================
-
   async sendActivationEmail(to: string, name: string, token: string): Promise<void> {
-    const frontendUrl   = this.configService.get('FRONTEND_URL');
+    const frontendUrl   = this.configService.get('FRONTEND_URL', { infer: true })!;
     const activationUrl = `${frontendUrl}/auth/activate?token=${token}`;
 
     await this.resend.emails.send({
@@ -32,12 +29,8 @@ export class MailService {
     });
   }
 
-  // ==========================
-  // RECUPERACIÓN DE PASSWORD
-  // ==========================
-
   async sendPasswordResetEmail(to: string, name: string, token: string): Promise<void> {
-    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const frontendUrl = this.configService.get('FRONTEND_URL', { infer: true })!;
     const resetUrl    = `${frontendUrl}/auth/reset-password?token=${token}`;
 
     await this.resend.emails.send({
