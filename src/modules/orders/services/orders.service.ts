@@ -303,10 +303,16 @@ export class OrdersService {
 
   async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<OrderResponseDto> {
     const saved = await this.dataSource.transaction(async manager => {
+      // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
+      const locked = await manager.findOne(OrderEntity, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Order not found');
+
       const order = await manager.findOne(OrderEntity, {
         where: { id },
         relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
-        lock: { mode: 'pessimistic_write' },
       });
       if (!order) throw new NotFoundException('Order not found');
 
@@ -353,13 +359,19 @@ export class OrdersService {
 
   async releaseStockForOrder(orderId: number, manager?: EntityManager): Promise<void> {
     const execute = async (txManager: EntityManager) => {
+      // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
+      const locked = await txManager.findOne(OrderEntity, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) return;
+      if (locked.status !== OrderStatus.PENDING && locked.status !== OrderStatus.CONFIRMED) return;
+
       const order = await txManager.findOne(OrderEntity, {
         where: { id: orderId },
         relations: ['items', 'items.product', 'items.combo', 'coupon'],
-        lock: { mode: 'pessimistic_write' },
       });
       if (!order) return;
-      if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.CONFIRMED) return;
       order.status = OrderStatus.CANCELLED;
       await txManager.save(OrderEntity, order);
       await this.handleCancellation(order, txManager);
