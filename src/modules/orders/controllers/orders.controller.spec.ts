@@ -18,9 +18,10 @@ describe('OrdersController', () => {
   const mockAuthGuard  = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
-  const mockOrder = (overrides = {}) => ({
+  const mockOrder = (overrides: any = {}) => ({
     id: 1, status: OrderStatus.PENDING, subtotal: 653.4, total: 653.4,
-    deliveryType: DeliveryType.PICKUP, items: [], createdAt: new Date(), updatedAt: new Date(), ...overrides,
+    userId: 1, deliveryType: DeliveryType.PICKUP, items: [],
+    createdAt: new Date(), updatedAt: new Date(), ...overrides,
   });
 
   const mockRequest = (sub: number, role = RoleType.CLIENT) =>
@@ -68,10 +69,11 @@ describe('OrdersController', () => {
 
   describe('findAll', () => {
     it('should return all orders', async () => {
-      service.findAll.mockResolvedValue([mockOrder() as any]);
-      const result = await controller.findAll();
+      const paginated = { data: [mockOrder()], total: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false };
+      service.findAll.mockResolvedValue(paginated as any);
+      const result = await controller.findAll({ page: 1, limit: 20 } as any);
       expect(service.findAll).toHaveBeenCalled();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
   });
 
@@ -113,13 +115,13 @@ describe('OrdersController', () => {
     });
 
     it('should return own order for client', async () => {
-      service.findOne.mockResolvedValue(mockOrder({ user: { id: 1 } }) as any);
+      service.findOne.mockResolvedValue(mockOrder({ userId: 1 }) as any);
       const result = await controller.findOne(1, mockRequest(1, RoleType.CLIENT));
       expect(result.id).toBe(1);
     });
 
     it('should throw ForbiddenException if client accesses another user order', async () => {
-      service.findOne.mockResolvedValue(mockOrder({ user: { id: 2 } }) as any);
+      service.findOne.mockResolvedValue(mockOrder({ userId: 2 }) as any);
       await expect(controller.findOne(1, mockRequest(1, RoleType.CLIENT))).rejects.toThrow(ForbiddenException);
     });
   });

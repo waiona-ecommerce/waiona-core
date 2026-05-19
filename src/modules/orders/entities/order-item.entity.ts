@@ -11,6 +11,9 @@ export class OrderItemEntity extends BaseEntity {
   // Orden
   // ==========================
 
+  @Column({ name: 'order_id', type: 'int', nullable: false })
+  orderId: number;
+
   @ManyToOne(() => OrderEntity, order => order.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'order_id' })
   order: OrderEntity;
@@ -19,11 +22,17 @@ export class OrderItemEntity extends BaseEntity {
   // Producto o Combo (uno de los dos)
   // ==========================
 
-  @ManyToOne(() => ProductEntity, { nullable: true })
+  @Column({ name: 'product_id', type: 'int', nullable: true, default: null })
+  productId?: number | null;
+
+  @ManyToOne(() => ProductEntity, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'product_id' })
   product?: ProductEntity | null;
 
-  @ManyToOne(() => ComboEntity, { nullable: true })
+  @Column({ name: 'combo_id', type: 'int', nullable: true, default: null })
+  comboId?: number | null;
+
+  @ManyToOne(() => ComboEntity, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'combo_id' })
   combo?: ComboEntity | null;
 

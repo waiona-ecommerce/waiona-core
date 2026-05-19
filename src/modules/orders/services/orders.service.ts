@@ -24,6 +24,7 @@ import { CalculationService } from 'src/modules/pricing/calculation/services/cal
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
+import { OrderResponseDto } from '../dto/order-response.dto';
 import { OrderStatus } from '../enums/order-status.enum';
 import { DeliveryType } from '../enums/delivery-type.enum';
 
@@ -67,7 +68,7 @@ export class OrdersService {
   // CREATE
   // ==========================
 
-  async create(userId: number, dto: CreateOrderDto): Promise<OrderEntity> {
+  async create(userId: number, dto: CreateOrderDto): Promise<OrderResponseDto> {
     const now = new Date();
 
     const user = await this.userRepo.findOne({
@@ -253,57 +254,58 @@ export class OrdersService {
       return savedOrder;
     });
 
-    return saved;
+    return new OrderResponseDto(saved);
   }
 
   // ==========================
   // FIND ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<OrderEntity>> {
+  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<OrderResponseDto>> {
     const [orders, total] = await this.orderRepo.findAndCount({
       relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(orders, total, page, limit);
+    return new PaginatedResponseDto(orders.map(o => new OrderResponseDto(o)), total, page, limit);
   }
 
   // ==========================
   // FIND ONE
   // ==========================
 
-  async findOne(id: number): Promise<OrderEntity> {
+  async findOne(id: number): Promise<OrderResponseDto> {
     const order = await this.orderRepo.findOne({
       where: { id },
       relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
     });
     if (!order) throw new NotFoundException('Order not found');
-    return order;
+    return new OrderResponseDto(order);
   }
 
   // ==========================
   // FIND BY USER
   // ==========================
 
-  async findByUser(userId: number): Promise<OrderEntity[]> {
-    return this.orderRepo.find({
-      where: { user: { id: userId } },
-      relations: ['items', 'items.product', 'items.combo', 'coupon'],
+  async findByUser(userId: number): Promise<OrderResponseDto[]> {
+    const orders = await this.orderRepo.find({
+      where: { userId },
+      relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
       order: { createdAt: 'DESC' },
     });
+    return orders.map(o => new OrderResponseDto(o));
   }
 
   // ==========================
   // UPDATE STATUS
   // ==========================
 
-  async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<OrderEntity> {
-    return this.dataSource.transaction(async manager => {
+  async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<OrderResponseDto> {
+    const saved = await this.dataSource.transaction(async manager => {
       const order = await manager.findOne(OrderEntity, {
         where: { id },
-        relations: ['items', 'items.product', 'items.combo', 'coupon'],
+        relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!order) throw new NotFoundException('Order not found');
@@ -321,6 +323,8 @@ export class OrdersService {
       order.status = dto.status;
       return manager.save(OrderEntity, order);
     });
+
+    return new OrderResponseDto(saved);
   }
 
   // ==========================
@@ -348,15 +352,21 @@ export class OrdersService {
   // ==========================
 
   async releaseStockForOrder(orderId: number, manager?: EntityManager): Promise<void> {
-    const repo  = manager?.getRepository(OrderEntity) ?? this.orderRepo;
-    const order = await repo.findOne({
-      where: { id: orderId },
-      relations: ['items', 'items.product', 'items.combo', 'coupon'],
-      lock: manager ? { mode: 'pessimistic_write' } : undefined,
-    });
-    if (!order) return;
-    if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.CONFIRMED) return;
-    await this.handleCancellation(order, manager);
+    const execute = async (txManager: EntityManager) => {
+      const order = await txManager.findOne(OrderEntity, {
+        where: { id: orderId },
+        relations: ['items', 'items.product', 'items.combo', 'coupon'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) return;
+      if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.CONFIRMED) return;
+      order.status = OrderStatus.CANCELLED;
+      await txManager.save(OrderEntity, order);
+      await this.handleCancellation(order, txManager);
+    };
+
+    if (manager) return execute(manager);
+    return this.dataSource.transaction(execute);
   }
 
   // ==========================
@@ -435,7 +445,7 @@ export class OrdersService {
   // PRIVATE — despachar
   // ==========================
 
-  private async handleDispatch(order: OrderEntity, manager?: EntityManager): Promise<void> {
+  private async handleDispatch(order: OrderEntity, manager: EntityManager): Promise<void> {
     for (const item of order.items) {
       if (item.product) {
         if (!item.locationId) continue;
@@ -465,7 +475,7 @@ export class OrdersService {
   // PRIVATE — cancelar
   // ==========================
 
-  private async handleCancellation(order: OrderEntity, manager?: EntityManager): Promise<void> {
+  private async handleCancellation(order: OrderEntity, manager: EntityManager): Promise<void> {
     for (const item of order.items) {
       if (item.product) {
         if (!item.locationId) continue;
@@ -491,8 +501,8 @@ export class OrdersService {
     }
 
     if (order.coupon) {
-      const couponRepo  = manager ? manager.getRepository(CouponEntity) : this.dataSource.getRepository(CouponEntity);
-      const usageRepo   = manager ? manager.getRepository(CouponUsageEntity) : this.dataSource.getRepository(CouponUsageEntity);
+      const couponRepo = manager.getRepository(CouponEntity);
+      const usageRepo  = manager.getRepository(CouponUsageEntity);
       order.coupon.usageCount = Math.max(0, order.coupon.usageCount - 1);
       await couponRepo.save(order.coupon);
       await usageRepo.softDelete({ couponId: order.coupon.id, orderId: order.id });

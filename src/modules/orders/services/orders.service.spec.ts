@@ -9,7 +9,6 @@ import { OrderItemEntity } from '../entities/order-item.entity';
 import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
 import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
 import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
-import { CouponUsageEntity } from 'src/modules/coupons/usage/entities/coupon-usage.entity';
 import { CouponProductTargetEntity } from 'src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
 import { CouponComboTargetEntity } from 'src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
@@ -27,7 +26,6 @@ describe('OrdersService', () => {
   const mockProductRepo            = () => ({ findOne: jest.fn() });
   const mockComboRepo              = () => ({ findOne: jest.fn() });
   const mockCouponRepo             = () => ({ findOne: jest.fn(), save: jest.fn() });
-  const mockCouponUsageRepo        = () => ({ findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
   const mockCouponProductTargetRepo = () => ({ findOne: jest.fn() });
   const mockCouponComboTargetRepo   = () => ({ findOne: jest.fn() });
   const mockStockItemRepo   = () => ({ findOne: jest.fn(), find: jest.fn(), save: jest.fn() });
@@ -79,7 +77,6 @@ describe('OrdersService', () => {
   let stockItemRepo: any;
   let userRepo: any;
   let couponRepo: any;
-  let couponUsageRepo: any;
   let stockService: any;
   let calcService: any;
   let orderItemRepo: any;
@@ -93,7 +90,6 @@ describe('OrdersService', () => {
         { provide: getRepositoryToken(ProductEntity),     useFactory: mockProductRepo     },
         { provide: getRepositoryToken(ComboEntity),       useFactory: mockComboRepo       },
         { provide: getRepositoryToken(CouponEntity),              useFactory: mockCouponRepo              },
-        { provide: getRepositoryToken(CouponUsageEntity),         useFactory: mockCouponUsageRepo         },
         { provide: getRepositoryToken(CouponProductTargetEntity), useFactory: mockCouponProductTargetRepo },
         { provide: getRepositoryToken(CouponComboTargetEntity),   useFactory: mockCouponComboTargetRepo   },
         { provide: getRepositoryToken(StockItemEntity),   useFactory: mockStockItemRepo   },
@@ -111,7 +107,6 @@ describe('OrdersService', () => {
     stockItemRepo   = module.get(getRepositoryToken(StockItemEntity));
     userRepo        = module.get(getRepositoryToken(UserEntity));
     couponRepo      = module.get(getRepositoryToken(CouponEntity));
-    couponUsageRepo = module.get(getRepositoryToken(CouponUsageEntity));
     stockService    = module.get(StockItemsService);
     calcService     = module.get(CalculationService);
     orderItemRepo   = module.get(getRepositoryToken(OrderItemEntity));
@@ -375,36 +370,51 @@ describe('OrdersService', () => {
 
   describe('releaseStockForOrder', () => {
     it('should do nothing if order not found', async () => {
-      orderRepo.findOne.mockResolvedValue(null);
+      mockEntityManager.findOne.mockResolvedValue(null);
       await service.releaseStockForOrder(999);
       expect(stockService.releaseReservation).not.toHaveBeenCalled();
     });
 
     it('should do nothing if order is in non-cancellable status', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.DISPATCHED }));
+      mockEntityManager.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.DISPATCHED }));
       await service.releaseStockForOrder(1);
       expect(stockService.releaseReservation).not.toHaveBeenCalled();
     });
 
-    it('should release stock for a PENDING order', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.PENDING }));
+    it('should set CANCELLED and release stock for a PENDING order', async () => {
+      mockEntityManager.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.PENDING }));
+      mockEntityManager.save.mockResolvedValue(undefined);
       stockService.releaseReservation.mockResolvedValue(undefined);
       await service.releaseStockForOrder(1);
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        OrderEntity,
+        expect.objectContaining({ status: OrderStatus.CANCELLED }),
+      );
       expect(stockService.releaseReservation).toHaveBeenCalled();
     });
 
-    it('should release stock for a CONFIRMED order', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.CONFIRMED }));
+    it('should set CANCELLED and release stock for a CONFIRMED order', async () => {
+      mockEntityManager.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.CONFIRMED }));
+      mockEntityManager.save.mockResolvedValue(undefined);
       stockService.releaseReservation.mockResolvedValue(undefined);
       await service.releaseStockForOrder(1);
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        OrderEntity,
+        expect.objectContaining({ status: OrderStatus.CANCELLED }),
+      );
       expect(stockService.releaseReservation).toHaveBeenCalled();
     });
 
-    it('should use manager repo when manager is provided', async () => {
-      mockManagerRepo.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.PENDING }));
+    it('should use provided manager directly when manager is given', async () => {
+      mockEntityManager.findOne.mockResolvedValue(mockOrder({ status: OrderStatus.PENDING }));
+      mockEntityManager.save.mockResolvedValue(undefined);
       stockService.releaseReservation.mockResolvedValue(undefined);
       await service.releaseStockForOrder(1, mockEntityManager as any);
-      expect(mockEntityManager.getRepository).toHaveBeenCalled();
+      expect(mockEntityManager.findOne).toHaveBeenCalled();
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        OrderEntity,
+        expect.objectContaining({ status: OrderStatus.CANCELLED }),
+      );
       expect(stockService.releaseReservation).toHaveBeenCalled();
     });
   });

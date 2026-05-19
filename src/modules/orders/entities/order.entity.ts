@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn, OneToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
@@ -13,11 +13,17 @@ export class OrderEntity extends BaseEntity {
   // Relaciones
   // ==========================
 
-  @ManyToOne(() => UserEntity, { nullable: false })
+  @Column({ name: 'user_id', type: 'int', nullable: false })
+  userId: number;
+
+  @ManyToOne(() => UserEntity, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
-  @ManyToOne(() => CouponEntity, { nullable: true })
+  @Column({ name: 'coupon_id', type: 'int', nullable: true, default: null })
+  couponId?: number | null;
+
+  @ManyToOne(() => CouponEntity, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'coupon_id' })
   coupon?: CouponEntity | null;
 
@@ -91,7 +97,4 @@ export class OrderEntity extends BaseEntity {
   })
   total: number;
 
-//  @OneToOne(() => PaymentEntity, { nullable: true })
-//  @JoinColumn({ name: 'payment_id' })
-//    payment?: PaymentEntity | null;
 }
