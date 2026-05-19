@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, DataSource } from 'typeorm';
+import { Repository, ILike, DataSource, FindOptionsWhere } from 'typeorm';
 
 import { UserEntity } from '../entities/user.entity';
 import { ProfileEntity } from '../entities/profile.entity';
@@ -85,7 +85,7 @@ export class UsersService {
       return new PaginatedResponseDto(users.map(u => new UserResponseDto(u)), total, page, limit);
     }
 
-    const where: any = {};
+    const where: FindOptionsWhere<UserEntity> = {};
     if (dto?.email) where.email = ILike(`%${dto.email}%`);
 
     const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
