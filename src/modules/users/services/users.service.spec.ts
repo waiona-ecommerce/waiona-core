@@ -12,18 +12,25 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 describe('UsersService', () => {
   let service: UsersService;
 
-  const mockUserRepo    = () => ({ findOne: jest.fn(), find: jest.fn(), create: jest.fn(), save: jest.fn(), update: jest.fn() });
+  const mockUserRepo    = () => ({
+    findOne:      jest.fn(),
+    findAndCount: jest.fn(),
+    create:       jest.fn(),
+    save:         jest.fn(),
+    update:       jest.fn(),
+    softDelete:   jest.fn(),
+  });
   const mockProfileRepo = () => ({ create: jest.fn() });
   const mockRoleRepo    = () => ({ findOne: jest.fn() });
 
   const mockEntityManager = { create: jest.fn(), save: jest.fn() };
   const mockDataSource    = { transaction: jest.fn(cb => cb(mockEntityManager)) };
 
-  const mockRole    = { id: 3, type: RoleType.CLIENT };
-  const mockProfile = { id: 1, name: 'Juan', lastName: 'Pérez', avatar: null, isDeleted: false };
+  const mockRole    = { id: 3, type: RoleType.CLIENT, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
+  const mockProfile = { id: 1, name: 'Juan', lastName: 'Pérez', avatar: null, deletedAt: null, createdAt: new Date(), updatedAt: new Date() };
   const mockUser    = (overrides = {}): UserEntity =>
     ({ id: 1, email: 'juan@test.com', password: 'hashed', isActive: false,
-       isDeleted: false, profile: mockProfile, role: mockRole,
+       deletedAt: null, profile: mockProfile, role: mockRole,
        createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as UserEntity;
 
   let userRepo: any;
@@ -109,30 +116,31 @@ describe('UsersService', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('should return all users', async () => {
-      userRepo.find.mockResolvedValue([mockUser()]);
+    it('should return paginated users', async () => {
+      userRepo.findAndCount.mockResolvedValue([[mockUser()], 1]);
       const result = await service.findAll();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should return empty page', async () => {
+      userRepo.findAndCount.mockResolvedValue([[], 0]);
+      const result = await service.findAll();
+      expect(result.data).toEqual([]);
     });
 
     it('should filter by email', async () => {
-      userRepo.find.mockResolvedValue([mockUser()]);
+      userRepo.findAndCount.mockResolvedValue([[mockUser()], 1]);
       const result = await service.findAll({ email: 'juan' } as any);
-      expect(userRepo.find).toHaveBeenCalledWith(
+      expect(userRepo.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ email: expect.anything() }) }),
       );
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
 
     it('should filter by name', async () => {
-      userRepo.find.mockResolvedValue([mockUser()]);
+      userRepo.findAndCount.mockResolvedValue([[mockUser()], 1]);
       const result = await service.findAll({ name: 'Juan' } as any);
-      expect(result).toHaveLength(1);
-    });
-
-    it('should return empty array', async () => {
-      userRepo.find.mockResolvedValue([]);
-      expect(await service.findAll()).toEqual([]);
+      expect(result.data).toHaveLength(1);
     });
   });
 
@@ -179,16 +187,13 @@ describe('UsersService', () => {
   // ==========================
 
   describe('remove', () => {
-    it('should soft delete user and profile', async () => {
-      const user = mockUser();
-      userRepo.findOne.mockResolvedValue(user);
-      userRepo.save.mockResolvedValue({ ...user, isDeleted: true });
+    it('should soft delete user', async () => {
+      userRepo.findOne.mockResolvedValue(mockUser());
+      userRepo.softDelete.mockResolvedValue({ affected: 1 });
 
       await service.remove(1);
 
-      expect(userRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ isDeleted: true }),
-      );
+      expect(userRepo.softDelete).toHaveBeenCalledWith(1);
     });
 
     it('should throw NotFoundException', async () => {
@@ -221,7 +226,6 @@ describe('UsersService', () => {
         1,
         expect.objectContaining({ password: expect.any(String) }),
       );
-      // verifica que no guarda en texto plano
       const call = userRepo.update.mock.calls[0][1];
       expect(call.password).not.toBe('newPassword123');
     });

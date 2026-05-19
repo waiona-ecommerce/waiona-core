@@ -22,12 +22,17 @@ export class UserEntity extends BaseEntity {
   // Relaciones
   // ==========================
 
-  @OneToOne(() => ProfileEntity, { nullable: false, cascade: true, eager: true })
+  @Column({ name: 'profile_id', type: 'int', nullable: false })
+  profileId: number;
+
+  @OneToOne(() => ProfileEntity, { nullable: false, cascade: true, eager: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'profile_id' })
   profile: ProfileEntity;
 
+  @Column({ name: 'role_id', type: 'int', nullable: true, default: null })
+  roleId: number | null;
 
-  @ManyToOne(() => RoleEntity, { nullable: true, eager: true })
+  @ManyToOne(() => RoleEntity, { nullable: true, eager: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'role_id' })
   role?: RoleEntity | null;
 

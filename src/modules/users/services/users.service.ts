@@ -9,6 +9,7 @@ import { RoleEntity } from '../entities/role.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { SearchUsersDto } from '../dto/search-users.dto';
+import { UserResponseDto } from '../dto/user-response.dto';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
@@ -30,7 +31,7 @@ export class UsersService {
   /* =======================
       CREATE
   ======================= */
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const existing = await this.userRepo.findOne({
       where: { email: dto.email },
     });
@@ -40,8 +41,8 @@ export class UsersService {
       where: { type: RoleType.CLIENT },
     });
 
-    // 🔥 transacción — si falla el save del user el profile no queda huérfano
-    return this.dataSource.transaction(async manager => {
+    // transacción — si falla el save del user el profile no queda huérfano
+    const saved = await this.dataSource.transaction(async manager => {
 
       const profile = manager.create(ProfileEntity, {
         name:     dto.name,
@@ -63,6 +64,8 @@ export class UsersService {
         throw err;
       }
     });
+
+    return new UserResponseDto(saved);
   }
 
   /* =======================
@@ -70,12 +73,10 @@ export class UsersService {
   ======================= */
 
   async findByEmail(email: string): Promise<UserEntity | null> {
-    return this.userRepo.findOne({
-      where: { email },
-    });
+    return this.userRepo.findOne({ where: { email } });
   }
 
-  async findAll(dto?: SearchUsersDto, page = 1, limit = 20): Promise<PaginatedResponseDto<UserEntity>> {
+  async findAll(dto?: SearchUsersDto, page = 1, limit = 20): Promise<PaginatedResponseDto<UserResponseDto>> {
     const skip = (page - 1) * limit;
 
     if (dto?.name) {
@@ -84,45 +85,42 @@ export class UsersService {
         { ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { lastName: ILike(`%${dto.name}%`) } },
       ];
       const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
-      return new PaginatedResponseDto(users, total, page, limit);
+      return new PaginatedResponseDto(users.map(u => new UserResponseDto(u)), total, page, limit);
     }
 
     const where: any = {};
     if (dto?.email) where.email = ILike(`%${dto.email}%`);
 
     const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
-    return new PaginatedResponseDto(users, total, page, limit);
+    return new PaginatedResponseDto(users.map(u => new UserResponseDto(u)), total, page, limit);
   }
 
-  async findOne(id: number) {
-    const user = await this.userRepo.findOne({
-      where: { id },
-    });
-    if (!user) throw new NotFoundException('User not found');
-    return user;
+  async findOne(id: number): Promise<UserResponseDto> {
+    return new UserResponseDto(await this.findEntity(id));
   }
 
   /* =======================
       UPDATE
   ======================= */
-  async update(id: number, dto: UpdateUserDto) {
-    const user = await this.findOne(id);
+  async update(id: number, dto: UpdateUserDto): Promise<UserResponseDto> {
+    const user = await this.findEntity(id);
 
     Object.assign(user.profile, {
-      name:     dto.name     ?? user.profile.name,
-      lastName: dto.lastName ?? user.profile.lastName,
-      avatar:   dto.avatar   ?? user.profile.avatar,
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+      ...(dto.avatar !== undefined && { avatar: dto.avatar }),
     });
 
-    return this.userRepo.save(user);
+    const saved = await this.userRepo.save(user);
+    return new UserResponseDto(saved);
   }
 
   /* =======================
       DELETE (SOFT)
   ======================= */
-  async remove(id: number) {
-    const user = await this.findOne(id);
-    return this.userRepo.softRemove(user);
+  async remove(id: number): Promise<void> {
+    await this.findEntity(id);
+    await this.userRepo.softDelete(id);
   }
 
   /* =======================
@@ -138,5 +136,14 @@ export class UsersService {
   async updatePassword(id: number, newPassword: string): Promise<void> {
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.userRepo.update(id, { password: hashed });
+  }
+
+  /* =======================
+      INTERNAL
+  ======================= */
+  private async findEntity(id: number): Promise<UserEntity> {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 }
