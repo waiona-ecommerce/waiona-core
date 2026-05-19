@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 
 import { PaymentsService } from './payments.service';
 import { PaymentEntity } from '../entities/payment.entity';
@@ -71,10 +71,11 @@ describe('PaymentsService', () => {
 
     it('should create a payment with MercadoPago preference', async () => {
       const payment = mockPayment();
-      // create() usa manager.findOne: primera llamada → orden, segunda → null (no hay pago pendiente)
+      // create() usa el patrón de dos queries: 1→ lock-only, 2→ full load, 3→ check pago existente
       mockTxManager.findOne
-        .mockResolvedValueOnce(mockOrder({ user: { id: userId } }))
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce(mockOrder({ userId }))                 // lock
+        .mockResolvedValueOnce(mockOrder({ userId }))                 // full load
+        .mockResolvedValueOnce(null);                                 // no existing payment
       mpProvider.createPreference.mockResolvedValue({ id: 'pref_123', checkoutUrl: 'https://mp.com/checkout' });
       mockTxManager.create.mockReturnValue(payment);
       mockTxManager.save.mockResolvedValue(payment);
@@ -87,19 +88,32 @@ describe('PaymentsService', () => {
     });
 
     it('should throw NotFoundException if order not found', async () => {
-      mockTxManager.findOne.mockResolvedValueOnce(null);
+      mockTxManager.findOne.mockResolvedValueOnce(null); // lock returns null → 404
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException if order is not PENDING', async () => {
-      mockTxManager.findOne.mockResolvedValueOnce(mockOrder({ status: OrderStatus.CONFIRMED, user: { id: userId } }));
+      const confirmed = mockOrder({ userId, status: OrderStatus.CONFIRMED });
+      mockTxManager.findOne
+        .mockResolvedValueOnce(confirmed) // lock
+        .mockResolvedValueOnce(confirmed); // full load
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException if order already has a pending payment', async () => {
+    it('should throw ForbiddenException if client accesses another user order', async () => {
+      const order = mockOrder({ userId: 1 }); // different from userId=99
       mockTxManager.findOne
-        .mockResolvedValueOnce(mockOrder({ user: { id: userId } }))
-        .mockResolvedValueOnce(mockPayment());
+        .mockResolvedValueOnce(order) // lock
+        .mockResolvedValueOnce(order); // full load
+      await expect(service.create(userId, role, dto as any)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw BadRequestException if order already has a pending payment', async () => {
+      const order = mockOrder({ userId });
+      mockTxManager.findOne
+        .mockResolvedValueOnce(order)         // lock
+        .mockResolvedValueOnce(order)         // full load
+        .mockResolvedValueOnce(mockPayment()); // existing pending payment
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(BadRequestException);
     });
   });
@@ -156,6 +170,23 @@ describe('PaymentsService', () => {
       const result = await service.findByOrder(999, 99, RoleType.ADMIN);
       expect(result).toEqual([]);
     });
+
+    it('should return payments for client accessing own order', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder({ userId: 99 }));
+      paymentRepo.find.mockResolvedValue([mockPayment()]);
+      const result = await service.findByOrder(1, 99, RoleType.CLIENT);
+      expect(result).toHaveLength(1);
+    });
+
+    it('should throw NotFoundException if order not found (client)', async () => {
+      orderRepo.findOne.mockResolvedValue(null);
+      await expect(service.findByOrder(999, 99, RoleType.CLIENT)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if client accesses another user order', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder({ userId: 1 }));
+      await expect(service.findByOrder(1, 99, RoleType.CLIENT)).rejects.toThrow(ForbiddenException);
+    });
   });
 
   // ==========================
@@ -173,6 +204,17 @@ describe('PaymentsService', () => {
     it('should throw NotFoundException if not found', async () => {
       paymentRepo.findOne.mockResolvedValue(null);
       await expect(service.findOne(999, 99, RoleType.ADMIN)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return payment for client accessing own order', async () => {
+      paymentRepo.findOne.mockResolvedValue(mockPayment({ order: { userId: 99 } }));
+      const result = await service.findOne(1, 99, RoleType.CLIENT);
+      expect(result.id).toBe(1);
+    });
+
+    it('should throw ForbiddenException if client accesses another user payment', async () => {
+      paymentRepo.findOne.mockResolvedValue(mockPayment({ order: { userId: 1 } }));
+      await expect(service.findOne(1, 99, RoleType.CLIENT)).rejects.toThrow(ForbiddenException);
     });
   });
 });

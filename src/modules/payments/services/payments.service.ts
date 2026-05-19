@@ -42,17 +42,22 @@ export class PaymentsService {
 
   async create(userId: number, role: RoleType, dto: CreatePaymentDto): Promise<PaymentResponseDto> {
     return this.dataSource.transaction(async manager => {
-      // pessimistic lock en la orden — serializa requests concurrentes para el mismo orderId:
-      // el segundo request espera el commit del primero y verá el pago pendiente ya existente
+      // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
+      // el segundo request concurrente espera el commit del primero y verá el pago pendiente ya existente
+      const locked = await manager.findOne(OrderEntity, {
+        where: { id: dto.orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!locked) throw new NotFoundException('Order not found');
+
       const order = await manager.findOne(OrderEntity, {
         where: { id: dto.orderId },
-        relations: ['items', 'items.product', 'items.combo', 'user'],
-        lock: { mode: 'pessimistic_write' },
       });
 
       if (!order) throw new NotFoundException('Order not found');
 
-      if (role === RoleType.CLIENT && order.user.id !== userId) {
+      if (role === RoleType.CLIENT && order.userId !== userId) {
         throw new ForbiddenException('Access denied');
       }
 
@@ -191,12 +196,9 @@ export class PaymentsService {
 
   async findByOrder(orderId: number, userId: number, role: RoleType): Promise<PaymentResponseDto[]> {
     if (role === RoleType.CLIENT) {
-      const order = await this.orderRepo.findOne({
-        where: { id: orderId },
-        relations: ['user'],
-      });
+      const order = await this.orderRepo.findOne({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Order not found');
-      if (order.user.id !== userId) throw new ForbiddenException('Access denied');
+      if (order.userId !== userId) throw new ForbiddenException('Access denied');
     }
 
     const payments = await this.paymentRepo.find({
@@ -213,10 +215,10 @@ export class PaymentsService {
   async findOne(id: number, userId: number, role: RoleType): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepo.findOne({
       where: { id },
-      relations: role === RoleType.CLIENT ? ['order', 'order.user'] : [],
+      relations: role === RoleType.CLIENT ? ['order'] : [],
     });
     if (!payment) throw new NotFoundException('Payment not found');
-    if (role === RoleType.CLIENT && payment.order?.user?.id !== userId) {
+    if (role === RoleType.CLIENT && payment.order?.userId !== userId) {
       throw new ForbiddenException('Access denied');
     }
     return new PaymentResponseDto(payment);

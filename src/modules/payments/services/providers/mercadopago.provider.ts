@@ -36,7 +36,7 @@ export class MercadoPagoProvider {
             id: String(order.id),
             title: `Orden #${order.id}`,
             quantity: 1,
-            unit_price: Number(order.total),
+            unit_price: Math.round(Number(order.total)),
             currency_id: 'ARS',
           },
         ],
