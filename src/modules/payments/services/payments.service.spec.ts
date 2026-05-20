@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { MerchantOrder, Payment } from 'mercadopago';
 
 import { PaymentsService } from './payments.service';
 import { PaymentEntity } from '../entities/payment.entity';
@@ -11,6 +12,13 @@ import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { OrderStatus } from 'src/modules/orders/enums/order-status.enum';
 import { RoleType } from 'src/common/enums/role-type.enum';
+
+jest.mock('mercadopago', () => ({
+  MerchantOrder: jest.fn(),
+  Payment:       jest.fn(),
+  MercadoPagoConfig: jest.fn(),
+  Preference:    jest.fn(),
+}));
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -123,33 +131,146 @@ describe('PaymentsService', () => {
   // ==========================
 
   describe('handleMercadoPagoWebhook', () => {
-    const mockMerchantOrderGet = jest.fn();
+    // Prepara el transaction mock para devolver un payment + order a manager.findOne
+    const setupTx = (paymentOverrides: any = {}, orderOverrides: any = {}) => {
+      mockTxManager.findOne
+        .mockResolvedValueOnce(mockPayment(paymentOverrides))
+        .mockResolvedValueOnce(mockOrder({ userId: 1, status: OrderStatus.PENDING, ...orderOverrides }));
+      mockTxManager.save.mockResolvedValue(undefined);
+    };
 
     beforeEach(() => {
-      jest.mock('mercadopago', () => ({
-        MerchantOrder: jest.fn().mockImplementation(() => ({
-          get: mockMerchantOrderGet,
-        })),
-      }));
+      mpProvider.getClient.mockReturnValue({});
+    });
+
+    afterEach(() => {
+      (MerchantOrder as jest.Mock).mockReset();
+      (Payment as jest.Mock).mockReset();
     });
 
     it('should return early if no id in query or body', async () => {
       await service.handleMercadoPagoWebhook({}, {});
-      expect(paymentRepo.findOne).not.toHaveBeenCalled();
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should return early if topic is not payment or merchant_order', async () => {
       await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'other' });
-      expect(paymentRepo.findOne).not.toHaveBeenCalled();
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('should swallow errors silently', async () => {
-      mpProvider.getClient.mockReturnValue({});
-      // MerchantOrder.get va a fallar porque está mockeado globalmente
-      // el service debe tragarse el error sin tirar
+      (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+        get: jest.fn().mockRejectedValue(new Error('MP API down')),
+      }));
       await expect(
-        service.handleMercadoPagoWebhook({}, { id: '1', topic: 'payment' }),
+        service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' }),
       ).resolves.not.toThrow();
+    });
+
+    it('should skip DB update when externalReference is missing', async () => {
+      (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+        get: jest.fn().mockResolvedValue({ order_status: 'paid', external_reference: null }),
+      }));
+      await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' });
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    // ── merchant_order topic ────────────────────────────────────────────────
+
+    describe('merchant_order — status mapping', () => {
+      it('paid → APPROVED payment, CONFIRMED order', async () => {
+        (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ order_status: 'paid', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.APPROVED }));
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: OrderStatus.CONFIRMED }));
+      });
+
+      it('reverted → CANCELLED payment, CANCELLED order', async () => {
+        (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ order_status: 'reverted', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.CANCELLED }));
+        expect(mockTxManager.save).toHaveBeenCalledTimes(2); // order + payment
+      });
+
+      it('charged_back → CANCELLED payment, CANCELLED order', async () => {
+        (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ order_status: 'charged_back', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.CANCELLED }));
+        expect(mockTxManager.save).toHaveBeenCalledTimes(2);
+      });
+
+      it('payment_in_process → PENDING payment, order unchanged', async () => {
+        (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ order_status: 'payment_in_process', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' });
+        expect(mockTxManager.save).toHaveBeenCalledTimes(1); // solo payment
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.PENDING }));
+      });
+
+      it('expired → REJECTED payment, CANCELLED order', async () => {
+        (MerchantOrder as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ order_status: 'expired', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'merchant_order' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.REJECTED }));
+        expect(mockTxManager.save).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    // ── payment topic ───────────────────────────────────────────────────────
+
+    describe('payment topic — status mapping', () => {
+      it('approved → APPROVED payment, CONFIRMED order', async () => {
+        (Payment as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ status: 'approved', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'payment' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.APPROVED }));
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: OrderStatus.CONFIRMED }));
+      });
+
+      it('refunded → CANCELLED payment, CANCELLED order', async () => {
+        (Payment as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ status: 'refunded', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'payment' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.CANCELLED }));
+        expect(mockTxManager.save).toHaveBeenCalledTimes(2);
+      });
+
+      it('in_process → PENDING payment, order unchanged', async () => {
+        (Payment as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ status: 'in_process', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'payment' });
+        expect(mockTxManager.save).toHaveBeenCalledTimes(1);
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.PENDING }));
+      });
+
+      it('rejected → REJECTED payment, CANCELLED order', async () => {
+        (Payment as jest.Mock).mockImplementationOnce(() => ({
+          get: jest.fn().mockResolvedValue({ status: 'rejected', external_reference: '1' }),
+        }));
+        setupTx();
+        await service.handleMercadoPagoWebhook({}, { id: '1', topic: 'payment' });
+        expect(mockTxManager.save).toHaveBeenCalledWith(expect.objectContaining({ status: PaymentStatus.REJECTED }));
+        expect(mockTxManager.save).toHaveBeenCalledTimes(2);
+      });
     });
   });
 
