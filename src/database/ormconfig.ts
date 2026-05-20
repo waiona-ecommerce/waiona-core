@@ -15,6 +15,8 @@ import { config } from 'dotenv';
 
 config(); // carga el .env
 
+const compiled = __filename.endsWith('.js');
+
 export default new DataSource({
   type:     'postgres',
   host:     process.env.POSTGRES_HOST,
@@ -22,7 +24,7 @@ export default new DataSource({
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
-  entities:   ['./src/**/*.entity.ts'],
-  migrations: ['./src/database/migrations/*.ts'],
-  synchronize: false, // siempre false para migraciones
+  entities:   [compiled ? 'dist/**/*.entity.js'              : 'src/**/*.entity.ts'],
+  migrations: [compiled ? 'dist/database/migrations/*.js'    : 'src/database/migrations/*.ts'],
+  synchronize: false,
 });

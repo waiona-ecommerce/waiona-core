@@ -4,117 +4,84 @@ Ordenadas de menor a mayor complejidad. Los bloques respetan dependencias entre 
 
 ---
 
-## Bloque 1 — Cambios rápidos, sin tocar arquitectura (~30 min total)
+## Bloque 1 — Cambios rápidos, sin tocar arquitectura ✅ COMPLETO
 
-Hacerlos todos juntos de una sola vez.
-
-### 1. Max en paginación
+### ~~1. Max en paginación~~ ✅
 **Archivo:** `src/common/dto/pagination-query.dto.ts`  
-Agregar `@Max(100)` en el campo `limit`. Sin esto un request `?limit=100000` ejecuta una query sin límite real.
+Ya existía — `@Max(100)` presente en el campo `limit`.
 
-### 2. Compresión de respuestas
+### ~~2. Compresión de respuestas~~ ✅
 **Archivo:** `src/main.ts`  
-Instalar `compression` y agregar `app.use(compression())` antes del resto de middlewares. Reduce el tamaño de respuestas JSON un 60-80%.
-```bash
-npm install compression && npm install -D @types/compression
-```
+`compression` instalado. `app.use(compression())` agregado antes de `helmet()`.
 
-### 3. `select: false` en password
+### ~~3. `select: false` en password~~ ✅
 **Archivo:** `src/modules/users/entities/user.entity.ts`  
-Agregar `select: false` al `@Column()` del campo `password`. El `@Exclude()` ya existe pero solo funciona con el interceptor. `select: false` es defensa en profundidad a nivel ORM.
+`select: false` agregado al `@Column()` del campo `password`. Defensa en profundidad a nivel ORM junto al `@Exclude()` existente.
 
-### 4. Rate limit específico en endpoints de auth
+### ~~4. Rate limit específico en endpoints de auth~~ ✅
 **Archivo:** `src/modules/auth/controllers/auth.controller.ts`  
-Agregar `@Throttle({ default: { limit: 5, ttl: 60000 } })` en:
-- `POST /auth/login` — previene brute force
-- `POST /auth/forgot-password` — previene spam de emails
-- `POST /auth/register` — previene creación masiva de cuentas
+Ya existía — `@Throttle` en `register` (5/min), `login` (5/min), `forgot-password` (3/min), `reset-password` (5/min).
 
-### 5. Validación de variables de entorno al arrancar
+### ~~5. Validación de variables de entorno al arrancar~~ ✅
 **Archivo:** `src/app.module.ts`  
-Instalar `joi` y agregar `validationSchema` en `ConfigModule.forRoot()`. Si falta una env var crítica, la app no arranca (falla rápido, no en producción).
-```bash
-npm install joi
-```
-Variables a validar: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `JWT_SECRET`, `MP_ACCESS_TOKEN`, `MP_NOTIFICATION_URL`, `RESEND_API_KEY`, `FRONTEND_URL`, `API_URL`.
+`joi` instalado. `validationSchema` agregado en `ConfigModule.forRoot()` con las 11 vars críticas.
 
 ---
 
-## Bloque 2 — Independientes, sin dependencias entre sí (~medio día cada uno)
+## Bloque 2 — Independientes, sin dependencias entre sí ✅ COMPLETO
 
-El ítem 8 (logging) conviene hacerlo después del 7 (correlation IDs).
+### ~~6. Índices de DB faltantes~~ ✅
+- `orders`: `@Index(['userId', 'status'])` agregado — las demás entidades ya tenían sus índices
+- `products`: ya tenía `name`, `isActive`, `sku` (unique), `categoryId`
+- `coupons`: `code` tiene `unique: true` (índice implícito), `startsAt` y `endsAt` ya indexados
+- `discount_product_targets` / `discount_combo_targets`: ya tenían `discountId` y `productId`/`comboId`
+- `payments`: ya tenía `orderId` y `externalId`
 
-### 6. Índices de DB faltantes
-**Archivos:** entidades sin `@Index`  
-Auditar las 8 entidades sin índices. Índices prioritarios:
-- `orders`: `(userId, status)` — usado en `GET /orders/user/:userId`
-- `products`: `(categoryId, isDeleted)` — listados del shop
-- `coupons`: `(code)` — búsqueda por código en creación de orden
-- `discount_product_target` / `discount_combo_target`: `(productId/comboId, startsAt, endsAt)` — CalculationService busca descuentos activos por fecha
-- `payments`: `(orderId)` — ya tiene `@Index`, verificar que esté en la entidad
+### ~~7. Correlation IDs (Request ID)~~ ✅
+- `src/common/context/request-context.ts` — `AsyncLocalStorage` con helper `getRequestId()`
+- `src/common/middleware/request-id.middleware.ts` — genera UUID si no viene en header, lo setea en request y respuesta como `X-Request-Id`
+- Registrado en `app.module.ts` via `NestModule.configure()`
 
-### 7. Correlation IDs (Request ID)
-**Archivo nuevo:** `src/common/middleware/request-id.middleware.ts`  
-Middleware que genera un UUID por request, lo agrega al `AsyncLocalStorage` (o `cls-hooked`) y lo devuelve en el header `X-Request-Id`. Permite filtrar todos los logs de un request específico.
-```bash
-npm install uuid && npm install -D @types/uuid
-```
+### ~~8. Logging estructurado~~ ✅
+- `nestjs-pino` + `pino-http` + `pino-pretty` instalados
+- `LoggerModule.forRoot()` en `app.module.ts` con `customProps` que incluye `requestId`
+- `app.useLogger(app.get(Logger))` en `main.ts` — todos los logs usan pino
+- `GlobalExceptionFilter` loggea `error.stack` para errores 500+
+- Dev: `pino-pretty` con `singleLine: true`. Prod: JSON puro
 
-### 8. Logging estructurado
-**Librería:** `nestjs-pino` + `pino-pretty` (dev) + `pino` (prod)  
-```bash
-npm install nestjs-pino pino-http && npm install -D pino-pretty
-```
-- Reemplazar logs de consola por `Logger` de `nestjs-pino`
-- Loggear cada request: método, path, status code, duración
-- El `GlobalExceptionFilter` debe hacer `logger.error(exception)` antes de responder
-- En desarrollo: output legible con `pino-pretty`. En producción: JSON puro para ingestar en Datadog/CloudWatch/Loki
-- Incluir el `requestId` del paso 7 en cada log
+### ~~9. Health check real~~ ✅
+- `src/modules/health/health.module.ts` + `health.controller.ts` creados
+- `GET /health` → verifica DB (`TypeOrmHealthIndicator`), heap (<250MB) y disco (<90%)
+- `503` si algún check falla, `200` si todo ok
+- `HealthModule` importado en `app.module.ts`
 
-### 9. Health check real
-**Librería:** `@nestjs/terminus`  
-```bash
-npm install @nestjs/terminus
-```
-- Crear `src/modules/health/health.module.ts` con `HealthController`
-- `GET /health` → verifica DB con `TypeOrmHealthIndicator`, memoria heap, y disco
-- Responde `200` si todo ok, `503` si algo falla
-- Reemplaza el `GET /` actual que solo devuelve `{ status: 'ok' }` hardcodeado
-
-### 10. Notificaciones de órdenes por email
-**Archivos:** `src/modules/mail/`, `src/modules/orders/services/orders.service.ts`  
-El `MailModule` ya existe con templates. Agregar emails en `updateStatus()`:
-- `CONFIRMED` → "Tu pedido fue confirmado"
-- `DISPATCHED` → "Tu pedido está en camino"
-- `CANCELLED` → "Tu pedido fue cancelado"
-- `DELIVERED` → "¿Cómo fue tu experiencia?"
+### ~~10. Notificaciones de órdenes por email~~ ✅
+- 4 templates creados: `order-confirmed`, `order-dispatched`, `order-cancelled`, `order-delivered`
+- 4 métodos agregados a `MailService`
+- `MailModule` importado en `OrdersModule`
+- `MailService` inyectado en `OrdersService` — `sendStatusEmail()` privado, fire-and-forget tras el commit de la transacción
 
 ---
 
-## Bloque 3 — Infraestructura (~1 día cada uno)
+## Bloque 3 — Infraestructura ✅ COMPLETO
 
-El Dockerfile (11) desbloquea CI/CD (12) y migraciones (13).
+### ~~11. Dockerfile + docker-compose para la app~~ ✅
+- `Dockerfile` multi-stage creado: `builder` (instala deps + compila) → `runner` (solo `dist/` + prod deps)
+- `docker-compose.yaml` ya existía completo — tiene `postgres`, `postgres_test`, `pgadmin` y servicio `api` con `build: .`
+- `.dockerignore` creado
+- `NODE_ENV=production` en el runner — `synchronize` queda desactivado automáticamente
 
-### 11. Dockerfile + docker-compose para la app
-**Archivos nuevos:** `Dockerfile`, `docker-compose.yml` (dev completo)  
-- Dockerfile multi-stage: `builder` (instala deps + compila TS) → `runner` (solo `dist/` + `node_modules` de prod)
-- `docker-compose.yml` que levante: `app` + `postgres` + `pgadmin`
-- `docker-compose.test.yml` ya existe para e2e — integrarlo
-- Variable `NODE_ENV=production` en el runner para desactivar `synchronize`
+### ~~12. CI/CD — GitHub Actions~~ ✅
+- `.github/workflows/ci.yml` creado
+- Pipeline: `lint` + `test-unit` + `build` en paralelo → `test-e2e` (bloqueado hasta que los 3 pasen)
+- E2E corre con postgres service container de GitHub Actions (no necesita Docker-in-Docker)
+- `node_modules` cacheado via `actions/setup-node` con `cache: 'npm'`
 
-### 12. CI/CD — GitHub Actions
-**Archivo nuevo:** `.github/workflows/ci.yml`  
-Pipeline: `lint → test:unit → build → test:e2e (con Docker)`  
-- Bloquear merge a `master` si falla algún paso
-- Cachear `node_modules` entre runs
-- Depende del Dockerfile del paso 11 para el job de e2e
-
-### 13. Migraciones en producción
-**Archivos:** `src/database/ormconfig.ts`, `package.json`  
-- Los scripts de migración ya están en `package.json` pero `ormconfig.ts` no está configurado
-- Configurar `ormconfig.ts` apuntando a las mismas env vars que `app.module.ts`
-- En el entrypoint de producción: correr `migration:run` antes de `node dist/main`
-- Desactivar `synchronize: true` definitivamente (ya está condicionado a `!== 'production'`, verificar que sea así en el deploy)
+### ~~13. Migraciones en producción~~ ✅
+- `ormconfig.ts`: paths ahora condicionales — dev usa `src/**/*.entity.ts`, prod usa `dist/**/*.entity.js` (detecta por extensión de `__filename`)
+- `entrypoint.sh` creado — corre `typeorm migration:run -d dist/database/ormconfig.js` antes de arrancar la app
+- `migration:run:prod` agregado a `package.json` — usa el JS compilado directamente
+- `synchronize` ya estaba condicionado a `process.env.NODE_ENV !== 'production'` ✅
 
 ---
 

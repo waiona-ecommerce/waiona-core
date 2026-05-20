@@ -12,7 +12,7 @@ export class UserEntity extends BaseEntity {
   email: string;
 
   @Exclude()
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, select: false })
   password: string;
 
   @Column({ type: 'boolean', default: false })

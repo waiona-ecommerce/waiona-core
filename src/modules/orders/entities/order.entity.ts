@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
@@ -7,6 +7,7 @@ import { DeliveryType } from '../enums/delivery-type.enum';
 import { OrderItemEntity } from './order-item.entity';
 
 @Entity('orders')
+@Index(['userId', 'status'])
 export class OrderEntity extends BaseEntity {
 
   // ==========================

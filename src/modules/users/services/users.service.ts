@@ -70,7 +70,14 @@ export class UsersService {
   ======================= */
 
   async findByEmail(email: string): Promise<UserEntity | null> {
-    return this.userRepo.findOne({ where: { email } });
+    return this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.role', 'role')
+      .where('user.email = :email', { email })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
   }
 
   async findAll(dto?: SearchUsersDto, page = 1, limit = 20): Promise<PaginatedResponseDto<UserResponseDto>> {

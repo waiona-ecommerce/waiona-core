@@ -1,10 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { LoggerModule } from 'nestjs-pino';
+import * as Joi from 'joi';
 
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AppController } from './app.controller';
+import { HealthModule } from './modules/health/health.module';
 
 import { TaxationModule } from './modules/taxation/taxation.module';
 import { MarginsModule } from './modules/margins/margins.module';
@@ -23,7 +27,31 @@ import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: Joi.object({
+        POSTGRES_HOST:        Joi.string().required(),
+        POSTGRES_PORT:        Joi.number().required(),
+        POSTGRES_DB:          Joi.string().required(),
+        POSTGRES_USER:        Joi.string().required(),
+        POSTGRES_PASSWORD:    Joi.string().required(),
+        JWT_SECRET:           Joi.string().required(),
+        MP_ACCESS_TOKEN:      Joi.string().required(),
+        MP_NOTIFICATION_URL:  Joi.string().required(),
+        RESEND_API_KEY:       Joi.string().required(),
+        FRONTEND_URL:         Joi.string().required(),
+        API_URL:              Joi.string().required(),
+      }),
+    }),
+
+    LoggerModule.forRoot({
+      pinoHttp: {
+        customProps: (req) => ({ requestId: req.headers['x-request-id'] }),
+        transport: process.env.NODE_ENV !== 'production'
+          ? { target: 'pino-pretty', options: { singleLine: true } }
+          : undefined,
+      },
+    }),
 
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 30 }]),
 
@@ -41,6 +69,7 @@ import { MailModule } from './modules/mail/mail.module';
       }),
     }),
 
+    HealthModule,
     TaxationModule,
     MarginsModule,
     DiscountsModule,
@@ -56,7 +85,11 @@ import { MailModule } from './modules/mail/mail.module';
     ShopModule,
     MailModule,
   ],
-  controllers: [AppController], // health check: GET / → { status: 'ok' }
+  controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

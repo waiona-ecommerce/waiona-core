@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -21,6 +22,7 @@ import { UserEntity } from 'src/modules/users/entities/user.entity';
 
 import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
 import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
+import { MailService } from 'src/modules/mail/services/mail.service';
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
@@ -30,6 +32,8 @@ import { DeliveryType } from '../enums/delivery-type.enum';
 
 @Injectable()
 export class OrdersService {
+
+  private readonly logger = new Logger(OrdersService.name);
 
   constructor(
     @InjectRepository(OrderEntity)
@@ -61,6 +65,7 @@ export class OrdersService {
 
     private readonly stockItemsService: StockItemsService,
     private readonly calculationService: CalculationService,
+    private readonly mailService: MailService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -330,6 +335,10 @@ export class OrdersService {
       return manager.save(OrderEntity, order);
     });
 
+    this.sendStatusEmail(saved, dto.status).catch((err) =>
+      this.logger.error('Failed to send order status email', err),
+    );
+
     return new OrderResponseDto(saved);
   }
 
@@ -518,6 +527,28 @@ export class OrdersService {
       order.coupon.usageCount = Math.max(0, order.coupon.usageCount - 1);
       await couponRepo.save(order.coupon);
       await usageRepo.softDelete({ couponId: order.coupon.id, orderId: order.id });
+    }
+  }
+
+  // ==========================
+  // PRIVATE — notificación por email
+  // ==========================
+
+  private async sendStatusEmail(order: OrderEntity, status: OrderStatus): Promise<void> {
+    const user = order.user;
+    if (!user?.email || !user?.profile) return;
+
+    const { email, profile: { name } } = user;
+
+    switch (status) {
+      case OrderStatus.CONFIRMED:
+        return this.mailService.sendOrderConfirmedEmail(email, name, order.id);
+      case OrderStatus.DISPATCHED:
+        return this.mailService.sendOrderDispatchedEmail(email, name, order.id);
+      case OrderStatus.CANCELLED:
+        return this.mailService.sendOrderCancelledEmail(email, name, order.id);
+      case OrderStatus.DELIVERED:
+        return this.mailService.sendOrderDeliveredEmail(email, name, order.id);
     }
   }
 }

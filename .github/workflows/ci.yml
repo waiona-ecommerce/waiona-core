@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+
+  test-e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [lint, test-unit, build]
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: waiona_test
+          POSTGRES_USER: waiona_user
+          POSTGRES_PASSWORD: waiona_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: waiona_test
+      POSTGRES_USER: waiona_user
+      POSTGRES_PASSWORD: waiona_pass
+      POSTGRES_TEST_DB: waiona_test
+      POSTGRES_TEST_PORT: 5432
+      JWT_SECRET: ci-jwt-secret-not-for-production
+      MP_ACCESS_TOKEN: ci-mp-access-token
+      MP_PUBLIC_KEY: ci-mp-public-key
+      MP_NOTIFICATION_URL: http://localhost:3000/payments/webhook
+      MP_WEBHOOK_SECRET: ci-webhook-secret
+      RESEND_API_KEY: ci-resend-key
+      FRONTEND_URL: http://localhost:3001
+      API_URL: http://localhost:3000
+      SUPERADMIN_EMAIL: admin@test.com
+      SUPERADMIN_PASSWORD: Admin123!
+      MAIL_FROM: noreply@test.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:e2e

@@ -12,6 +12,7 @@ import { OrdersController } from './controllers/orders.controller';
 
 import { StocksModule } from '../stocks/stocks.module';
 import { CalculationModule } from 'src/modules/pricing/calculation/calculation.module';
+import { MailModule } from '../mail/mail.module';
 import { UserEntity } from '../users/entities/user.entity';
 import { CouponEntity } from '../coupons/coupon/entities/coupon.entity';
 import { CouponProductTargetEntity } from '../coupons/coupon-product-target/entities/coupon-product-target.entity';
@@ -32,6 +33,7 @@ import { CouponComboTargetEntity } from '../coupons/coupon-combo-target/entities
     ]),
     StocksModule,
     CalculationModule,
+    MailModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

@@ -1,15 +1,20 @@
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import * as express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
+  app.useLogger(app.get(Logger));
+
+  app.use(compression());
   app.use(helmet());
 
   app.enableCors({
