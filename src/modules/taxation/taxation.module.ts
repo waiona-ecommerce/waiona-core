@@ -43,7 +43,6 @@ import { ProductTaxEntity } from './product-taxes/entities/product-taxes.entity'
     TaxTypesService,
     ProductTaxesService,
     ComboTaxesService,
-    TypeOrmModule,
   ],
 })
 export class TaxationModule {}
