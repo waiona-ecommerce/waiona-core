@@ -7,11 +7,12 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 
 import { UsersService } from '../../users/services/users.service';
 import { UserEntity } from '../../users/entities/user.entity';
 import { TokenEntity } from 'src/modules/mail/entities/token.entity';
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 
 import { MailService } from 'src/modules/mail/services/mail.service';
 import { Payload } from '../models/payload.model';
@@ -19,6 +20,8 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { ResetPasswordDto } from 'src/modules/mail/dto/reset-password.dto';
 import { TokenType } from 'src/modules/mail/enum/token-type.enum';
+
+const REFRESH_TOKEN_TTL_DAYS = 30;
 
 @Injectable()
 export class AuthService {
@@ -29,6 +32,9 @@ export class AuthService {
 
     @InjectRepository(TokenEntity)
     private readonly tokenRepo: Repository<TokenEntity>,
+
+    @InjectRepository(RefreshTokenEntity)
+    private readonly refreshTokenRepo: Repository<RefreshTokenEntity>,
   ) {}
 
   // ==========================
@@ -53,7 +59,48 @@ export class AuthService {
   }
 
   // ==========================
-  // GENERATE TOKEN
+  // LOGIN — access + refresh token
+  // ==========================
+
+  async login(
+    user: UserEntity,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    const access_token = this.generateToken(user);
+    const refresh_token = await this.issueRefreshToken(user.id);
+    return { access_token, refresh_token };
+  }
+
+  // ==========================
+  // REFRESH — rotate refresh token
+  // ==========================
+
+  async refresh(
+    rawToken: string,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    const tokenEntity = await this.findValidRefreshToken(rawToken);
+
+    tokenEntity.revokedAt = new Date();
+    await this.refreshTokenRepo.save(tokenEntity);
+
+    const user = await this.usersService.findOne(tokenEntity.userId);
+    const access_token = this.generateToken(user);
+    const refresh_token = await this.issueRefreshToken(user.id);
+
+    return { access_token, refresh_token };
+  }
+
+  // ==========================
+  // LOGOUT — revoke refresh token
+  // ==========================
+
+  async logout(rawToken: string): Promise<void> {
+    const tokenEntity = await this.findValidRefreshToken(rawToken);
+    tokenEntity.revokedAt = new Date();
+    await this.refreshTokenRepo.save(tokenEntity);
+  }
+
+  // ==========================
+  // GENERATE ACCESS TOKEN
   // ==========================
 
   generateToken(user: UserEntity): string {
@@ -148,7 +195,46 @@ export class AuthService {
   }
 
   // ==========================
-  // PRIVATE — crear token
+  // PRIVATE — issue refresh token
+  // ==========================
+
+  private async issueRefreshToken(userId: number): Promise<string> {
+    const raw = randomBytes(64).toString('hex');
+    const tokenHash = createHash('sha256').update(raw).digest('hex');
+    const expiresAt = new Date(
+      Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const entity = this.refreshTokenRepo.create({
+      userId,
+      tokenHash,
+      expiresAt,
+      revokedAt: null,
+    });
+    await this.refreshTokenRepo.save(entity);
+
+    return raw;
+  }
+
+  // ==========================
+  // PRIVATE — find and validate refresh token
+  // ==========================
+
+  private async findValidRefreshToken(
+    rawToken: string,
+  ): Promise<RefreshTokenEntity> {
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const entity = await this.refreshTokenRepo.findOne({ where: { tokenHash } });
+
+    if (!entity) throw new UnauthorizedException('Invalid refresh token');
+    if (entity.isRevoked) throw new UnauthorizedException('Refresh token revoked');
+    if (entity.isExpired) throw new UnauthorizedException('Refresh token expired');
+
+    return entity;
+  }
+
+  // ==========================
+  // PRIVATE — crear token de email
   // ==========================
 
   private async createToken(
@@ -172,7 +258,7 @@ export class AuthService {
   }
 
   // ==========================
-  // PRIVATE — validar token
+  // PRIVATE — validar token de email
   // ==========================
 
   private async findValidToken(

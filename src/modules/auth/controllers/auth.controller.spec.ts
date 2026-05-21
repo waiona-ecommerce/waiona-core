@@ -11,7 +11,12 @@ describe('AuthController', () => {
   const mockService = () => ({
     register: jest.fn(),
     activateAccount: jest.fn(),
-    generateToken: jest.fn(() => 'mock_token'),
+    login: jest.fn().mockResolvedValue({
+      access_token: 'mock_access',
+      refresh_token: 'mock_refresh',
+    }),
+    refresh: jest.fn(),
+    logout: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
   });
@@ -84,15 +89,49 @@ describe('AuthController', () => {
   // ==========================
 
   describe('login', () => {
-    it('should return user and access_token', () => {
+    it('should return user, access_token and refresh_token', async () => {
       const user = mockUser();
       const req = { user } as any;
 
-      const result = controller.login(req);
+      const result = await controller.login(req);
 
-      expect(service.generateToken).toHaveBeenCalledWith(user);
-      expect(result.access_token).toBe('mock_token');
+      expect(service.login).toHaveBeenCalledWith(user);
+      expect(result.access_token).toBe('mock_access');
+      expect(result.refresh_token).toBe('mock_refresh');
       expect(result.user).toBe(user);
+    });
+  });
+
+  // ==========================
+  // refresh
+  // ==========================
+
+  describe('refresh', () => {
+    it('should return new tokens', async () => {
+      service.refresh.mockResolvedValue({
+        access_token: 'new_access',
+        refresh_token: 'new_refresh',
+      });
+
+      const result = await controller.refresh({ refresh_token: 'old_refresh' });
+
+      expect(service.refresh).toHaveBeenCalledWith('old_refresh');
+      expect(result.access_token).toBe('new_access');
+      expect(result.refresh_token).toBe('new_refresh');
+    });
+  });
+
+  // ==========================
+  // logout
+  // ==========================
+
+  describe('logout', () => {
+    it('should revoke the refresh token', async () => {
+      service.logout.mockResolvedValue(undefined);
+
+      await controller.logout({ refresh_token: 'some_token' });
+
+      expect(service.logout).toHaveBeenCalledWith('some_token');
     });
   });
 
