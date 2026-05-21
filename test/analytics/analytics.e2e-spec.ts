@@ -225,6 +225,20 @@ async function seedTestData(ds: DataSource): Promise<void> {
   const stockItemRepo = ds.getRepository(StockItemEntity);
   const orderRepo = ds.getRepository(OrderEntity);
   const orderItemRepo = ds.getRepository(OrderItemEntity);
+  const profileRepo = ds.getRepository(ProfileEntity);
+  const userRepo = ds.getRepository(UserEntity);
+
+  const profile = await profileRepo.save(
+    profileRepo.create({ name: 'Test', lastName: 'User' }),
+  );
+  const user = await userRepo.save(
+    userRepo.create({
+      email: 'test@analytics.com',
+      password: 'Password1!',
+      isActive: true,
+      profileId: profile.id,
+    }),
+  );
 
   const category = await categoryRepo.save(
     categoryRepo.create({ name: 'Test Category' }),
@@ -285,7 +299,7 @@ async function seedTestData(ds: DataSource): Promise<void> {
 
   const makeOrder = (status: OrderStatus, total: number) =>
     orderRepo.create({
-      userId: 1,
+      userId: user.id,
       status,
       deliveryType: DeliveryType.PICKUP,
       subtotal: total,
