@@ -101,5 +101,5 @@ Array<{
 
 - **Sin caché:** Las queries corren en tiempo real. Con pocos datos es suficiente. Si el volumen crece, agregar cache sobre `GET /analytics/*` con TTL corto (5min).
 - **Sin paginación:** `products/top` está hardcodeado a LIMIT 10. `stock/critical` devuelve todos. Ambos deberían ser acotados en un escenario con miles de productos.
-- **Soft delete respetado:** Todas las queries filtran `isDeleted = false`.
+- **Soft delete respetado:** Las entidades usan `@DeleteDateColumn` — TypeORM agrega `WHERE deletedAt IS NULL` automáticamente en `find*` y en QueryBuilder via alias. No se filtra `isDeleted` manualmente.
 - **Revenue excluye CANCELLED:** Por diseño — una orden cancelada no genera ingreso real.

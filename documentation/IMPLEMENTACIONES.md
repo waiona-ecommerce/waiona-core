@@ -1,101 +1,51 @@
-# Implementaciones Pendientes — Post Blocks 1-6
+# Implementaciones Pendientes — Post Blocks 1-9
 
-Bloques 1-6 completados. Este documento cubre las implementaciones pendientes para la versión de producción.
+Bloques 1-9 completados. Este documento cubre las implementaciones pendientes para la versión de producción.
 Ordenadas por prioridad de cara al desarrollo del frontend.
 
 ---
 
-## Bloque 7 — Cuenta y sesión
-
-Pequeño. Sin dependencias externas. Alta prioridad porque el frontend lo necesita en la pantalla de perfil.
+## ✅ Bloque 7 — Cuenta y sesión _(completado)_
 
 ### 1. Cambio de password autenticado
 
-**Archivos:** `src/modules/auth/controllers/auth.controller.ts`, `src/modules/auth/services/auth.service.ts`
-
-- Endpoint `PATCH /v1/auth/change-password` — requiere JWT (usuario logueado)
-- Body: `{ currentPassword, newPassword }`
-- Validar que `currentPassword` coincide con el hash actual via `bcrypt.compare()`
-- Si no coincide → `400 Bad Request`
-- Si coincide → hashear `newPassword` y guardar
-- Diferencia con `reset-password`: ese flujo es sin auth (via token de email). Este es con auth, conociendo el password actual.
-
-**Esfuerzo:** 2hs
-
----
+**Endpoint:** `PATCH /v1/auth/change-password` — requiere JWT. Body: `{ currentPassword, newPassword }`. Valida con `bcrypt.compare()`, hashea y guarda.
 
 ### 2. Cerrar sesión en todos los dispositivos
 
-**Archivos:** `src/modules/auth/controllers/auth.controller.ts`, `src/modules/auth/services/auth.service.ts`
-
-- Endpoint `POST /v1/auth/logout-all` — requiere JWT
-- Revoca todos los `RefreshTokenEntity` del usuario donde `revokedAt IS NULL`
-- Útil cuando el usuario sospecha que su cuenta fue comprometida
-- No invalida el access token actual (expira solo en 15min por diseño)
-
-**Esfuerzo:** 1hs
+**Endpoint:** `POST /v1/auth/logout-all` — revoca todos los `RefreshTokenEntity` del usuario con `revokedAt IS NULL`.
 
 ---
 
-## Bloque 8 — Imágenes (upload real)
+## ✅ Bloque 8 — Imágenes (upload real) _(completado)_
 
-Actualmente las imágenes de productos y combos son URLs externas guardadas como string. El frontend va a necesitar poder subir archivos reales.
+### 3. Upload de imágenes con Cloudinary
 
-### 3. Upload de imágenes con S3 / Cloudinary
+**Archivos:** `src/modules/storage/storage.service.ts`, `src/modules/storage/storage.module.ts`
 
-**Archivos nuevos:** `src/modules/storage/storage.service.ts`, `src/modules/storage/storage.module.ts`
+- `POST /v1/product-images` y `POST /v1/combo-images` aceptan `multipart/form-data`
+- `StorageService.upload()` sube a Cloudinary y devuelve `{ url, publicId }`
+- `DELETE` borra el archivo de Cloudinary antes del soft delete via `StorageService.delete(publicId)`
 
-- Instalar: `npm install @aws-sdk/client-s3 multer @types/multer` (o SDK de Cloudinary)
-- `StorageService.upload(file: Express.Multer.File): Promise<string>` — sube el archivo, devuelve la URL pública
-- Endpoint `POST /v1/products/:id/images` acepta `multipart/form-data` con el archivo
-- Endpoint `POST /v1/combos/:id/images` — igual
-- Guardar la URL devuelta por S3/Cloudinary en `ProductImageEntity.url`
-- Agregar `DELETE /v1/products/:id/images/:imageId` que borra el archivo del storage antes del soft delete
-
-**Variables de entorno nuevas:**
+**Variables de entorno:**
 ```
-STORAGE_PROVIDER=s3 | cloudinary
-S3_BUCKET=
-S3_REGION=
-S3_ACCESS_KEY_ID=
-S3_SECRET_ACCESS_KEY=
-# o bien:
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 ```
 
-**Esfuerzo:** 4-6hs
-
 ---
 
-## Bloque 9 — Dashboard admin
-
-El frontend va a necesitar una pantalla de métricas. Sin esto el panel de admin queda sin datos agregados.
+## ✅ Bloque 9 — Dashboard admin _(completado)_
 
 ### 4. Endpoints de estadísticas
 
-**Archivos nuevos:** `src/modules/analytics/analytics.controller.ts`, `src/modules/analytics/analytics.service.ts`
+**Archivos:** `src/modules/analytics/analytics.controller.ts`, `src/modules/analytics/analytics.service.ts`
 
-- `GET /v1/analytics/orders` — resumen de órdenes:
-  ```json
-  {
-    "total": 150,
-    "byStatus": { "pending": 10, "confirmed": 30, "dispatched": 20, "delivered": 80, "cancelled": 10 },
-    "totalRevenue": 450000,
-    "revenueToday": 12000,
-    "revenueThisMonth": 85000
-  }
-  ```
-
-- `GET /v1/analytics/products/top` — top 10 productos más vendidos (por cantidad de unidades en órdenes entregadas)
-
-- `GET /v1/analytics/stock/critical` — productos con stock por debajo del umbral crítico (reusa la lógica de alertas)
-
-- Todos requieren `RoleType.ADMIN` o `SUPER_ADMIN`
-- Usar QueryBuilder con agregaciones — no cargar todas las entidades en memoria
-
-**Esfuerzo:** 4-6hs
+- `GET /v1/analytics/orders` — resumen de órdenes por estado + revenue (total, hoy, este mes)
+- `GET /v1/analytics/products/top` — top 10 productos por unidades vendidas en órdenes DELIVERED
+- `GET /v1/analytics/stock/critical` — stock items con `quantityCurrent <= stockCritical`
+- Requieren `ADMIN` o `SUPER_ADMIN`. QueryBuilder con agregaciones — sin carga de entidades en memoria.
 
 ---
 
@@ -141,13 +91,13 @@ Solo implementar cuando haya datos reales y se note el problema. No optimizar pr
 
 ## Resumen
 
-| # | Feature | Bloque | Prioridad | Esfuerzo |
-|---|---|---|---|---|
-| 1 | Cambio de password autenticado | 7 | 🔴 Alta | 2hs |
-| 2 | Logout de todos los dispositivos | 7 | 🔴 Alta | 1hs |
-| 3 | Upload de imágenes (S3/Cloudinary) | 8 | 🟠 Media-alta | 4-6hs |
-| 4 | Dashboard de estadísticas admin | 9 | 🟠 Media | 4-6hs |
-| 5 | Cursor pagination en orders | 10 | 🟡 Baja | 3hs |
-| 6 | Notificaciones en tiempo real (SSE) | 10 | 🟡 Baja | 4hs |
+| # | Feature | Bloque | Estado | Prioridad | Esfuerzo |
+|---|---|---|---|---|---|
+| 1 | Cambio de password autenticado | 7 | ✅ Done | 🔴 Alta | 2hs |
+| 2 | Logout de todos los dispositivos | 7 | ✅ Done | 🔴 Alta | 1hs |
+| 3 | Upload de imágenes (Cloudinary) | 8 | ✅ Done | 🟠 Media-alta | 4-6hs |
+| 4 | Dashboard de estadísticas admin | 9 | ✅ Done | 🟠 Media | 4-6hs |
+| 5 | Cursor pagination en orders | 10 | 🔲 Pendiente | 🟡 Baja | 3hs |
+| 6 | Notificaciones en tiempo real (SSE) | 10 | 🔲 Pendiente | 🟡 Baja | 4hs |
 
-**Total estimado:** ~18-22hs
+**Pendiente:** ~7hs (solo Bloque 10, implementar cuando haya datos reales)
