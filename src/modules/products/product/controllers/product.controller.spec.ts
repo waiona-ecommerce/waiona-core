@@ -71,7 +71,7 @@ describe('ProductController', () => {
   describe('findAll', () => {
     it('should return all products', async () => {
       const products = [mockProductResponse()];
-      const paginated = new PaginatedResponseDto(products as any, 1, 1, 20);
+      const paginated = new PaginatedResponseDto(products, 1, 1, 20);
       service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll({});
