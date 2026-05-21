@@ -43,6 +43,7 @@ import { CouponComboTargetEntity } from '../../src/modules/coupons/coupon-combo-
 import { CouponUsageEntity } from '../../src/modules/coupons/usage/entities/coupon-usage.entity';
 
 import { CalculationService } from '../../src/modules/pricing/calculation/services/calculation.service';
+import { MailService } from '../../src/modules/mail/services/mail.service';
 import { RoleType } from '../../src/common/enums/role-type.enum';
 
 describe('Orders (e2e)', () => {
@@ -134,6 +135,15 @@ describe('Orders (e2e)', () => {
         OrdersService,
         StockItemsService,
         { provide: CalculationService, useValue: mockCalcService },
+        {
+          provide: MailService,
+          useValue: {
+            sendOrderConfirmedEmail: jest.fn().mockResolvedValue(undefined),
+            sendOrderDispatchedEmail: jest.fn().mockResolvedValue(undefined),
+            sendOrderCancelledEmail: jest.fn().mockResolvedValue(undefined),
+            sendOrderDeliveredEmail: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))
