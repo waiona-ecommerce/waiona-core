@@ -645,7 +645,7 @@ describe('Discounts (e2e)', () => {
 
       await request(app.getHttpServer())
         .delete(
-          `/discounts/${discountRes.body.id}/targets/products/${extraProduct.id}`,
+          `/v1/discounts/${discountRes.body.id}/targets/products/${extraProduct.id}`,
         )
         .expect(204);
 
@@ -883,7 +883,7 @@ describe('Discounts (e2e)', () => {
 
       await request(app.getHttpServer())
         .delete(
-          `/discounts/${discountRes.body.id}/targets/combos/${extraCombo.id}`,
+          `/v1/discounts/${discountRes.body.id}/targets/combos/${extraCombo.id}`,
         )
         .expect(204);
 
