@@ -13,7 +13,7 @@ import { ShopPaginatedResponseDto } from '../dto/shop-paginated-response.dto';
 import { ShopDetailResponseDto } from '../dto/shop-detail-response.dto';
 
 @ApiTags('Shop')
-@Controller('shop')
+@Controller({ version: '1', path: 'shop' })
 export class ShopController {
   constructor(private readonly shopService: ShopService) {}
 

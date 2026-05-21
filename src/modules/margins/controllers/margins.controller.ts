@@ -35,7 +35,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('margins')
+@Controller({ version: '1', path: 'margins' })
 export class MarginsController {
   constructor(private readonly marginsService: MarginsService) {}
 

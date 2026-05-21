@@ -34,7 +34,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('product-pricing')
+@Controller({ version: '1', path: 'product-pricing' })
 export class ProductPricingController {
   constructor(private readonly service: ProductPricingService) {}
 

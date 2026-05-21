@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -74,6 +78,7 @@ describe('ComboTaxes (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -123,7 +128,7 @@ describe('ComboTaxes (e2e)', () => {
 
   it('POST /combos/:comboId/taxes -> should assign tax to combo', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/combos/${comboId}/taxes`)
+      .post(`/v1/combos/${comboId}/taxes`)
       .send({ taxId })
       .expect(201);
 
@@ -134,21 +139,21 @@ describe('ComboTaxes (e2e)', () => {
 
   it('POST /combos/:comboId/taxes -> should fail if tax not found', async () => {
     await request(app.getHttpServer())
-      .post(`/combos/${comboId}/taxes`)
+      .post(`/v1/combos/${comboId}/taxes`)
       .send({ taxId: 999999 })
       .expect(404);
   });
 
   it('POST /combos/:comboId/taxes -> should fail if tax is global', async () => {
     await request(app.getHttpServer())
-      .post(`/combos/${comboId}/taxes`)
+      .post(`/v1/combos/${comboId}/taxes`)
       .send({ taxId: globalTaxId })
       .expect(400);
   });
 
   it('POST /combos/:comboId/taxes -> should fail validation if taxId missing', async () => {
     await request(app.getHttpServer())
-      .post(`/combos/${comboId}/taxes`)
+      .post(`/v1/combos/${comboId}/taxes`)
       .send({})
       .expect(400);
   });
@@ -159,7 +164,7 @@ describe('ComboTaxes (e2e)', () => {
 
   it('GET /combos/:comboId/taxes -> should return array', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/combos/${comboId}/taxes`)
+      .get(`/v1/combos/${comboId}/taxes`)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -180,7 +185,7 @@ describe('ComboTaxes (e2e)', () => {
     });
 
     const res = await request(app.getHttpServer())
-      .get(`/combos/${combo2.id}/taxes`)
+      .get(`/v1/combos/${combo2.id}/taxes`)
       .expect(200);
 
     expect(res.body).toEqual([]);
@@ -216,11 +221,11 @@ describe('ComboTaxes (e2e)', () => {
     });
 
     const createRes = await request(app.getHttpServer())
-      .post(`/combos/${combo3.id}/taxes`)
+      .post(`/v1/combos/${combo3.id}/taxes`)
       .send({ taxId: tax2.id });
 
     const res = await request(app.getHttpServer())
-      .get(`/combos/${combo3.id}/taxes/${createRes.body.id}`)
+      .get(`/v1/combos/${combo3.id}/taxes/${createRes.body.id}`)
       .expect(200);
 
     expect(res.body.taxId).toBe(tax2.id);
@@ -228,7 +233,7 @@ describe('ComboTaxes (e2e)', () => {
 
   it('GET /combos/:comboId/taxes/:id -> should return 404', async () => {
     await request(app.getHttpServer())
-      .get(`/combos/${comboId}/taxes/999999`)
+      .get(`/v1/combos/${comboId}/taxes/999999`)
       .expect(404);
   });
 
@@ -250,21 +255,21 @@ describe('ComboTaxes (e2e)', () => {
     });
 
     const createRes = await request(app.getHttpServer())
-      .post(`/combos/${comboId}/taxes`)
+      .post(`/v1/combos/${comboId}/taxes`)
       .send({ taxId: tax3.id });
 
     await request(app.getHttpServer())
-      .delete(`/combos/${comboId}/taxes/${createRes.body.id}`)
+      .delete(`/v1/combos/${comboId}/taxes/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/combos/${comboId}/taxes/${createRes.body.id}`)
+      .get(`/v1/combos/${comboId}/taxes/${createRes.body.id}`)
       .expect(404);
   });
 
   it('DELETE /combos/:comboId/taxes/:id -> should return 404 if not found', async () => {
     await request(app.getHttpServer())
-      .delete(`/combos/${comboId}/taxes/999999`)
+      .delete(`/v1/combos/${comboId}/taxes/999999`)
       .expect(404);
   });
 });

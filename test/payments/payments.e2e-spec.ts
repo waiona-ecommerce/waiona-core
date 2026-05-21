@@ -4,6 +4,7 @@ import {
   INestApplication,
   ValidationPipe,
   ExecutionContext,
+  VersioningType,
 } from '@nestjs/common';
 import request from 'supertest';
 
@@ -152,6 +153,7 @@ describe('Payments (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -236,7 +238,7 @@ describe('Payments (e2e)', () => {
   describe('POST /payments', () => {
     it('201 — crea pago con MercadoPago para orden pendiente', async () => {
       const res = await request(app.getHttpServer())
-        .post('/payments')
+        .post('/v1/payments')
         .send({
           orderId: pendingOrderId,
           provider: PaymentProvider.MERCADOPAGO,
@@ -254,7 +256,7 @@ describe('Payments (e2e)', () => {
     it('400 — orden ya tiene un pago pendiente', async () => {
       // pendingOrderId ya tiene el pago del test anterior
       await request(app.getHttpServer())
-        .post('/payments')
+        .post('/v1/payments')
         .send({
           orderId: pendingOrderId,
           provider: PaymentProvider.MERCADOPAGO,
@@ -264,7 +266,7 @@ describe('Payments (e2e)', () => {
 
     it('400 — orden no está en estado PENDING', async () => {
       await request(app.getHttpServer())
-        .post('/payments')
+        .post('/v1/payments')
         .send({
           orderId: confirmedOrderId,
           provider: PaymentProvider.MERCADOPAGO,
@@ -276,7 +278,7 @@ describe('Payments (e2e)', () => {
       mockUser.role = RoleType.CLIENT;
       mockUser.sub = 999999;
       await request(app.getHttpServer())
-        .post('/payments')
+        .post('/v1/payments')
         .send({
           orderId: pendingOrderId,
           provider: PaymentProvider.MERCADOPAGO,
@@ -288,14 +290,14 @@ describe('Payments (e2e)', () => {
 
     it('404 — orden no encontrada', async () => {
       await request(app.getHttpServer())
-        .post('/payments')
+        .post('/v1/payments')
         .send({ orderId: 999999, provider: PaymentProvider.MERCADOPAGO })
         .expect(404);
     });
 
     it('400 — body inválido (sin provider)', async () => {
       await request(app.getHttpServer())
-        .post('/payments')
+        .post('/v1/payments')
         .send({ orderId: pendingOrderId })
         .expect(400);
     });
@@ -308,7 +310,7 @@ describe('Payments (e2e)', () => {
   describe('POST /payments/webhook/mercadopago', () => {
     it('200 — siempre retorna 200 (sin id en query)', async () => {
       const res = await request(app.getHttpServer())
-        .post('/payments/webhook/mercadopago')
+        .post('/v1/payments/webhook/mercadopago')
         .set(mpSignatureHeaders())
         .send({})
         .expect(200);
@@ -318,7 +320,7 @@ describe('Payments (e2e)', () => {
     it('200 — siempre retorna 200 (topic desconocido)', async () => {
       const query = { id: '1', topic: 'other' };
       const res = await request(app.getHttpServer())
-        .post('/payments/webhook/mercadopago')
+        .post('/v1/payments/webhook/mercadopago')
         .query(query)
         .set(mpSignatureHeaders(query))
         .send({})
@@ -329,7 +331,7 @@ describe('Payments (e2e)', () => {
     it('200 — swallow error cuando topic=merchant_order y MP API falla', async () => {
       const query = { id: '1', topic: 'merchant_order' };
       const res = await request(app.getHttpServer())
-        .post('/payments/webhook/mercadopago')
+        .post('/v1/payments/webhook/mercadopago')
         .query(query)
         .set(mpSignatureHeaders(query))
         .send({})
@@ -340,7 +342,7 @@ describe('Payments (e2e)', () => {
     it('200 — swallow error cuando topic=payment y MP API falla', async () => {
       const query = { id: '1', topic: 'payment' };
       const res = await request(app.getHttpServer())
-        .post('/payments/webhook/mercadopago')
+        .post('/v1/payments/webhook/mercadopago')
         .query(query)
         .set(mpSignatureHeaders(query))
         .send({})
@@ -356,7 +358,7 @@ describe('Payments (e2e)', () => {
   describe('GET /payments/order/:orderId', () => {
     it('200 — admin ve los pagos de una orden', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/payments/order/${getTestOrderId}`)
+        .get(`/v1/payments/order/${getTestOrderId}`)
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
@@ -366,7 +368,7 @@ describe('Payments (e2e)', () => {
     it('200 — cliente ve los pagos de su propia orden', async () => {
       mockUser.role = RoleType.CLIENT;
       const res = await request(app.getHttpServer())
-        .get(`/payments/order/${getTestOrderId}`)
+        .get(`/v1/payments/order/${getTestOrderId}`)
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
@@ -377,7 +379,7 @@ describe('Payments (e2e)', () => {
       mockUser.role = RoleType.CLIENT;
       mockUser.sub = 999999;
       await request(app.getHttpServer())
-        .get(`/payments/order/${getTestOrderId}`)
+        .get(`/v1/payments/order/${getTestOrderId}`)
         .expect(403);
       mockUser.role = RoleType.ADMIN;
       mockUser.sub = userId;
@@ -385,7 +387,7 @@ describe('Payments (e2e)', () => {
 
     it('200 — admin accede a orderId inexistente → array vacío (sin 404)', async () => {
       const res = await request(app.getHttpServer())
-        .get('/payments/order/999999')
+        .get('/v1/payments/order/999999')
         .expect(200);
       expect(res.body).toEqual([]);
     });
@@ -393,7 +395,7 @@ describe('Payments (e2e)', () => {
     it('404 — orden no encontrada (path de cliente)', async () => {
       mockUser.role = RoleType.CLIENT;
       await request(app.getHttpServer())
-        .get('/payments/order/999999')
+        .get('/v1/payments/order/999999')
         .expect(404);
       mockUser.role = RoleType.ADMIN;
     });
@@ -406,7 +408,7 @@ describe('Payments (e2e)', () => {
   describe('GET /payments/:id', () => {
     it('200 — admin obtiene pago por id', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/payments/${getTestPaymentId}`)
+        .get(`/v1/payments/${getTestPaymentId}`)
         .expect(200);
       expect(res.body.id).toBe(getTestPaymentId);
       expect(res.body.status).toBe(PaymentStatus.PENDING);
@@ -416,7 +418,7 @@ describe('Payments (e2e)', () => {
     it('200 — cliente ve su propio pago', async () => {
       mockUser.role = RoleType.CLIENT;
       const res = await request(app.getHttpServer())
-        .get(`/payments/${getTestPaymentId}`)
+        .get(`/v1/payments/${getTestPaymentId}`)
         .expect(200);
       expect(res.body.id).toBe(getTestPaymentId);
       mockUser.role = RoleType.ADMIN;
@@ -426,14 +428,14 @@ describe('Payments (e2e)', () => {
       mockUser.role = RoleType.CLIENT;
       mockUser.sub = 999999;
       await request(app.getHttpServer())
-        .get(`/payments/${getTestPaymentId}`)
+        .get(`/v1/payments/${getTestPaymentId}`)
         .expect(403);
       mockUser.role = RoleType.ADMIN;
       mockUser.sub = userId;
     });
 
     it('404 — pago no encontrado', async () => {
-      await request(app.getHttpServer()).get('/payments/999999').expect(404);
+      await request(app.getHttpServer()).get('/v1/payments/999999').expect(404);
     });
   });
 });

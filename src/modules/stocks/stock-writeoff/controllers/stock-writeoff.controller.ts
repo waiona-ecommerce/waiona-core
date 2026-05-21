@@ -30,7 +30,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('stock-write-offs')
+@Controller({ version: '1', path: 'stock-write-offs' })
 export class StockWriteOffController {
   constructor(private readonly stockWriteOffService: StockWriteOffService) {}
 

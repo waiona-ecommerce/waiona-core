@@ -35,7 +35,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('discounts')
+@Controller({ version: '1', path: 'discounts' })
 export class DiscountsController {
   constructor(private readonly discountsService: DiscountsService) {}
 

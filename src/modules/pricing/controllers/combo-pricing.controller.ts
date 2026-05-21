@@ -34,7 +34,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('combo-pricing')
+@Controller({ version: '1', path: 'combo-pricing' })
 export class ComboPricingController {
   constructor(private readonly service: ComboPricingService) {}
 

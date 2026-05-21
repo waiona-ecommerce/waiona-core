@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -75,6 +79,7 @@ describe('ProductTaxes (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -126,7 +131,7 @@ describe('ProductTaxes (e2e)', () => {
 
   it('POST /products/:productId/taxes -> should assign tax to product', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/products/${productId}/taxes`)
+      .post(`/v1/products/${productId}/taxes`)
       .send({ taxId })
       .expect(201);
 
@@ -137,21 +142,21 @@ describe('ProductTaxes (e2e)', () => {
 
   it('POST /products/:productId/taxes -> should fail if tax not found', async () => {
     await request(app.getHttpServer())
-      .post(`/products/${productId}/taxes`)
+      .post(`/v1/products/${productId}/taxes`)
       .send({ taxId: 999999 })
       .expect(404);
   });
 
   it('POST /products/:productId/taxes -> should fail if tax is global', async () => {
     await request(app.getHttpServer())
-      .post(`/products/${productId}/taxes`)
+      .post(`/v1/products/${productId}/taxes`)
       .send({ taxId: globalTaxId })
       .expect(400);
   });
 
   it('POST /products/:productId/taxes -> should fail validation if taxId missing', async () => {
     await request(app.getHttpServer())
-      .post(`/products/${productId}/taxes`)
+      .post(`/v1/products/${productId}/taxes`)
       .send({})
       .expect(400);
   });
@@ -162,7 +167,7 @@ describe('ProductTaxes (e2e)', () => {
 
   it('GET /products/:productId/taxes -> should return array', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/products/${productId}/taxes`)
+      .get(`/v1/products/${productId}/taxes`)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -185,7 +190,7 @@ describe('ProductTaxes (e2e)', () => {
     });
 
     const res = await request(app.getHttpServer())
-      .get(`/products/${product2.id}/taxes`)
+      .get(`/v1/products/${product2.id}/taxes`)
       .expect(200);
 
     expect(res.body).toEqual([]);
@@ -223,11 +228,11 @@ describe('ProductTaxes (e2e)', () => {
     });
 
     const createRes = await request(app.getHttpServer())
-      .post(`/products/${product3.id}/taxes`)
+      .post(`/v1/products/${product3.id}/taxes`)
       .send({ taxId: tax2.id });
 
     const res = await request(app.getHttpServer())
-      .get(`/products/${product3.id}/taxes/${createRes.body.id}`)
+      .get(`/v1/products/${product3.id}/taxes/${createRes.body.id}`)
       .expect(200);
 
     expect(res.body.taxId).toBe(tax2.id);
@@ -235,7 +240,7 @@ describe('ProductTaxes (e2e)', () => {
 
   it('GET /products/:productId/taxes/:id -> should return 404', async () => {
     await request(app.getHttpServer())
-      .get(`/products/${productId}/taxes/999999`)
+      .get(`/v1/products/${productId}/taxes/999999`)
       .expect(404);
   });
 
@@ -257,21 +262,21 @@ describe('ProductTaxes (e2e)', () => {
     });
 
     const createRes = await request(app.getHttpServer())
-      .post(`/products/${productId}/taxes`)
+      .post(`/v1/products/${productId}/taxes`)
       .send({ taxId: tax3.id });
 
     await request(app.getHttpServer())
-      .delete(`/products/${productId}/taxes/${createRes.body.id}`)
+      .delete(`/v1/products/${productId}/taxes/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/products/${productId}/taxes/${createRes.body.id}`)
+      .get(`/v1/products/${productId}/taxes/${createRes.body.id}`)
       .expect(404);
   });
 
   it('DELETE /products/:productId/taxes/:id -> should return 404 if not found', async () => {
     await request(app.getHttpServer())
-      .delete(`/products/${productId}/taxes/999999`)
+      .delete(`/v1/products/${productId}/taxes/999999`)
       .expect(404);
   });
 });

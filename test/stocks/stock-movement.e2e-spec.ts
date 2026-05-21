@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -83,6 +87,7 @@ describe('StockMovement (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -160,7 +165,7 @@ describe('StockMovement (e2e)', () => {
   describe('GET /stock-movements', () => {
     it('200 — retorna lista paginada', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-movements')
+        .get('/v1/stock-movements')
         .expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -171,7 +176,7 @@ describe('StockMovement (e2e)', () => {
 
     it('200 — respeta limit=1', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-movements?page=1&limit=1')
+        .get('/v1/stock-movements?page=1&limit=1')
         .expect(200);
 
       expect(res.body.data).toHaveLength(1);
@@ -180,7 +185,7 @@ describe('StockMovement (e2e)', () => {
 
     it('200 — page 2 con limit=1 devuelve el segundo registro', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-movements?page=2&limit=1')
+        .get('/v1/stock-movements?page=2&limit=1')
         .expect(200);
 
       expect(res.body.data).toHaveLength(1);
@@ -195,7 +200,7 @@ describe('StockMovement (e2e)', () => {
   describe('GET /stock-movements/stock-item/:stockItemId', () => {
     it('200 — retorna movimientos del stock item ordenados DESC', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-movements/stock-item/${stockItemId}`)
+        .get(`/v1/stock-movements/stock-item/${stockItemId}`)
         .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
@@ -205,7 +210,7 @@ describe('StockMovement (e2e)', () => {
 
     it('200 — retorna array vacío para stockItemId sin movimientos', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-movements/stock-item/999999')
+        .get('/v1/stock-movements/stock-item/999999')
         .expect(200);
 
       expect(res.body).toEqual([]);
@@ -213,7 +218,7 @@ describe('StockMovement (e2e)', () => {
 
     it('200 — los campos del DTO son correctos', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-movements/stock-item/${stockItemId}`)
+        .get(`/v1/stock-movements/stock-item/${stockItemId}`)
         .expect(200);
 
       const movement = res.body[0];
@@ -234,7 +239,7 @@ describe('StockMovement (e2e)', () => {
   describe('GET /stock-movements/:id', () => {
     it('200 — retorna un movimiento por id', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-movements/${movementId}`)
+        .get(`/v1/stock-movements/${movementId}`)
         .expect(200);
 
       expect(res.body.id).toBe(movementId);
@@ -247,7 +252,7 @@ describe('StockMovement (e2e)', () => {
 
     it('200 — referenceId es null cuando el tipo es MANUAL', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-movements/${movementId}`)
+        .get(`/v1/stock-movements/${movementId}`)
         .expect(200);
 
       expect(res.body.referenceId).toBeUndefined();
@@ -255,7 +260,7 @@ describe('StockMovement (e2e)', () => {
 
     it('404 — movimiento no encontrado', async () => {
       await request(app.getHttpServer())
-        .get('/stock-movements/999999')
+        .get('/v1/stock-movements/999999')
         .expect(404);
     });
   });

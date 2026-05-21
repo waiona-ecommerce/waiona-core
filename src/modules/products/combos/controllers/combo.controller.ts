@@ -35,7 +35,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('combos')
+@Controller({ version: '1', path: 'combos' })
 export class ComboController {
   constructor(private readonly comboService: ComboService) {}
 

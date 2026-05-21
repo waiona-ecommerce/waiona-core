@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource, Repository } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -96,6 +100,7 @@ describe('StockItems (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -139,7 +144,7 @@ describe('StockItems (e2e)', () => {
 
   it('POST /stock-items -> 201 creates stock item', async () => {
     const res = await request(app.getHttpServer())
-      .post('/stock-items')
+      .post('/v1/stock-items')
       .send({
         productId,
         locationId,
@@ -159,14 +164,14 @@ describe('StockItems (e2e)', () => {
 
   it('POST /stock-items -> 409 when product+location already exists', async () => {
     await request(app.getHttpServer())
-      .post('/stock-items')
+      .post('/v1/stock-items')
       .send({ productId, locationId, stockMin: 5, stockCritical: 2 })
       .expect(409);
   });
 
   it('POST /stock-items -> 400 when stockCritical >= stockMin', async () => {
     await request(app.getHttpServer())
-      .post('/stock-items')
+      .post('/v1/stock-items')
       .send({ productId: 9999, locationId, stockMin: 5, stockCritical: 5 })
       .expect(400);
   });
@@ -177,7 +182,7 @@ describe('StockItems (e2e)', () => {
 
   it('GET /stock-items -> 200 returns paginated items', async () => {
     const res = await request(app.getHttpServer())
-      .get('/stock-items')
+      .get('/v1/stock-items')
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -190,7 +195,7 @@ describe('StockItems (e2e)', () => {
 
   it('GET /stock-items/:id -> 200 returns item with movements', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/stock-items/${stockItemId}`)
+      .get(`/v1/stock-items/${stockItemId}`)
       .expect(200);
 
     expect(res.body.id).toBe(stockItemId);
@@ -198,7 +203,9 @@ describe('StockItems (e2e)', () => {
   });
 
   it('GET /stock-items/:id -> 404 when not found', async () => {
-    await request(app.getHttpServer()).get('/stock-items/999999').expect(404);
+    await request(app.getHttpServer())
+      .get('/v1/stock-items/999999')
+      .expect(404);
   });
 
   // -------------------------
@@ -207,7 +214,7 @@ describe('StockItems (e2e)', () => {
 
   it('POST /stock-items/add-stock -> 201 adds stock and creates movement', async () => {
     const res = await request(app.getHttpServer())
-      .post('/stock-items/add-stock')
+      .post('/v1/stock-items/add-stock')
       .send({ productId, locationId, quantity: 50 })
       .expect(201);
 
@@ -219,14 +226,14 @@ describe('StockItems (e2e)', () => {
 
   it('POST /stock-items/add-stock -> 400 when quantity is 0', async () => {
     await request(app.getHttpServer())
-      .post('/stock-items/add-stock')
+      .post('/v1/stock-items/add-stock')
       .send({ productId, locationId, quantity: 0 })
       .expect(400);
   });
 
   it('POST /stock-items/add-stock -> 404 when stock item does not exist', async () => {
     await request(app.getHttpServer())
-      .post('/stock-items/add-stock')
+      .post('/v1/stock-items/add-stock')
       .send({ productId: 9999, locationId, quantity: 10 })
       .expect(404);
   });
@@ -237,7 +244,7 @@ describe('StockItems (e2e)', () => {
 
   it('POST /stock-items/write-off -> 201 reduces available stock', async () => {
     const res = await request(app.getHttpServer())
-      .post('/stock-items/write-off')
+      .post('/v1/stock-items/write-off')
       .send({ stockItemId, quantity: 5 })
       .expect(201);
 
@@ -246,7 +253,7 @@ describe('StockItems (e2e)', () => {
 
   it('POST /stock-items/write-off -> 400 when insufficient available stock', async () => {
     await request(app.getHttpServer())
-      .post('/stock-items/write-off')
+      .post('/v1/stock-items/write-off')
       .send({ stockItemId, quantity: 9999 })
       .expect(400);
   });
@@ -257,7 +264,7 @@ describe('StockItems (e2e)', () => {
 
   it('PATCH /stock-items/:id/thresholds -> 200 updates thresholds', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/stock-items/${stockItemId}/thresholds`)
+      .patch(`/v1/stock-items/${stockItemId}/thresholds`)
       .send({ stockMin: 10, stockCritical: 3, stockMax: 200 })
       .expect(200);
 
@@ -268,14 +275,14 @@ describe('StockItems (e2e)', () => {
 
   it('PATCH /stock-items/:id/thresholds -> 400 when stockCritical >= stockMin', async () => {
     await request(app.getHttpServer())
-      .patch(`/stock-items/${stockItemId}/thresholds`)
+      .patch(`/v1/stock-items/${stockItemId}/thresholds`)
       .send({ stockMin: 5, stockCritical: 5 })
       .expect(400);
   });
 
   it('PATCH /stock-items/:id/thresholds -> 404 when not found', async () => {
     await request(app.getHttpServer())
-      .patch('/stock-items/999999/thresholds')
+      .patch('/v1/stock-items/999999/thresholds')
       .send({ stockMin: 5, stockCritical: 2 })
       .expect(404);
   });
@@ -286,7 +293,7 @@ describe('StockItems (e2e)', () => {
 
   it('GET /stock-movements -> 200 returns paginated movements', async () => {
     const res = await request(app.getHttpServer())
-      .get('/stock-movements')
+      .get('/v1/stock-movements')
       .expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -295,7 +302,7 @@ describe('StockItems (e2e)', () => {
 
   it('GET /stock-movements/stock-item/:id -> 200 returns movements for item', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/stock-movements/stock-item/${stockItemId}`)
+      .get(`/v1/stock-movements/stock-item/${stockItemId}`)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -304,13 +311,13 @@ describe('StockItems (e2e)', () => {
 
   it('GET /stock-movements/:id -> 200 returns one movement', async () => {
     const listRes = await request(app.getHttpServer())
-      .get('/stock-movements')
+      .get('/v1/stock-movements')
       .expect(200);
 
     const movementId = listRes.body.data[0].id;
 
     const res = await request(app.getHttpServer())
-      .get(`/stock-movements/${movementId}`)
+      .get(`/v1/stock-movements/${movementId}`)
       .expect(200);
 
     expect(res.body.id).toBe(movementId);
@@ -319,7 +326,7 @@ describe('StockItems (e2e)', () => {
 
   it('GET /stock-movements/:id -> 404 when not found', async () => {
     await request(app.getHttpServer())
-      .get('/stock-movements/999999')
+      .get('/v1/stock-movements/999999')
       .expect(404);
   });
 });

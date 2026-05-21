@@ -33,7 +33,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiParam({ name: 'comboId', type: Number })
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('combos/:comboId/taxes')
+@Controller({ version: '1', path: 'combos/:comboId/taxes' })
 export class ComboTaxesController {
   constructor(private readonly comboTaxesService: ComboTaxesService) {}
 

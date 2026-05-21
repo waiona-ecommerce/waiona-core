@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -54,6 +58,7 @@ describe('StockLocations (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
   }, 30000);
@@ -69,7 +74,7 @@ describe('StockLocations (e2e)', () => {
 
   it('POST /stock-locations -> 201 creates a warehouse location', async () => {
     const res = await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ name: 'Depósito Central', type: StockLocationType.WAREHOUSE })
       .expect(201);
 
@@ -81,7 +86,7 @@ describe('StockLocations (e2e)', () => {
 
   it('POST /stock-locations -> 201 creates a store location with address', async () => {
     const res = await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({
         name: 'Sucursal Palermo',
         type: StockLocationType.STORE,
@@ -94,21 +99,21 @@ describe('StockLocations (e2e)', () => {
 
   it('POST /stock-locations -> 400 when name is missing', async () => {
     await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ type: StockLocationType.WAREHOUSE })
       .expect(400);
   });
 
   it('POST /stock-locations -> 400 when type is invalid', async () => {
     await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ name: 'Test', type: 'INVALID_TYPE' })
       .expect(400);
   });
 
   it('POST /stock-locations -> 400 when name is too short', async () => {
     await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ name: 'AB', type: StockLocationType.WAREHOUSE })
       .expect(400);
   });
@@ -119,7 +124,7 @@ describe('StockLocations (e2e)', () => {
 
   it('GET /stock-locations -> 200 returns paginated locations', async () => {
     const res = await request(app.getHttpServer())
-      .get('/stock-locations')
+      .get('/v1/stock-locations')
       .expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -133,11 +138,11 @@ describe('StockLocations (e2e)', () => {
 
   it('GET /stock-locations/:id -> 200 returns location', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ name: 'Depósito Norte', type: StockLocationType.WAREHOUSE });
 
     const res = await request(app.getHttpServer())
-      .get(`/stock-locations/${createRes.body.id}`)
+      .get(`/v1/stock-locations/${createRes.body.id}`)
       .expect(200);
 
     expect(res.body.name).toBe('Depósito Norte');
@@ -145,7 +150,7 @@ describe('StockLocations (e2e)', () => {
 
   it('GET /stock-locations/:id -> 404 when not found', async () => {
     await request(app.getHttpServer())
-      .get('/stock-locations/999999')
+      .get('/v1/stock-locations/999999')
       .expect(404);
   });
 
@@ -155,11 +160,11 @@ describe('StockLocations (e2e)', () => {
 
   it('PATCH /stock-locations/:id -> 200 updates name', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ name: 'Original', type: StockLocationType.WAREHOUSE });
 
     const res = await request(app.getHttpServer())
-      .patch(`/stock-locations/${createRes.body.id}`)
+      .patch(`/v1/stock-locations/${createRes.body.id}`)
       .send({ name: 'Actualizado' })
       .expect(200);
 
@@ -168,7 +173,7 @@ describe('StockLocations (e2e)', () => {
 
   it('PATCH /stock-locations/:id -> 200 clears address with null', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({
         name: 'Con Dirección',
         type: StockLocationType.STORE,
@@ -176,7 +181,7 @@ describe('StockLocations (e2e)', () => {
       });
 
     const res = await request(app.getHttpServer())
-      .patch(`/stock-locations/${createRes.body.id}`)
+      .patch(`/v1/stock-locations/${createRes.body.id}`)
       .send({ address: null })
       .expect(200);
 
@@ -185,7 +190,7 @@ describe('StockLocations (e2e)', () => {
 
   it('PATCH /stock-locations/:id -> 404 when not found', async () => {
     await request(app.getHttpServer())
-      .patch('/stock-locations/999999')
+      .patch('/v1/stock-locations/999999')
       .send({ name: 'Test' })
       .expect(404);
   });
@@ -196,21 +201,21 @@ describe('StockLocations (e2e)', () => {
 
   it('DELETE /stock-locations/:id -> 204 then 404', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/stock-locations')
+      .post('/v1/stock-locations')
       .send({ name: 'A Eliminar', type: StockLocationType.WAREHOUSE });
 
     await request(app.getHttpServer())
-      .delete(`/stock-locations/${createRes.body.id}`)
+      .delete(`/v1/stock-locations/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/stock-locations/${createRes.body.id}`)
+      .get(`/v1/stock-locations/${createRes.body.id}`)
       .expect(404);
   });
 
   it('DELETE /stock-locations/:id -> 404 when not found', async () => {
     await request(app.getHttpServer())
-      .delete('/stock-locations/999999')
+      .delete('/v1/stock-locations/999999')
       .expect(404);
   });
 });

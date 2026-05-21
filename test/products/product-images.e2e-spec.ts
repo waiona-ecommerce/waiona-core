@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -67,6 +71,7 @@ describe('ProductImages (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -96,7 +101,7 @@ describe('ProductImages (e2e)', () => {
 
   it('POST /product-images → 201 con datos válidos', async () => {
     const res = await request(app.getHttpServer())
-      .post('/product-images')
+      .post('/v1/product-images')
       .send({ productId, url: 'https://img.com/coca1.jpg', position: 1 })
       .expect(201);
 
@@ -107,14 +112,14 @@ describe('ProductImages (e2e)', () => {
 
   it('POST /product-images → 404 si producto no existe', async () => {
     await request(app.getHttpServer())
-      .post('/product-images')
+      .post('/v1/product-images')
       .send({ productId: 999999, url: 'https://img.com/x.jpg', position: 1 })
       .expect(404);
   });
 
   it('POST /product-images → 400 con datos inválidos', async () => {
     await request(app.getHttpServer())
-      .post('/product-images')
+      .post('/v1/product-images')
       .send({})
       .expect(400);
   });
@@ -125,7 +130,7 @@ describe('ProductImages (e2e)', () => {
 
   it('GET /product-images/product/:productId → 200', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/product-images/product/${productId}`)
+      .get(`/v1/product-images/product/${productId}`)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -137,17 +142,17 @@ describe('ProductImages (e2e)', () => {
 
   it('GET /product-images/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/product-images')
+      .post('/v1/product-images')
       .send({ productId, url: 'https://img.com/coca2.jpg', position: 2 });
 
     await request(app.getHttpServer())
-      .get(`/product-images/${created.body.id}`)
+      .get(`/v1/product-images/${created.body.id}`)
       .expect(200);
   });
 
   it('GET /product-images/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .get('/product-images/999999')
+      .get('/v1/product-images/999999')
       .expect(404);
   });
 
@@ -157,11 +162,11 @@ describe('ProductImages (e2e)', () => {
 
   it('PATCH /product-images/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/product-images')
+      .post('/v1/product-images')
       .send({ productId, url: 'https://img.com/coca3.jpg', position: 3 });
 
     const res = await request(app.getHttpServer())
-      .patch(`/product-images/${created.body.id}`)
+      .patch(`/v1/product-images/${created.body.id}`)
       .send({ position: 10 })
       .expect(200);
 
@@ -170,7 +175,7 @@ describe('ProductImages (e2e)', () => {
 
   it('PATCH /product-images/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/product-images/999999')
+      .patch('/v1/product-images/999999')
       .send({ position: 1 })
       .expect(404);
   });
@@ -181,21 +186,21 @@ describe('ProductImages (e2e)', () => {
 
   it('DELETE /product-images/:id → 204 y luego 404', async () => {
     const created = await request(app.getHttpServer())
-      .post('/product-images')
+      .post('/v1/product-images')
       .send({ productId, url: 'https://img.com/coca4.jpg', position: 4 });
 
     await request(app.getHttpServer())
-      .delete(`/product-images/${created.body.id}`)
+      .delete(`/v1/product-images/${created.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/product-images/${created.body.id}`)
+      .get(`/v1/product-images/${created.body.id}`)
       .expect(404);
   });
 
   it('DELETE /product-images/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .delete('/product-images/999999')
+      .delete('/v1/product-images/999999')
       .expect(404);
   });
 });

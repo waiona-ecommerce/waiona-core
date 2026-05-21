@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
@@ -96,12 +100,13 @@ describe('Coupons (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     // Seed coupons reutilizados en múltiples bloques
     const fixedRes = await request(app.getHttpServer())
-      .post('/coupons')
+      .post('/v1/coupons')
       .send({
         code: 'FIXED100',
         value: 100,
@@ -113,7 +118,7 @@ describe('Coupons (e2e)', () => {
     fixedCouponId = fixedRes.body.id;
 
     const globalRes = await request(app.getHttpServer())
-      .post('/coupons')
+      .post('/v1/coupons')
       .send({ code: 'GLOBAL5', value: 5, isPercentage: true, isGlobal: true })
       .expect(201);
     globalCouponId = globalRes.body.id;
@@ -131,7 +136,7 @@ describe('Coupons (e2e)', () => {
   describe('POST /coupons', () => {
     it('201 — crea cupón con porcentaje', async () => {
       const res = await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'PERCENT10',
           value: 10,
@@ -149,7 +154,7 @@ describe('Coupons (e2e)', () => {
 
     it('201 — crea cupón con usageLimit y fechas', async () => {
       const res = await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'LIMITED',
           value: 200,
@@ -167,12 +172,15 @@ describe('Coupons (e2e)', () => {
     });
 
     it('400 — body vacío', async () => {
-      await request(app.getHttpServer()).post('/coupons').send({}).expect(400);
+      await request(app.getHttpServer())
+        .post('/v1/coupons')
+        .send({})
+        .expect(400);
     });
 
     it('400 — porcentaje mayor a 100', async () => {
       await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'OVER100',
           value: 101,
@@ -184,7 +192,7 @@ describe('Coupons (e2e)', () => {
 
     it('400 — cupón fijo sin currency', async () => {
       await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'NOCURR',
           value: 50,
@@ -196,7 +204,7 @@ describe('Coupons (e2e)', () => {
 
     it('400 — porcentaje con currency enviada', async () => {
       await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'BADPERC',
           value: 10,
@@ -209,7 +217,7 @@ describe('Coupons (e2e)', () => {
 
     it('400 — startsAt posterior a endsAt', async () => {
       await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'BADDATE',
           value: 10,
@@ -223,7 +231,7 @@ describe('Coupons (e2e)', () => {
 
     it('409 — código duplicado', async () => {
       await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'FIXED100',
           value: 50,
@@ -242,7 +250,7 @@ describe('Coupons (e2e)', () => {
   describe('GET /coupons', () => {
     it('200 — retorna lista paginada', async () => {
       const res = await request(app.getHttpServer())
-        .get('/coupons')
+        .get('/v1/coupons')
         .expect(200);
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.total).toBeGreaterThanOrEqual(2);
@@ -251,7 +259,7 @@ describe('Coupons (e2e)', () => {
 
     it('200 — respeta limit=1', async () => {
       const res = await request(app.getHttpServer())
-        .get('/coupons?page=1&limit=1')
+        .get('/v1/coupons?page=1&limit=1')
         .expect(200);
       expect(res.body.data).toHaveLength(1);
       expect(res.body.limit).toBe(1);
@@ -265,7 +273,7 @@ describe('Coupons (e2e)', () => {
   describe('GET /coupons/:id', () => {
     it('200 — retorna cupón por id', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/coupons/${fixedCouponId}`)
+        .get(`/v1/coupons/${fixedCouponId}`)
         .expect(200);
 
       expect(res.body.id).toBe(fixedCouponId);
@@ -274,7 +282,7 @@ describe('Coupons (e2e)', () => {
     });
 
     it('404 — id inexistente', async () => {
-      await request(app.getHttpServer()).get('/coupons/999999').expect(404);
+      await request(app.getHttpServer()).get('/v1/coupons/999999').expect(404);
     });
   });
 
@@ -285,7 +293,7 @@ describe('Coupons (e2e)', () => {
   describe('PATCH /coupons/:id', () => {
     it('200 — actualiza usageLimit', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/coupons/${fixedCouponId}`)
+        .patch(`/v1/coupons/${fixedCouponId}`)
         .send({ usageLimit: 50 })
         .expect(200);
       expect(res.body.usageLimit).toBe(50);
@@ -293,14 +301,14 @@ describe('Coupons (e2e)', () => {
 
     it('409 — código duplicado en update', async () => {
       await request(app.getHttpServer())
-        .patch(`/coupons/${fixedCouponId}`)
+        .patch(`/v1/coupons/${fixedCouponId}`)
         .send({ code: 'GLOBAL5' })
         .expect(409);
     });
 
     it('404 — id inexistente', async () => {
       await request(app.getHttpServer())
-        .patch('/coupons/999999')
+        .patch('/v1/coupons/999999')
         .send({ usageLimit: 10 })
         .expect(404);
     });
@@ -315,7 +323,7 @@ describe('Coupons (e2e)', () => {
 
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
-        .post('/coupons')
+        .post('/v1/coupons')
         .send({
           code: 'TODELETE',
           value: 5,
@@ -328,18 +336,20 @@ describe('Coupons (e2e)', () => {
 
     it('204 — elimina cupón', async () => {
       await request(app.getHttpServer())
-        .delete(`/coupons/${deleteId}`)
+        .delete(`/v1/coupons/${deleteId}`)
         .expect(204);
     });
 
     it('404 — cupón ya eliminado no aparece en GET', async () => {
       await request(app.getHttpServer())
-        .get(`/coupons/${deleteId}`)
+        .get(`/v1/coupons/${deleteId}`)
         .expect(404);
     });
 
     it('404 — id inexistente', async () => {
-      await request(app.getHttpServer()).delete('/coupons/999999').expect(404);
+      await request(app.getHttpServer())
+        .delete('/v1/coupons/999999')
+        .expect(404);
     });
   });
 
@@ -350,7 +360,7 @@ describe('Coupons (e2e)', () => {
   describe('POST /coupons/:couponId/targets/products', () => {
     it('201 — asigna producto a cupón', async () => {
       const res = await request(app.getHttpServer())
-        .post(`/coupons/${fixedCouponId}/targets/products`)
+        .post(`/v1/coupons/${fixedCouponId}/targets/products`)
         .send({ productId: 1 })
         .expect(201);
 
@@ -361,28 +371,28 @@ describe('Coupons (e2e)', () => {
 
     it('409 — target duplicado', async () => {
       await request(app.getHttpServer())
-        .post(`/coupons/${fixedCouponId}/targets/products`)
+        .post(`/v1/coupons/${fixedCouponId}/targets/products`)
         .send({ productId: 1 })
         .expect(409);
     });
 
     it('409 — cupón global no acepta targets', async () => {
       await request(app.getHttpServer())
-        .post(`/coupons/${globalCouponId}/targets/products`)
+        .post(`/v1/coupons/${globalCouponId}/targets/products`)
         .send({ productId: 2 })
         .expect(409);
     });
 
     it('404 — cupón inexistente', async () => {
       await request(app.getHttpServer())
-        .post('/coupons/999999/targets/products')
+        .post('/v1/coupons/999999/targets/products')
         .send({ productId: 1 })
         .expect(404);
     });
 
     it('400 — productId inválido', async () => {
       await request(app.getHttpServer())
-        .post(`/coupons/${fixedCouponId}/targets/products`)
+        .post(`/v1/coupons/${fixedCouponId}/targets/products`)
         .send({ productId: 0 })
         .expect(400);
     });
@@ -391,7 +401,7 @@ describe('Coupons (e2e)', () => {
   describe('GET /coupons/:couponId/targets/products', () => {
     it('200 — lista los products targets del cupón', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/coupons/${fixedCouponId}/targets/products`)
+        .get(`/v1/coupons/${fixedCouponId}/targets/products`)
         .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
@@ -401,7 +411,7 @@ describe('Coupons (e2e)', () => {
 
     it('404 — cupón inexistente', async () => {
       await request(app.getHttpServer())
-        .get('/coupons/999999/targets/products')
+        .get('/v1/coupons/999999/targets/products')
         .expect(404);
     });
   });
@@ -409,13 +419,13 @@ describe('Coupons (e2e)', () => {
   describe('DELETE /coupons/:couponId/targets/products/:productId', () => {
     it('204 — elimina product target', async () => {
       await request(app.getHttpServer())
-        .delete(`/coupons/${fixedCouponId}/targets/products/1`)
+        .delete(`/v1/coupons/${fixedCouponId}/targets/products/1`)
         .expect(204);
     });
 
     it('404 — target ya eliminado', async () => {
       await request(app.getHttpServer())
-        .delete(`/coupons/${fixedCouponId}/targets/products/1`)
+        .delete(`/v1/coupons/${fixedCouponId}/targets/products/1`)
         .expect(404);
     });
   });
@@ -427,7 +437,7 @@ describe('Coupons (e2e)', () => {
   describe('POST /coupons/:couponId/targets/combos', () => {
     it('201 — asigna combo a cupón', async () => {
       const res = await request(app.getHttpServer())
-        .post(`/coupons/${fixedCouponId}/targets/combos`)
+        .post(`/v1/coupons/${fixedCouponId}/targets/combos`)
         .send({ comboId: 1 })
         .expect(201);
 
@@ -438,28 +448,28 @@ describe('Coupons (e2e)', () => {
 
     it('409 — target duplicado', async () => {
       await request(app.getHttpServer())
-        .post(`/coupons/${fixedCouponId}/targets/combos`)
+        .post(`/v1/coupons/${fixedCouponId}/targets/combos`)
         .send({ comboId: 1 })
         .expect(409);
     });
 
     it('409 — cupón global no acepta targets', async () => {
       await request(app.getHttpServer())
-        .post(`/coupons/${globalCouponId}/targets/combos`)
+        .post(`/v1/coupons/${globalCouponId}/targets/combos`)
         .send({ comboId: 2 })
         .expect(409);
     });
 
     it('404 — cupón inexistente', async () => {
       await request(app.getHttpServer())
-        .post('/coupons/999999/targets/combos')
+        .post('/v1/coupons/999999/targets/combos')
         .send({ comboId: 1 })
         .expect(404);
     });
 
     it('400 — comboId inválido', async () => {
       await request(app.getHttpServer())
-        .post(`/coupons/${fixedCouponId}/targets/combos`)
+        .post(`/v1/coupons/${fixedCouponId}/targets/combos`)
         .send({ comboId: 0 })
         .expect(400);
     });
@@ -468,7 +478,7 @@ describe('Coupons (e2e)', () => {
   describe('GET /coupons/:couponId/targets/combos', () => {
     it('200 — lista los combo targets del cupón', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/coupons/${fixedCouponId}/targets/combos`)
+        .get(`/v1/coupons/${fixedCouponId}/targets/combos`)
         .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
@@ -478,7 +488,7 @@ describe('Coupons (e2e)', () => {
 
     it('404 — cupón inexistente', async () => {
       await request(app.getHttpServer())
-        .get('/coupons/999999/targets/combos')
+        .get('/v1/coupons/999999/targets/combos')
         .expect(404);
     });
   });
@@ -486,13 +496,13 @@ describe('Coupons (e2e)', () => {
   describe('DELETE /coupons/:couponId/targets/combos/:comboId', () => {
     it('204 — elimina combo target', async () => {
       await request(app.getHttpServer())
-        .delete(`/coupons/${fixedCouponId}/targets/combos/1`)
+        .delete(`/v1/coupons/${fixedCouponId}/targets/combos/1`)
         .expect(204);
     });
 
     it('404 — target ya eliminado', async () => {
       await request(app.getHttpServer())
-        .delete(`/coupons/${fixedCouponId}/targets/combos/1`)
+        .delete(`/v1/coupons/${fixedCouponId}/targets/combos/1`)
         .expect(404);
     });
   });

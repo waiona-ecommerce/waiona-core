@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
@@ -67,6 +71,7 @@ describe('Categories (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
   }, 30000);
@@ -82,7 +87,7 @@ describe('Categories (e2e)', () => {
 
   it('POST /categories → 201 con datos válidos', async () => {
     const res = await request(app.getHttpServer())
-      .post('/categories')
+      .post('/v1/categories')
       .send({
         name: 'Bebidas',
         description: 'Bebidas en general',
@@ -97,17 +102,20 @@ describe('Categories (e2e)', () => {
   });
 
   it('POST /categories → 400 con datos inválidos', async () => {
-    await request(app.getHttpServer()).post('/categories').send({}).expect(400);
+    await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({})
+      .expect(400);
   });
 
   it('POST /categories → 201 con categoría padre', async () => {
     const parent = await request(app.getHttpServer())
-      .post('/categories')
+      .post('/v1/categories')
       .send({ name: 'Gaseosas', isActive: true })
       .expect(201);
 
     const child = await request(app.getHttpServer())
-      .post('/categories')
+      .post('/v1/categories')
       .send({ name: 'Cola', parentId: parent.body.id })
       .expect(201);
 
@@ -120,7 +128,7 @@ describe('Categories (e2e)', () => {
 
   it('GET /categories → 200 paginado', async () => {
     const res = await request(app.getHttpServer())
-      .get('/categories')
+      .get('/v1/categories')
       .expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -133,7 +141,7 @@ describe('Categories (e2e)', () => {
 
   it('GET /categories/tree → 200 árbol con hijos', async () => {
     const res = await request(app.getHttpServer())
-      .get('/categories/tree')
+      .get('/v1/categories/tree')
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -148,18 +156,18 @@ describe('Categories (e2e)', () => {
 
   it('GET /categories/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/categories')
+      .post('/v1/categories')
       .send({ name: 'Lácteos' });
 
     const res = await request(app.getHttpServer())
-      .get(`/categories/${created.body.id}`)
+      .get(`/v1/categories/${created.body.id}`)
       .expect(200);
 
     expect(res.body.name).toBe('Lácteos');
   });
 
   it('GET /categories/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).get('/categories/999999').expect(404);
+    await request(app.getHttpServer()).get('/v1/categories/999999').expect(404);
   });
 
   // -------------------------
@@ -168,11 +176,11 @@ describe('Categories (e2e)', () => {
 
   it('PATCH /categories/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/categories')
+      .post('/v1/categories')
       .send({ name: 'Snacks' });
 
     const res = await request(app.getHttpServer())
-      .patch(`/categories/${created.body.id}`)
+      .patch(`/v1/categories/${created.body.id}`)
       .send({ name: 'Snacks Premium', isActive: false })
       .expect(200);
 
@@ -182,7 +190,7 @@ describe('Categories (e2e)', () => {
 
   it('PATCH /categories/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/categories/999999')
+      .patch('/v1/categories/999999')
       .send({ name: 'Actualizado' })
       .expect(404);
   });
@@ -193,19 +201,21 @@ describe('Categories (e2e)', () => {
 
   it('DELETE /categories/:id → 204 y luego 404', async () => {
     const created = await request(app.getHttpServer())
-      .post('/categories')
+      .post('/v1/categories')
       .send({ name: 'A borrar' });
 
     await request(app.getHttpServer())
-      .delete(`/categories/${created.body.id}`)
+      .delete(`/v1/categories/${created.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/categories/${created.body.id}`)
+      .get(`/v1/categories/${created.body.id}`)
       .expect(404);
   });
 
   it('DELETE /categories/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).delete('/categories/999999').expect(404);
+    await request(app.getHttpServer())
+      .delete('/v1/categories/999999')
+      .expect(404);
   });
 });

@@ -30,7 +30,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('coupons/:couponId/targets/products')
+@Controller({ version: '1', path: 'coupons/:couponId/targets/products' })
 export class CouponProductTargetController {
   constructor(
     private readonly couponProductTargetService: CouponProductTargetService,

@@ -33,7 +33,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('tax-types')
+@Controller({ version: '1', path: 'tax-types' })
 export class TaxTypesController {
   constructor(private taxTypesService: TaxTypesService) {}
 

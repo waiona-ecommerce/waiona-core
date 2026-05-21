@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -74,6 +78,7 @@ describe('Product (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -95,7 +100,7 @@ describe('Product (e2e)', () => {
 
   it('POST /products → 201 con datos válidos', async () => {
     const res = await request(app.getHttpServer())
-      .post('/products')
+      .post('/v1/products')
       .send(validProduct())
       .expect(201);
 
@@ -106,20 +111,26 @@ describe('Product (e2e)', () => {
 
   it('POST /products → 409 cuando SKU ya existe', async () => {
     const dto = validProduct();
-    await request(app.getHttpServer()).post('/products').send(dto).expect(201);
-    await request(app.getHttpServer()).post('/products').send(dto).expect(409);
+    await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(dto)
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(dto)
+      .expect(409);
   });
 
   it('POST /products → 400 con datos inválidos', async () => {
     await request(app.getHttpServer())
-      .post('/products')
+      .post('/v1/products')
       .send({ name: 'X' })
       .expect(400);
   });
 
   it('POST /products → 400 con categoryId inválida', async () => {
     await request(app.getHttpServer())
-      .post('/products')
+      .post('/v1/products')
       .send({ ...validProduct(), categoryId: 999999 })
       .expect(400);
   });
@@ -129,7 +140,9 @@ describe('Product (e2e)', () => {
   // -------------------------
 
   it('GET /products → 200 paginado', async () => {
-    const res = await request(app.getHttpServer()).get('/products').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/v1/products')
+      .expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -142,18 +155,18 @@ describe('Product (e2e)', () => {
 
   it('GET /products/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/products')
+      .post('/v1/products')
       .send(validProduct());
 
     const res = await request(app.getHttpServer())
-      .get(`/products/${created.body.id}`)
+      .get(`/v1/products/${created.body.id}`)
       .expect(200);
 
     expect(res.body.id).toBe(created.body.id);
   });
 
   it('GET /products/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).get('/products/999999').expect(404);
+    await request(app.getHttpServer()).get('/v1/products/999999').expect(404);
   });
 
   // -------------------------
@@ -162,11 +175,11 @@ describe('Product (e2e)', () => {
 
   it('PATCH /products/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/products')
+      .post('/v1/products')
       .send(validProduct());
 
     const res = await request(app.getHttpServer())
-      .patch(`/products/${created.body.id}`)
+      .patch(`/v1/products/${created.body.id}`)
       .send({ name: 'Coca Cola 1L', isActive: false })
       .expect(200);
 
@@ -176,7 +189,7 @@ describe('Product (e2e)', () => {
 
   it('PATCH /products/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/products/999999')
+      .patch('/v1/products/999999')
       .send({ name: 'Actualizado' })
       .expect(404);
   });
@@ -187,19 +200,21 @@ describe('Product (e2e)', () => {
 
   it('DELETE /products/:id → 204 y luego 404', async () => {
     const created = await request(app.getHttpServer())
-      .post('/products')
+      .post('/v1/products')
       .send(validProduct());
 
     await request(app.getHttpServer())
-      .delete(`/products/${created.body.id}`)
+      .delete(`/v1/products/${created.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/products/${created.body.id}`)
+      .get(`/v1/products/${created.body.id}`)
       .expect(404);
   });
 
   it('DELETE /products/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).delete('/products/999999').expect(404);
+    await request(app.getHttpServer())
+      .delete('/v1/products/999999')
+      .expect(404);
   });
 });

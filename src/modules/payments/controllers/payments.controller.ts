@@ -34,7 +34,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 
 @ApiTags('Payments')
 @ApiBearerAuth()
-@Controller('payments')
+@Controller({ version: '1', path: 'payments' })
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
