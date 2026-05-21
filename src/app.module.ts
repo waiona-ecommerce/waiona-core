@@ -75,7 +75,7 @@ import { MailModule } from './modules/mail/mail.module';
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => ({
+      useFactory: (config: ConfigService) => ({
         store: redisStore,
         socket: {
           host: config.get('REDIS_HOST'),

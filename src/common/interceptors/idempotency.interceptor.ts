@@ -7,7 +7,6 @@ import {
   Inject,
 } from '@nestjs/common';
 import { Observable, from, switchMap } from 'rxjs';
-import { tap } from 'rxjs/operators';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Request } from 'express';
 
@@ -43,11 +42,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
           this.cache.set(cacheKey, PROCESSING_SENTINEL, IDEMPOTENCY_TTL_MS),
         ).pipe(
           switchMap(() =>
-            next.handle().pipe(
-              tap(async (result) => {
-                await this.cache.set(cacheKey, result, IDEMPOTENCY_TTL_MS);
-              }),
-            ),
+            next
+              .handle()
+              .pipe(
+                switchMap((result) =>
+                  from(
+                    this.cache.set(cacheKey, result, IDEMPOTENCY_TTL_MS),
+                  ).pipe(switchMap(() => from(Promise.resolve(result)))),
+                ),
+              ),
           ),
         );
       }),
