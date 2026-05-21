@@ -60,12 +60,10 @@ describe('ComboImages (e2e)', () => {
         {
           provide: StorageService,
           useValue: {
-            upload: jest
-              .fn()
-              .mockResolvedValue({
-                url: 'https://cdn.example.com/img.jpg',
-                publicId: 'test/img',
-              }),
+            upload: jest.fn().mockResolvedValue({
+              url: 'https://cdn.example.com/img.jpg',
+              publicId: 'test/img',
+            }),
             delete: jest.fn().mockResolvedValue(undefined),
           },
         },
