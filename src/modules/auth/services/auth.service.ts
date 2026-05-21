@@ -83,7 +83,8 @@ export class AuthService {
     await this.refreshTokenRepo.save(tokenEntity);
 
     const user = await this.usersService.findOne(tokenEntity.userId);
-    const access_token = this.generateToken(user);
+    const payload: Payload = { sub: user.id, role: user.role };
+    const access_token = this.jwtService.sign(payload);
     const refresh_token = await this.issueRefreshToken(user.id);
 
     return { access_token, refresh_token };
@@ -224,11 +225,15 @@ export class AuthService {
     rawToken: string,
   ): Promise<RefreshTokenEntity> {
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const entity = await this.refreshTokenRepo.findOne({ where: { tokenHash } });
+    const entity = await this.refreshTokenRepo.findOne({
+      where: { tokenHash },
+    });
 
     if (!entity) throw new UnauthorizedException('Invalid refresh token');
-    if (entity.isRevoked) throw new UnauthorizedException('Refresh token revoked');
-    if (entity.isExpired) throw new UnauthorizedException('Refresh token expired');
+    if (entity.isRevoked)
+      throw new UnauthorizedException('Refresh token revoked');
+    if (entity.isExpired)
+      throw new UnauthorizedException('Refresh token expired');
 
     return entity;
   }

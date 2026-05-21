@@ -81,9 +81,11 @@ export class AuthController {
     status: 401,
     description: 'Credenciales inválidas o cuenta no activada',
   })
-  async login(
-    @Req() req: Request,
-  ): Promise<{ user: UserEntity; access_token: string; refresh_token: string }> {
+  async login(@Req() req: Request): Promise<{
+    user: UserEntity;
+    access_token: string;
+    refresh_token: string;
+  }> {
     const user = req.user as UserEntity;
     const tokens = await this.authService.login(user);
     return { user, ...tokens };
@@ -97,7 +99,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Obtener nuevo access token con refresh token' })
   @ApiResponse({ status: 200, description: 'Nuevos access y refresh token' })
-  @ApiResponse({ status: 401, description: 'Refresh token inválido, expirado o revocado' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token inválido, expirado o revocado',
+  })
   async refresh(
     @Body() dto: RefreshTokenDto,
   ): Promise<{ access_token: string; refresh_token: string }> {
@@ -112,7 +117,10 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revocar refresh token (logout)' })
   @ApiResponse({ status: 204, description: 'Sesión cerrada correctamente' })
-  @ApiResponse({ status: 401, description: 'Refresh token inválido o ya revocado' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token inválido o ya revocado',
+  })
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.authService.logout(dto.refresh_token);
   }

@@ -282,7 +282,10 @@ describe('Auth (e2e)', () => {
     });
 
     it('400 — body inválido', async () => {
-      await request(app.getHttpServer()).post('/auth/logout').send({}).expect(400);
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({})
+        .expect(400);
     });
   });
 
