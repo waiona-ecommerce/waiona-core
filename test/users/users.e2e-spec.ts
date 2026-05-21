@@ -103,9 +103,9 @@ describe('Users (e2e)', () => {
     expect(res.body.page).toBe(1);
   });
 
-  it('GET /users?email=test -> filtra por email', async () => {
+  it('GET /users?email=test@waiona.com -> filtra por email', async () => {
     const res = await request(app.getHttpServer())
-      .get('/users?email=test')
+      .get('/users?email=test@waiona.com')
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
@@ -142,7 +142,9 @@ describe('Users (e2e)', () => {
   });
 
   it('GET /users/999999 -> 404 si no existe', async () => {
+    mockSub = 999999;
     await request(app.getHttpServer()).get('/users/999999').expect(404);
+    mockSub = userId;
   });
 
   // -------------------------
@@ -185,10 +187,12 @@ describe('Users (e2e)', () => {
   });
 
   it('PATCH /users/999999 -> 404 si no existe', async () => {
+    mockSub = 999999;
     await request(app.getHttpServer())
       .patch('/users/999999')
       .send({ name: 'Ghost' })
       .expect(404);
+    mockSub = userId;
   });
 
   // -------------------------
@@ -202,7 +206,9 @@ describe('Users (e2e)', () => {
   });
 
   it('DELETE /users/999999 -> 404 si no existe', async () => {
+    mockSub = 999999;
     await request(app.getHttpServer()).delete('/users/999999').expect(404);
+    mockSub = userId;
   });
 
   it('DELETE /users/:id -> 204 y luego GET devuelve 404', async () => {

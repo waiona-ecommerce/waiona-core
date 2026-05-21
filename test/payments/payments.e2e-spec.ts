@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
@@ -5,6 +6,17 @@ import {
   ExecutionContext,
 } from '@nestjs/common';
 import request from 'supertest';
+
+function mpSignatureHeaders(queryParams: Record<string, string> = {}) {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) return {};
+  const ts = '1234567890';
+  const xRequestId = 'test-request-id';
+  const dataId = queryParams['data.id'] ?? queryParams['id'] ?? '';
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const v1 = createHmac('sha256', secret).update(manifest).digest('hex');
+  return { 'x-signature': `ts=${ts},v1=${v1}`, 'x-request-id': xRequestId };
+}
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -297,33 +309,40 @@ describe('Payments (e2e)', () => {
     it('200 — siempre retorna 200 (sin id en query)', async () => {
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
+        .set(mpSignatureHeaders())
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
     });
 
     it('200 — siempre retorna 200 (topic desconocido)', async () => {
+      const query = { id: '1', topic: 'other' };
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
-        .query({ id: '1', topic: 'other' })
+        .query(query)
+        .set(mpSignatureHeaders(query))
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
     });
 
     it('200 — swallow error cuando topic=merchant_order y MP API falla', async () => {
+      const query = { id: '1', topic: 'merchant_order' };
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
-        .query({ id: '1', topic: 'merchant_order' })
+        .query(query)
+        .set(mpSignatureHeaders(query))
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
     });
 
     it('200 — swallow error cuando topic=payment y MP API falla', async () => {
+      const query = { id: '1', topic: 'payment' };
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
-        .query({ id: '1', topic: 'payment' })
+        .query(query)
+        .set(mpSignatureHeaders(query))
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
