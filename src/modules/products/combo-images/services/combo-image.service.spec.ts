@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ComboImageService } from '../../../products/combo-images/services/combo-image.service';
 import { ComboImageEntity } from '../../../products/combo-images/entities/combo-image.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
+import { StorageService } from '../../../storage/storage.service';
 
 describe('ComboImageService', () => {
   let service: ComboImageService;
@@ -17,12 +18,17 @@ describe('ComboImageService', () => {
     softDelete: jest.fn(),
   };
   const mockComboRepo = { findOne: jest.fn() };
+  const mockStorageService = {
+    upload: jest.fn(),
+    delete: jest.fn(),
+  };
 
   const mockImage = (overrides = {}): ComboImageEntity =>
     ({
       id: 1,
       comboId: 1,
       url: 'https://img.com/combo1.jpg',
+      publicId: null,
       position: 1,
       deletedAt: null,
       createdAt: new Date(),
@@ -39,6 +45,7 @@ describe('ComboImageService', () => {
           useValue: mockImageRepo,
         },
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
+        { provide: StorageService, useValue: mockStorageService },
       ],
     }).compile();
     service = module.get<ComboImageService>(ComboImageService);
@@ -108,17 +115,69 @@ describe('ComboImageService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete an image', async () => {
-      const image = mockImage();
+    it('should soft delete an image without Cloudinary call when no publicId', async () => {
+      const image = mockImage({ publicId: null });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockImageRepo.softDelete.mockResolvedValue({} as any);
       await service.remove(1);
+      expect(mockStorageService.delete).not.toHaveBeenCalled();
+      expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
+    });
+
+    it('should delete from Cloudinary before soft delete when publicId exists', async () => {
+      const image = mockImage({ publicId: 'waiona/combos/abc123' });
+      mockImageRepo.findOne.mockResolvedValue(image);
+      mockStorageService.delete.mockResolvedValue(undefined);
+      mockImageRepo.softDelete.mockResolvedValue({} as any);
+      await service.remove(1);
+      expect(mockStorageService.delete).toHaveBeenCalledWith(
+        'waiona/combos/abc123',
+      );
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
     it('should throw NotFoundException', async () => {
       mockImageRepo.findOne.mockResolvedValue(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('uploadImage', () => {
+    const mockFile = {
+      buffer: Buffer.from('img'),
+      mimetype: 'image/jpeg',
+      originalname: 'test.jpg',
+    } as Express.Multer.File;
+
+    it('should upload to Cloudinary and save record', async () => {
+      mockComboRepo.findOne.mockResolvedValue({ id: 1 });
+      mockStorageService.upload.mockResolvedValue({
+        url: 'https://res.cloudinary.com/x/combo.jpg',
+        publicId: 'waiona/combos/abc',
+      });
+      const saved = mockImage({
+        url: 'https://res.cloudinary.com/x/combo.jpg',
+        publicId: 'waiona/combos/abc',
+      });
+      mockImageRepo.create.mockReturnValue(saved);
+      mockImageRepo.save.mockResolvedValue(saved);
+
+      const result = await service.uploadImage(mockFile, {
+        comboId: 1,
+        position: 1,
+      });
+      expect(mockStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        'waiona/combos',
+      );
+      expect(result.url).toBe('https://res.cloudinary.com/x/combo.jpg');
+    });
+
+    it('should throw NotFoundException if combo not found', async () => {
+      mockComboRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.uploadImage(mockFile, { comboId: 99, position: 1 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

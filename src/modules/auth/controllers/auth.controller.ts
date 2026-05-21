@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   Query,
   UseGuards,
@@ -20,6 +21,8 @@ import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { ForgotPasswordDto } from 'src/modules/mail/dto/forgot-password.dto';
 import { ResetPasswordDto } from 'src/modules/mail/dto/reset-password.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
+import { ChangePasswordDto } from '../dto/change-password.dto';
+import { Payload } from '../models/payload.model';
 
 @ApiTags('Auth')
 @Controller({ version: '1', path: 'auth' })
@@ -168,5 +171,46 @@ export class AuthController {
   ): Promise<{ message: string }> {
     await this.authService.resetPassword(dto);
     return { message: 'Password reset successfully' };
+  }
+
+  // ==========================
+  // PATCH /auth/change-password
+  // ==========================
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cambiar contraseña (usuario autenticado)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada correctamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contraseña actual incorrecta o datos inválidos',
+  })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  async changePassword(
+    @Req() req: Request,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const payload = (req as any).user as Payload;
+    await this.authService.changePassword(payload.sub, dto);
+    return { message: 'Password changed successfully' };
+  }
+
+  // ==========================
+  // POST /auth/logout-all
+  // ==========================
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout-all')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Cerrar sesión en todos los dispositivos' })
+  @ApiResponse({ status: 204, description: 'Todas las sesiones cerradas' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  async logoutAll(@Req() req: Request): Promise<void> {
+    const payload = (req as any).user as Payload;
+    await this.authService.logoutAll(payload.sub);
   }
 }

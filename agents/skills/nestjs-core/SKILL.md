@@ -5,7 +5,7 @@ description: >
   Load when creating modules, controllers, services, configuring the app bootstrap, or writing unit tests.
 metadata:
   author: @rodrigozucchini
-  version: "2.0"
+  version: "3.0"
 ---
 
 # NestJS Core Skill
@@ -32,7 +32,7 @@ Do NOT load when:
 
 ## Core Rules
 
-1. **All entities extend `BaseEntity`**: Every entity gets `id`, `createdAt`, `updatedAt`, `deletedAt`.
+1. **All entities extend `BaseEntity`**: Every entity gets `id`, `createdAt`, `updatedAt`, `deletedAt` (`@DeleteDateColumn`).
 2. **Soft delete only**: Never hard delete. Use `repo.softDelete(id)`.
 3. **No manual filter needed**: TypeORM auto-adds `WHERE deletedAt IS NULL` via `@DeleteDateColumn`.
 4. **Services return DTOs**: Never return raw entities from a service.
@@ -51,7 +51,7 @@ src/
 ├── env.model.ts                     # Env interface (typed ConfigService)
 ├── common/
 │   ├── decorators/roles.decorator.ts
-│   ├── entities/base.entity.ts      # id, createdAt, updatedAt, isDeleted
+│   ├── entities/base.entity.ts      # id, createdAt, updatedAt, deletedAt
 │   ├── enums/
 │   │   ├── role-type.enum.ts        # SUPER_ADMIN | ADMIN | CLIENT
 │   │   └── currency-code.enum.ts
@@ -81,7 +81,7 @@ src/
 
 ```typescript
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { ValidationPipe, ClassSerializerInterceptor, VersioningType } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -95,6 +95,9 @@ async function bootstrap() {
 
   // activa @Exclude() en todas las respuestas
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
+  // URI versioning: todas las rutas de negocio bajo /v1/
+  app.enableVersioning({ type: VersioningType.URI });
 
   await app.listen(process.env.PORT ?? 3000);
 }
@@ -112,7 +115,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('nombres')
+@Controller({ version: '1', path: 'nombres' })
 export class NombreController {
   constructor(private readonly service: NombreService) {}
 
@@ -302,6 +305,8 @@ export interface Env {
   RESEND_API_KEY: string;
   MAIL_FROM: string;
   API_URL: string;
+  REDIS_HOST: string;
+  REDIS_PORT: number;
 }
 ```
 
@@ -309,7 +314,7 @@ export interface Env {
 
 ## Common Mistakes
 
-- **Manual `isDeleted = true`**: Use `repo.softDelete(id)` — `@DeleteDateColumn` handles filtering automatically.
+- **Manual `deletedAt = new Date()`**: Use `repo.softDelete(id)` — `@DeleteDateColumn` handles filtering automatically.
 - **Returning entities from services**: Always return DTOs.
 - **Missing `ParseIntPipe`**: Allows string IDs to reach the service.
 - **Specific route after `/:id`**: `GET /user/:userId` after `GET /:id` never matches — swap them.

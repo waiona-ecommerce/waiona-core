@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { ComboController } from '../../../products/combos/controllers/combo.controller';
 import { ComboService } from '../../../products/combos/services/combo.service';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 describe('ComboController', () => {
   let controller: ComboController;
@@ -56,10 +57,16 @@ describe('ComboController', () => {
 
   describe('findAll', () => {
     it('should return all combos', async () => {
-      service.findAll.mockResolvedValue([mockResponse() as any]);
+      const paginated = new PaginatedResponseDto(
+        [mockResponse() as any],
+        1,
+        1,
+        20,
+      );
+      service.findAll.mockResolvedValue(paginated);
       const result = await controller.findAll({});
       expect(service.findAll).toHaveBeenCalled();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
   });
 

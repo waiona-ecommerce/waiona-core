@@ -7,7 +7,9 @@ import { ComboEntity } from '../../combos/entities/combo.entity';
 
 import { CreateComboImageDto } from '../dto/create-combo-image.dto';
 import { UpdateComboImageDto } from '../dto/update-combo-image.dto';
+import { UploadComboImageDto } from '../dto/upload-combo-image.dto';
 import { ComboImageResponseDto } from '../dto/combo-image-response.dto';
+import { StorageService } from '../../../storage/storage.service';
 
 @Injectable()
 export class ComboImageService {
@@ -17,6 +19,8 @@ export class ComboImageService {
 
     @InjectRepository(ComboEntity)
     private readonly comboRepository: Repository<ComboEntity>,
+
+    private readonly storageService: StorageService,
   ) {}
 
   // ==========================
@@ -75,11 +79,44 @@ export class ComboImageService {
   }
 
   // ==========================
-  // DELETE (soft)
+  // UPLOAD (multipart → Cloudinary)
+  // ==========================
+
+  async uploadImage(
+    file: Express.Multer.File,
+    dto: UploadComboImageDto,
+  ): Promise<ComboImageResponseDto> {
+    const combo = await this.comboRepository.findOne({
+      where: { id: dto.comboId },
+    });
+    if (!combo) {
+      throw new NotFoundException(`Combo with id ${dto.comboId} not found`);
+    }
+
+    const { url, publicId } = await this.storageService.upload(
+      file,
+      'waiona/combos',
+    );
+
+    const image = this.comboImageRepository.create({
+      comboId: dto.comboId,
+      position: dto.position,
+      url,
+      publicId,
+    });
+    const saved = await this.comboImageRepository.save(image);
+    return new ComboImageResponseDto(saved);
+  }
+
+  // ==========================
+  // DELETE (soft + Cloudinary)
   // ==========================
 
   async remove(id: number): Promise<void> {
     const image = await this.findEntity(id);
+    if (image.publicId) {
+      await this.storageService.delete(image.publicId);
+    }
     await this.comboImageRepository.softDelete(image.id);
   }
 

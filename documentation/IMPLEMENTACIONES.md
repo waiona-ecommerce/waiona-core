@@ -1,155 +1,153 @@
-# Implementaciones Pendientes — Roadmap hacia Producción
+# Implementaciones Pendientes — Post Blocks 1-6
 
-Ordenadas de menor a mayor complejidad. Los bloques respetan dependencias entre sí.
-
----
-
-## Bloque 1 — Cambios rápidos, sin tocar arquitectura ✅ COMPLETO
-
-### ~~1. Max en paginación~~ ✅
-**Archivo:** `src/common/dto/pagination-query.dto.ts`  
-Ya existía — `@Max(100)` presente en el campo `limit`.
-
-### ~~2. Compresión de respuestas~~ ✅
-**Archivo:** `src/main.ts`  
-`compression` instalado. `app.use(compression())` agregado antes de `helmet()`.
-
-### ~~3. `select: false` en password~~ ✅
-**Archivo:** `src/modules/users/entities/user.entity.ts`  
-`select: false` agregado al `@Column()` del campo `password`. Defensa en profundidad a nivel ORM junto al `@Exclude()` existente.
-
-### ~~4. Rate limit específico en endpoints de auth~~ ✅
-**Archivo:** `src/modules/auth/controllers/auth.controller.ts`  
-Ya existía — `@Throttle` en `register` (5/min), `login` (5/min), `forgot-password` (3/min), `reset-password` (5/min).
-
-### ~~5. Validación de variables de entorno al arrancar~~ ✅
-**Archivo:** `src/app.module.ts`  
-`joi` instalado. `validationSchema` agregado en `ConfigModule.forRoot()` con las 11 vars críticas.
+Bloques 1-6 completados. Este documento cubre las implementaciones pendientes para la versión de producción.
+Ordenadas por prioridad de cara al desarrollo del frontend.
 
 ---
 
-## Bloque 2 — Independientes, sin dependencias entre sí ✅ COMPLETO
+## Bloque 7 — Cuenta y sesión
 
-### ~~6. Índices de DB faltantes~~ ✅
-- `orders`: `@Index(['userId', 'status'])` agregado — las demás entidades ya tenían sus índices
-- `products`: ya tenía `name`, `isActive`, `sku` (unique), `categoryId`
-- `coupons`: `code` tiene `unique: true` (índice implícito), `startsAt` y `endsAt` ya indexados
-- `discount_product_targets` / `discount_combo_targets`: ya tenían `discountId` y `productId`/`comboId`
-- `payments`: ya tenía `orderId` y `externalId`
+Pequeño. Sin dependencias externas. Alta prioridad porque el frontend lo necesita en la pantalla de perfil.
 
-### ~~7. Correlation IDs (Request ID)~~ ✅
-- `src/common/context/request-context.ts` — `AsyncLocalStorage` con helper `getRequestId()`
-- `src/common/middleware/request-id.middleware.ts` — genera UUID si no viene en header, lo setea en request y respuesta como `X-Request-Id`
-- Registrado en `app.module.ts` via `NestModule.configure()`
+### 1. Cambio de password autenticado
 
-### ~~8. Logging estructurado~~ ✅
-- `nestjs-pino` + `pino-http` + `pino-pretty` instalados
-- `LoggerModule.forRoot()` en `app.module.ts` con `customProps` que incluye `requestId`
-- `app.useLogger(app.get(Logger))` en `main.ts` — todos los logs usan pino
-- `GlobalExceptionFilter` loggea `error.stack` para errores 500+
-- Dev: `pino-pretty` con `singleLine: true`. Prod: JSON puro
+**Archivos:** `src/modules/auth/controllers/auth.controller.ts`, `src/modules/auth/services/auth.service.ts`
 
-### ~~9. Health check real~~ ✅
-- `src/modules/health/health.module.ts` + `health.controller.ts` creados
-- `GET /health` → verifica DB (`TypeOrmHealthIndicator`), heap (<250MB) y disco (<90%)
-- `503` si algún check falla, `200` si todo ok
-- `HealthModule` importado en `app.module.ts`
+- Endpoint `PATCH /v1/auth/change-password` — requiere JWT (usuario logueado)
+- Body: `{ currentPassword, newPassword }`
+- Validar que `currentPassword` coincide con el hash actual via `bcrypt.compare()`
+- Si no coincide → `400 Bad Request`
+- Si coincide → hashear `newPassword` y guardar
+- Diferencia con `reset-password`: ese flujo es sin auth (via token de email). Este es con auth, conociendo el password actual.
 
-### ~~10. Notificaciones de órdenes por email~~ ✅
-- 4 templates creados: `order-confirmed`, `order-dispatched`, `order-cancelled`, `order-delivered`
-- 4 métodos agregados a `MailService`
-- `MailModule` importado en `OrdersModule`
-- `MailService` inyectado en `OrdersService` — `sendStatusEmail()` privado, fire-and-forget tras el commit de la transacción
+**Esfuerzo:** 2hs
 
 ---
 
-## Bloque 3 — Infraestructura ✅ COMPLETO
+### 2. Cerrar sesión en todos los dispositivos
 
-### ~~11. Dockerfile + docker-compose para la app~~ ✅
-- `Dockerfile` multi-stage creado: `builder` (instala deps + compila) → `runner` (solo `dist/` + prod deps)
-- `docker-compose.yaml` ya existía completo — tiene `postgres`, `postgres_test`, `pgadmin` y servicio `api` con `build: .`
-- `.dockerignore` creado
-- `NODE_ENV=production` en el runner — `synchronize` queda desactivado automáticamente
+**Archivos:** `src/modules/auth/controllers/auth.controller.ts`, `src/modules/auth/services/auth.service.ts`
 
-### ~~12. CI/CD — GitHub Actions~~ ✅
-- `.github/workflows/ci.yml` creado
-- Pipeline: `lint` + `test-unit` + `build` en paralelo → `test-e2e` (bloqueado hasta que los 3 pasen)
-- E2E corre con postgres service container de GitHub Actions (no necesita Docker-in-Docker)
-- `node_modules` cacheado via `actions/setup-node` con `cache: 'npm'`
+- Endpoint `POST /v1/auth/logout-all` — requiere JWT
+- Revoca todos los `RefreshTokenEntity` del usuario donde `revokedAt IS NULL`
+- Útil cuando el usuario sospecha que su cuenta fue comprometida
+- No invalida el access token actual (expira solo en 15min por diseño)
 
-### ~~13. Migraciones en producción~~ ✅
-- `ormconfig.ts`: paths ahora condicionales — dev usa `src/**/*.entity.ts`, prod usa `dist/**/*.entity.js` (detecta por extensión de `__filename`)
-- `entrypoint.sh` creado — corre `typeorm migration:run -d dist/database/ormconfig.js` antes de arrancar la app
-- `migration:run:prod` agregado a `package.json` — usa el JS compilado directamente
-- `synchronize` ya estaba condicionado a `process.env.NODE_ENV !== 'production'` ✅
+**Esfuerzo:** 1hs
 
 ---
 
-## Bloque 4 — Features de sesión (~1 día)
+## Bloque 8 — Imágenes (upload real)
 
-### 14. Refresh tokens
-**Archivos nuevos:** entidad `RefreshTokenEntity`, endpoints en `auth.controller.ts`  
-- `RefreshTokenEntity`: `{ id, userId, token (hash), expiresAt, revokedAt }`
-- Al hacer login: generar access token (15min) + refresh token (7 días), guardar hash en DB
-- `POST /auth/refresh` — valida refresh token, emite nuevo access token
-- `POST /auth/logout` — revoca el refresh token en DB
-- Permite "cerrar sesión en todos los dispositivos" (revocar todos los tokens del usuario)
-- No requiere Redis
+Actualmente las imágenes de productos y combos son URLs externas guardadas como string. El frontend va a necesitar poder subir archivos reales.
 
----
+### 3. Upload de imágenes con S3 / Cloudinary
 
-## Bloque 5 — Redis (hacerlos juntos, comparten infraestructura)
+**Archivos nuevos:** `src/modules/storage/storage.service.ts`, `src/modules/storage/storage.module.ts`
 
-Instalar Redis una vez y usarlo para los 4 items.
+- Instalar: `npm install @aws-sdk/client-s3 multer @types/multer` (o SDK de Cloudinary)
+- `StorageService.upload(file: Express.Multer.File): Promise<string>` — sube el archivo, devuelve la URL pública
+- Endpoint `POST /v1/products/:id/images` acepta `multipart/form-data` con el archivo
+- Endpoint `POST /v1/combos/:id/images` — igual
+- Guardar la URL devuelta por S3/Cloudinary en `ProductImageEntity.url`
+- Agregar `DELETE /v1/products/:id/images/:imageId` que borra el archivo del storage antes del soft delete
 
-```bash
-npm install @nestjs/bull bull redis @nestjs/cache-manager cache-manager cache-manager-redis-yet ioredis
+**Variables de entorno nuevas:**
+```
+STORAGE_PROVIDER=s3 | cloudinary
+S3_BUCKET=
+S3_REGION=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+# o bien:
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 ```
 
-### 15. Idempotency key en `POST /orders`
-**Archivos:** `src/modules/orders/`  
-- Cliente genera UUID y lo manda en header `Idempotency-Key`
-- Middleware o guard guarda `(userId, idempotencyKey)` en Redis con TTL 24h
-- Si llega el mismo key: retorna la respuesta cacheada (409 o la orden original)
-- Previene órdenes duplicadas por doble-click o retry de red
-
-### 16. Email en cola (BullMQ)
-**Archivos:** `src/modules/mail/`  
-- `MailModule` encola el trabajo en vez de llamar a Resend directamente
-- Worker separado procesa la cola con reintentos automáticos (3 intentos, backoff exponencial)
-- El flujo de registro responde en <50ms independientemente de si Resend está lento
-
-### 17. Alertas de stock
-**Archivos:** `src/modules/stocks/stock-item/services/stock-item.service.ts`  
-- Hook al final de `dispatchStock()`: si `quantityAvailable <= stockCritical` → encolar notificación al admin (usa la cola del paso 16)
-- Email al admin: "Stock crítico: Producto X tiene solo N unidades disponibles en Depósito Y"
-
-### 18. Cache del shop con Redis
-**Archivos:** `src/modules/products/shop/services/shop.service.ts`  
-- Cachear respuestas de `search()` y `findById()` con TTL de 60 segundos
-- Invalidar cache cuando cambia pricing, discounts o taxes (hook en los respectivos services)
-- Mayor impacto en el listado del shop que es el endpoint más llamado
+**Esfuerzo:** 4-6hs
 
 ---
 
-## Bloque 6 — Refactor transversal (cuando la API esté estable)
+## Bloque 9 — Dashboard admin
 
-### 19. API versioning
-**Archivos:** `src/main.ts` + todos los controllers  
-- `app.enableVersioning({ type: VersioningType.URI })` en `main.ts`
-- Cada controller: `@Controller({ version: '1', path: 'resource' })`
-- Todas las rutas quedan bajo `/v1/resource`
-- Hacerlo último porque toca todos los controllers y puede romper clientes existentes
+El frontend va a necesitar una pantalla de métricas. Sin esto el panel de admin queda sin datos agregados.
+
+### 4. Endpoints de estadísticas
+
+**Archivos nuevos:** `src/modules/analytics/analytics.controller.ts`, `src/modules/analytics/analytics.service.ts`
+
+- `GET /v1/analytics/orders` — resumen de órdenes:
+  ```json
+  {
+    "total": 150,
+    "byStatus": { "pending": 10, "confirmed": 30, "dispatched": 20, "delivered": 80, "cancelled": 10 },
+    "totalRevenue": 450000,
+    "revenueToday": 12000,
+    "revenueThisMonth": 85000
+  }
+  ```
+
+- `GET /v1/analytics/products/top` — top 10 productos más vendidos (por cantidad de unidades en órdenes entregadas)
+
+- `GET /v1/analytics/stock/critical` — productos con stock por debajo del umbral crítico (reusa la lógica de alertas)
+
+- Todos requieren `RoleType.ADMIN` o `SUPER_ADMIN`
+- Usar QueryBuilder con agregaciones — no cargar todas las entidades en memoria
+
+**Esfuerzo:** 4-6hs
 
 ---
 
-## Resumen de tiempos estimados
+## Bloque 10 — Escala
 
-| Bloque | Items | Tiempo total |
-|---|---|---|
-| 1 — Cambios rápidos | 1-5 | ~30 min |
-| 2 — Independientes | 6-10 | ~2-3 días |
-| 3 — Infraestructura | 11-13 | ~2-3 días |
-| 4 — Refresh tokens | 14 | ~1 día |
-| 5 — Redis | 15-18 | ~2-3 días |
-| 6 — Versioning | 19 | ~1 día |
+Solo implementar cuando haya datos reales y se note el problema. No optimizar prematuramente.
+
+### 5. Cursor pagination en orders
+
+**El problema:** `OFFSET 10000` obliga a PostgreSQL a leer y descartar 10.000 filas. A escala, destruye la performance.
+
+**Archivos:** `src/modules/orders/services/orders.service.ts`, `src/modules/orders/dto/`
+
+- Reemplazar offset pagination por cursor en `GET /v1/orders`
+- Cursor = último `id` de la página anterior
+- Query: `WHERE id > :cursor ORDER BY id ASC LIMIT :limit`
+- Response: `{ data: [...], nextCursor: number | null, hasMore: boolean }`
+- Mantener compatibilidad: si no viene `cursor`, empieza desde el primero
+
+**Criterio para implementar:** cuando `orders` supere los 10.000 registros o se note lentitud en el listado admin.
+
+**Esfuerzo:** 3hs
+
+---
+
+### 6. Notificaciones en tiempo real (SSE)
+
+**El problema:** el cliente hace polling para ver si su orden cambió de estado. Ineficiente y lento.
+
+**Solución:** Server-Sent Events — más simple que WebSockets, suficiente para updates unidireccionales.
+
+**Archivos nuevos:** `src/modules/orders/controllers/orders-sse.controller.ts`
+
+- `GET /v1/orders/:id/events` — stream SSE que emite cuando cambia el status de esa orden
+- El `OrdersService.updateStatus()` emite un evento al stream si hay listeners activos
+- Sin dependencias nuevas — NestJS soporta SSE nativamente con `@Sse()` y `Observable`
+
+**Criterio para implementar:** cuando el frontend necesite updates en tiempo real en la pantalla de seguimiento de pedido.
+
+**Esfuerzo:** 4hs
+
+---
+
+## Resumen
+
+| # | Feature | Bloque | Prioridad | Esfuerzo |
+|---|---|---|---|---|
+| 1 | Cambio de password autenticado | 7 | 🔴 Alta | 2hs |
+| 2 | Logout de todos los dispositivos | 7 | 🔴 Alta | 1hs |
+| 3 | Upload de imágenes (S3/Cloudinary) | 8 | 🟠 Media-alta | 4-6hs |
+| 4 | Dashboard de estadísticas admin | 9 | 🟠 Media | 4-6hs |
+| 5 | Cursor pagination en orders | 10 | 🟡 Baja | 3hs |
+| 6 | Notificaciones en tiempo real (SSE) | 10 | 🟡 Baja | 4hs |
+
+**Total estimado:** ~18-22hs

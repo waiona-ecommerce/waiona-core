@@ -5,7 +5,7 @@ description: >
   Load when implementing login, protecting routes, working with guards, roles, or the auth module.
 metadata:
   author: @rodrigozucchini
-  version: "3.0"
+  version: "4.0"
 ---
 
 # NestJS Auth JWT Skill
@@ -60,8 +60,33 @@ POST /auth/reset-password { token, password }
   → UsersService.updatePassword() → bcrypt.hash(10)
   → Token marked as used
 
+POST /auth/login { email, password }
+  → returns { user, access_token (15min), refresh_token (opaque 64-char hex, 30 days) }
+  → refresh_token stored in DB as SHA-256 hash (RefreshTokenEntity)
+
+POST /auth/refresh { refresh_token }
+  → hash raw token, look up RefreshTokenEntity
+  → validate: not revoked, not expired
+  → revoke old token (revokedAt = NOW())
+  → create new RefreshTokenEntity → return new pair { access_token, refresh_token }
+
+POST /auth/logout { refresh_token }
+  → hash raw token, find RefreshTokenEntity
+  → set revokedAt = NOW() → 200 OK
+
+PATCH /auth/change-password { currentPassword, newPassword }  — requires JWT
+  → bcrypt.compare(currentPassword, user.password)
+  → if mismatch → 400 Bad Request
+  → bcrypt.hash(newPassword, 10) → save → 200 OK
+  → diferencia con reset-password: este flujo requiere conocer el password actual
+
+POST /auth/logout-all  — requires JWT
+  → revoca todos los RefreshTokenEntity del usuario donde revokedAt IS NULL
+  → el access token actual sigue válido hasta que expira (15min by design)
+  → útil cuando el usuario sospecha que su cuenta fue comprometida
+
 Protected route:
-  Authorization: Bearer <token>
+  Authorization: Bearer <access_token>
   → AuthGuard('jwt') → JwtStrategy.validate(payload)
   → req.user = { sub: userId, role: RoleType }
 ```
@@ -186,6 +211,36 @@ export class TokenEntity extends BaseEntity {
 
 ---
 
+## RefreshTokenEntity
+
+```typescript
+@Entity('refresh_tokens')
+export class RefreshTokenEntity extends BaseEntity {
+  @Column({ name: 'user_id', type: 'int' })
+  userId: number;
+
+  @Column({ type: 'varchar', length: 64, unique: true })
+  token: string; // SHA-256 hash of the raw token sent to the client
+
+  @Column({ name: 'expires_at', type: 'timestamptz' })
+  expiresAt: Date;
+
+  @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
+  revokedAt: Date | null;
+
+  get isExpired(): boolean { return new Date() > this.expiresAt; }
+  get isRevoked(): boolean { return this.revokedAt !== null; }
+}
+```
+
+**Rotation rules:**
+- Raw token = `randomBytes(32).toString('hex')` → 64-char hex
+- Stored token = `createHash('sha256').update(rawToken).digest('hex')`
+- On `/auth/refresh`: old `RefreshTokenEntity` is revoked, new one created atomically
+- On `/auth/logout`: token revoked, no new token issued
+
+---
+
 ## Roles Enum
 
 ```typescript
@@ -208,3 +263,5 @@ export enum RoleType {
 - Forgetting `ClassSerializerInterceptor` in `main.ts` — `@Exclude()` won't work without it.
 - Not checking `isActive` in `validateUser` — inactive users must get `401`.
 - Forgetting ownership check for client role — clients should only access their own resources.
+- **Storing raw refresh token in DB** — always store the SHA-256 hash; the raw token is sent to the client only once.
+- **Not revoking old token on refresh** — rotation requires revoking the previous token before issuing a new one (do it in a single transaction).

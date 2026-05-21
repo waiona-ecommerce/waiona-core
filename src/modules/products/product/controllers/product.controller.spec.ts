@@ -6,6 +6,7 @@ import { ProductController } from './product.controller';
 import { ProductService } from '../services/product.service';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 describe('ProductController', () => {
   let controller: ProductController;
@@ -70,20 +71,22 @@ describe('ProductController', () => {
   describe('findAll', () => {
     it('should return all products', async () => {
       const products = [mockProductResponse()];
-      service.findAll.mockResolvedValue(products as any);
+      const paginated = new PaginatedResponseDto(products, 1, 1, 20);
+      service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll({});
 
       expect(service.findAll).toHaveBeenCalled();
-      expect(result).toEqual(products);
+      expect(result.data).toEqual(products);
     });
 
     it('should return empty array if no products', async () => {
-      service.findAll.mockResolvedValue([]);
+      const paginated = new PaginatedResponseDto([], 0, 1, 20) as any;
+      service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll({});
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 

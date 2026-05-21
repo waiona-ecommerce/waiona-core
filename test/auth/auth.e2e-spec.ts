@@ -117,6 +117,7 @@ describe('Auth (e2e)', () => {
   };
   let activationToken: string;
   let refreshToken: string;
+  let accessToken: string;
 
   // =============================================
   // POST /auth/register
@@ -193,6 +194,7 @@ describe('Auth (e2e)', () => {
       expect(res.body.user.password).toBeUndefined();
       expect(res.body.user.role.type).toBe(RoleType.CLIENT);
 
+      accessToken = res.body.access_token;
       refreshToken = res.body.refresh_token;
     });
 
@@ -325,10 +327,12 @@ describe('Auth (e2e)', () => {
         .post('/v1/auth/reset-password')
         .send({ token: resetToken, password: 'NewPass1234!' })
         .expect(200);
-      await request(app.getHttpServer())
+      const loginRes = await request(app.getHttpServer())
         .post('/v1/auth/login')
         .send({ email: testUser.email, password: 'NewPass1234!' })
         .expect(200);
+      accessToken = loginRes.body.access_token;
+      refreshToken = loginRes.body.refresh_token;
     });
 
     it('should return 400 with invalid token', () =>
@@ -336,5 +340,77 @@ describe('Auth (e2e)', () => {
         .post('/v1/auth/reset-password')
         .send({ token: 'invalid', password: 'NewPass1234!' })
         .expect(400));
+  });
+
+  // =============================================
+  // PATCH /auth/change-password
+  // =============================================
+
+  describe('PATCH /auth/change-password', () => {
+    it('401 — sin access token', () =>
+      request(app.getHttpServer())
+        .patch('/v1/auth/change-password')
+        .send({ currentPassword: 'NewPass1234!', newPassword: 'Final5678A!' })
+        .expect(401));
+
+    it('400 — contraseña actual incorrecta', () =>
+      request(app.getHttpServer())
+        .patch('/v1/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: 'WrongPass1!', newPassword: 'Final5678A!' })
+        .expect(400));
+
+    it('400 — body inválido (sin campos)', () =>
+      request(app.getHttpServer())
+        .patch('/v1/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({})
+        .expect(400));
+
+    it('200 — cambia la contraseña correctamente y permite login con la nueva', async () => {
+      await request(app.getHttpServer())
+        .patch('/v1/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: 'NewPass1234!', newPassword: 'Final5678A!' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: testUser.email, password: 'Final5678A!' })
+        .expect(200);
+    });
+  });
+
+  // =============================================
+  // POST /auth/logout-all
+  // =============================================
+
+  describe('POST /auth/logout-all', () => {
+    let tokenBeforeLogoutAll: string;
+    let accessForLogoutAll: string;
+
+    it('setup — login para obtener tokens frescos', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: testUser.email, password: 'Final5678A!' })
+        .expect(200);
+      accessForLogoutAll = res.body.access_token;
+      tokenBeforeLogoutAll = res.body.refresh_token;
+    });
+
+    it('401 — sin access token', () =>
+      request(app.getHttpServer()).post('/v1/auth/logout-all').expect(401));
+
+    it('204 — revoca todas las sesiones activas', () =>
+      request(app.getHttpServer())
+        .post('/v1/auth/logout-all')
+        .set('Authorization', `Bearer ${accessForLogoutAll}`)
+        .expect(204));
+
+    it('401 — el refresh token anterior ya no es válido después del logout-all', () =>
+      request(app.getHttpServer())
+        .post('/v1/auth/refresh')
+        .send({ refresh_token: tokenBeforeLogoutAll })
+        .expect(401));
   });
 });

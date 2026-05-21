@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ProductImageService } from '../../../products/product-images/services/product-image.service';
 import { ProductImageEntity } from '../../../products/product-images/entities/product-image.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
+import { StorageService } from '../../../storage/storage.service';
 
 describe('ProductImageService', () => {
   let service: ProductImageService;
@@ -17,12 +18,17 @@ describe('ProductImageService', () => {
     softDelete: jest.fn(),
   };
   const mockProductRepo = { findOne: jest.fn() };
+  const mockStorageService = {
+    upload: jest.fn(),
+    delete: jest.fn(),
+  };
 
   const mockImage = (overrides = {}): ProductImageEntity =>
     ({
       id: 1,
       productId: 1,
       url: 'https://img.com/1.jpg',
+      publicId: null,
       position: 1,
       deletedAt: null,
       createdAt: new Date(),
@@ -42,6 +48,7 @@ describe('ProductImageService', () => {
           provide: getRepositoryToken(ProductEntity),
           useValue: mockProductRepo,
         },
+        { provide: StorageService, useValue: mockStorageService },
       ],
     }).compile();
     service = module.get<ProductImageService>(ProductImageService);
@@ -111,17 +118,69 @@ describe('ProductImageService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete an image', async () => {
-      const image = mockImage();
+    it('should soft delete an image without Cloudinary call when no publicId', async () => {
+      const image = mockImage({ publicId: null });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockImageRepo.softDelete.mockResolvedValue({} as any);
       await service.remove(1);
+      expect(mockStorageService.delete).not.toHaveBeenCalled();
+      expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
+    });
+
+    it('should delete from Cloudinary before soft delete when publicId exists', async () => {
+      const image = mockImage({ publicId: 'waiona/products/abc123' });
+      mockImageRepo.findOne.mockResolvedValue(image);
+      mockStorageService.delete.mockResolvedValue(undefined);
+      mockImageRepo.softDelete.mockResolvedValue({} as any);
+      await service.remove(1);
+      expect(mockStorageService.delete).toHaveBeenCalledWith(
+        'waiona/products/abc123',
+      );
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
     it('should throw NotFoundException', async () => {
       mockImageRepo.findOne.mockResolvedValue(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('uploadImage', () => {
+    const mockFile = {
+      buffer: Buffer.from('img'),
+      mimetype: 'image/jpeg',
+      originalname: 'test.jpg',
+    } as Express.Multer.File;
+
+    it('should upload to Cloudinary and save record', async () => {
+      mockProductRepo.findOne.mockResolvedValue({ id: 1 });
+      mockStorageService.upload.mockResolvedValue({
+        url: 'https://res.cloudinary.com/x/img.jpg',
+        publicId: 'waiona/products/abc',
+      });
+      const saved = mockImage({
+        url: 'https://res.cloudinary.com/x/img.jpg',
+        publicId: 'waiona/products/abc',
+      });
+      mockImageRepo.create.mockReturnValue(saved);
+      mockImageRepo.save.mockResolvedValue(saved);
+
+      const result = await service.uploadImage(mockFile, {
+        productId: 1,
+        position: 1,
+      });
+      expect(mockStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        'waiona/products',
+      );
+      expect(result.url).toBe('https://res.cloudinary.com/x/img.jpg');
+    });
+
+    it('should throw NotFoundException if product not found', async () => {
+      mockProductRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.uploadImage(mockFile, { productId: 99, position: 1 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

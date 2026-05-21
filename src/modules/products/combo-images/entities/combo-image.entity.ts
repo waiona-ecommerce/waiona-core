@@ -25,6 +25,14 @@ export class ComboImageEntity extends BaseEntity {
   url: string;
 
   @Column({
+    name: 'public_id',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  publicId: string | null;
+
+  @Column({
     type: 'int',
     nullable: false,
   })

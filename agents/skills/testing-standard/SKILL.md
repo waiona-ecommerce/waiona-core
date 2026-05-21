@@ -5,7 +5,7 @@ description: >
   Load when writing service specs, controller specs, or e2e tests.
 metadata:
   author: @rodrigozucchini
-  version: "1.0"
+  version: "2.0"
 ---
 
 # Testing Standard Skill
@@ -134,6 +134,44 @@ describe('NombreService', () => {
 });
 ```
 
+**Si el service usa `createQueryBuilder` (agregaciones, JOINs custom):**
+
+```typescript
+// Todos los métodos de chaining devuelven 'this'; los terminales se mockean por separado
+const buildMockQB = () => {
+  const qb: any = {
+    select:      jest.fn().mockReturnThis(),
+    addSelect:   jest.fn().mockReturnThis(),
+    where:       jest.fn().mockReturnThis(),
+    andWhere:    jest.fn().mockReturnThis(),
+    groupBy:     jest.fn().mockReturnThis(),
+    addGroupBy:  jest.fn().mockReturnThis(),
+    orderBy:     jest.fn().mockReturnThis(),
+    limit:       jest.fn().mockReturnThis(),
+    innerJoin:   jest.fn().mockReturnThis(),
+    leftJoin:    jest.fn().mockReturnThis(),
+    getRawMany:  jest.fn().mockResolvedValue([]),
+    getRawOne:   jest.fn().mockResolvedValue(null),
+    getMany:     jest.fn().mockResolvedValue([]),
+    getOne:      jest.fn().mockResolvedValue(null),
+  };
+  qb.clone = jest.fn().mockReturnValue(qb); // clone devuelve el mismo mock
+  return qb;
+};
+
+const mockRepo = () => ({
+  createQueryBuilder: jest.fn(() => buildMockQB()),
+});
+
+// en providers:
+{ provide: getRepositoryToken(NombreEntity), useFactory: mockRepo }
+
+// controlar el resultado en cada test:
+const qb = buildMockQB();
+qb.getRawMany.mockResolvedValue([{ status: 'delivered', count: '10' }]);
+repo.createQueryBuilder.mockReturnValue(qb);
+```
+
 **Si el service usa `DataSource` (transacciones):**
 
 ```typescript
@@ -230,7 +268,7 @@ test/
 ```typescript
 // test/nombre/nombre.e2e-spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
@@ -276,6 +314,7 @@ describe('Nombre (e2e)', () => {
       transform: true,
     }));
 
+    app.enableVersioning({ type: VersioningType.URI }); // ⚠️ requerido — todas las rutas están bajo /v1/
     await app.init();
     dataSource = moduleFixture.get(DataSource);
   }, 30000); // timeout para conexión inicial a PostgreSQL
@@ -289,9 +328,9 @@ describe('Nombre (e2e)', () => {
   // CREATE
   // -------------------------
 
-  it('POST /nombres -> 201 con datos correctos', async () => {
+  it('POST /v1/nombres -> 201 con datos correctos', async () => {
     const res = await request(app.getHttpServer())
-      .post('/nombres')
+      .post('/v1/nombres')
       .send({ name: 'Test' })
       .expect(201);
 
@@ -299,9 +338,9 @@ describe('Nombre (e2e)', () => {
     expect(res.body.name).toBe('Test');
   });
 
-  it('POST /nombres -> 400 con datos inválidos', async () => {
+  it('POST /v1/nombres -> 400 con datos inválidos', async () => {
     await request(app.getHttpServer())
-      .post('/nombres')
+      .post('/v1/nombres')
       .send({})
       .expect(400);
   });
@@ -310,33 +349,57 @@ describe('Nombre (e2e)', () => {
   // GET
   // -------------------------
 
-  it('GET /nombres -> 200 array', async () => {
-    const res = await request(app.getHttpServer()).get('/nombres').expect(200);
+  it('GET /v1/nombres -> 200 array', async () => {
+    const res = await request(app.getHttpServer()).get('/v1/nombres').expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
-  it('GET /nombres/:id -> 404 si no existe', async () => {
-    await request(app.getHttpServer()).get('/nombres/999').expect(404);
+  it('GET /v1/nombres/:id -> 404 si no existe', async () => {
+    await request(app.getHttpServer()).get('/v1/nombres/999').expect(404);
   });
 
   // -------------------------
   // DELETE (soft)
   // -------------------------
 
-  it('DELETE /nombres/:id -> 204 y luego 404', async () => {
+  it('DELETE /v1/nombres/:id -> 204 y luego 404', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/nombres')
+      .post('/v1/nombres')
       .send({ name: 'A borrar' });
 
     await request(app.getHttpServer())
-      .delete(`/nombres/${createRes.body.id}`)
+      .delete(`/v1/nombres/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/nombres/${createRes.body.id}`)
+      .get(`/v1/nombres/${createRes.body.id}`)
       .expect(404);
   });
 });
+```
+
+### Mock providers requeridos en e2e
+
+Cuando el módulo bajo prueba tiene dependencias de servicios globales o externos, agregarlos como mocks en el array `providers`. Los más comunes:
+
+```typescript
+// Módulos que usan ShopCacheService (margins, taxes, pricing, discounts, shop):
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+{ provide: ShopCacheService, useValue: { get: jest.fn().mockResolvedValue(null), set: jest.fn(), invalidate: jest.fn() } }
+
+// Controladores con IdempotencyInterceptor (orders) — requiere CACHE_MANAGER:
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+{ provide: CACHE_MANAGER, useValue: { get: jest.fn().mockResolvedValue(null), set: jest.fn() } }
+
+// Services que usan MailService (stocks, orders):
+import { MailService } from 'src/modules/mail/services/mail.service';
+{ provide: MailService, useValue: {
+    sendOrderConfirmedEmail:  jest.fn().mockResolvedValue(undefined),
+    sendOrderDispatchedEmail: jest.fn().mockResolvedValue(undefined),
+    sendOrderCancelledEmail:  jest.fn().mockResolvedValue(undefined),
+    sendOrderDeliveredEmail:  jest.fn().mockResolvedValue(undefined),
+    sendStockAlertEmail:      jest.fn().mockResolvedValue(undefined),
+} }
 ```
 
 ### Cross-module repo dependencies en e2e
@@ -393,3 +456,5 @@ npx jest --config test/jest-e2e.json
 - **Sin `afterEach(() => jest.clearAllMocks())`**: Mocks de un test contaminan el siguiente.
 - **Sin `await app.close()` en `afterAll`**: Conexiones colgadas que hacen que Jest no termine.
 - **Olvidar `overrideGuard`**: Tests e2e fallan con 401/403 sin esto.
+- **Sin `app.enableVersioning({ type: VersioningType.URI })`**: Todos los tests retornan 404 — las rutas están bajo `/v1/`.
+- **Sin mock de `ShopCacheService` o `CACHE_MANAGER`**: NestJS falla al inicializar si el módulo depende de ellos — agregar siempre como providers mock en el test module.

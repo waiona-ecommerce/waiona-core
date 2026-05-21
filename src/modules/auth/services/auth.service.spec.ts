@@ -26,6 +26,7 @@ import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { TokenType } from 'src/modules/mail/enum/token-type.enum';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { UserEntity } from '../../users/entities/user.entity';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -41,6 +42,7 @@ describe('AuthService', () => {
     findOne: jest.fn(),
     activate: jest.fn(),
     updatePassword: jest.fn(),
+    findEntityWithPassword: jest.fn(),
   });
 
   const mockJwtService = () => ({
@@ -63,6 +65,7 @@ describe('AuthService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
   });
 
   const mockUser = (overrides = {}): UserEntity =>
@@ -440,6 +443,71 @@ describe('AuthService', () => {
         { userId: 1, type: TokenType.PASSWORD_RESET },
         expect.objectContaining({ usedAt: expect.any(Date) }),
       );
+    });
+  });
+
+  // ==========================
+  // changePassword
+  // ==========================
+
+  describe('changePassword', () => {
+    const dto: ChangePasswordDto = {
+      currentPassword: 'OldPass1!',
+      newPassword: 'NewPass1!',
+    };
+
+    it('should throw 400 if user not found', async () => {
+      usersService.findEntityWithPassword.mockResolvedValue(null);
+      await expect(service.changePassword(1, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw 400 if current password does not match', async () => {
+      usersService.findEntityWithPassword.mockResolvedValue(
+        mockUser({ password: 'hashed_pw' }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      await expect(service.changePassword(1, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should update password when current password matches', async () => {
+      usersService.findEntityWithPassword.mockResolvedValue(
+        mockUser({ password: 'hashed_pw' }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      usersService.updatePassword.mockResolvedValue(undefined);
+
+      await service.changePassword(1, dto);
+
+      expect(usersService.updatePassword).toHaveBeenCalledWith(
+        1,
+        dto.newPassword,
+      );
+    });
+  });
+
+  // ==========================
+  // logoutAll
+  // ==========================
+
+  describe('logoutAll', () => {
+    it('should revoke all active refresh tokens for the user', async () => {
+      refreshTokenRepo.update.mockResolvedValue({ affected: 2 });
+
+      await service.logoutAll(1);
+
+      expect(refreshTokenRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 1 }),
+        expect.objectContaining({ revokedAt: expect.any(Date) }),
+      );
+    });
+
+    it('should not throw if user has no active sessions', async () => {
+      refreshTokenRepo.update.mockResolvedValue({ affected: 0 });
+      await expect(service.logoutAll(99)).resolves.toBeUndefined();
     });
   });
 });

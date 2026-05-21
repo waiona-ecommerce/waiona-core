@@ -1,11 +1,11 @@
 ---
 name: email-templates
 description: >
-  Email template conventions for this repo using Resend SDK and EMAIL_THEME.
+  Email template conventions for this repo using BullMQ queue + Resend processor and EMAIL_THEME.
   Load when creating new email templates, modifying existing ones, or adding new email flows to MailService.
 metadata:
   author: @rodrigozucchini
-  version: "1.0"
+  version: "2.0"
 ---
 
 # Email Templates Skill
@@ -148,17 +148,66 @@ export function nombreEventoTemplate(name: string, url: string): string {
 
 ## MailService Pattern
 
+`MailService` no llama a Resend directamente. Encola jobs en una cola BullMQ (`mail`). El processor (`MailProcessor`) consume los jobs y hace el envío con Resend.
+
 Cada nuevo flujo de email necesita:
 1. Un archivo de template en `src/modules/mail/templates/`
-2. Un método en `MailService`
+2. Un valor en el enum `MailJobType` en `mail.constants.ts`
+3. Un método en `MailService` que encola el job
+4. Un `case` en el processor (`mail.processor.ts`) que llama el template
+
+```typescript
+// src/modules/mail/mail.constants.ts
+export const MAIL_QUEUE = 'mail';
+
+export enum MailJobType {
+  SEND_ACTIVATION       = 'send_activation',
+  SEND_PASSWORD_RESET   = 'send_password_reset',
+  SEND_ORDER_CONFIRMED  = 'send_order_confirmed',
+  SEND_ORDER_DISPATCHED = 'send_order_dispatched',
+  SEND_ORDER_CANCELLED  = 'send_order_cancelled',
+  SEND_ORDER_DELIVERED  = 'send_order_delivered',
+  SEND_STOCK_ALERT      = 'send_stock_alert',
+}
+
+export const MAIL_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: 'exponential', delay: 5000 },
+  removeOnComplete: true,
+  removeOnFail: false,
+};
+```
 
 ```typescript
 // src/modules/mail/services/mail.service.ts
-import { nombreEventoTemplate } from '../templates/nombre-evento.template';
+import type { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
+import { MAIL_QUEUE, MailJobType, MAIL_JOB_OPTIONS } from '../mail.constants';
 
 @Injectable()
 export class MailService {
+  private readonly mailQueue: Queue;
 
+  constructor(@InjectQueue(MAIL_QUEUE) mailQueue: object) {
+    this.mailQueue = mailQueue as Queue;
+  }
+
+  async sendNombreEventoEmail(data: NombreEventoJobData): Promise<void> {
+    await this.mailQueue.add(MailJobType.SEND_NOMBRE_EVENTO, data, MAIL_JOB_OPTIONS);
+  }
+}
+```
+
+```typescript
+// src/modules/mail/processors/mail.processor.ts
+import { Process, Processor } from '@nestjs/bull';
+import { Job } from 'bull';
+import { Resend } from 'resend';
+import { ConfigService } from '@nestjs/config';
+import { MAIL_QUEUE, MailJobType } from '../mail.constants';
+
+@Processor(MAIL_QUEUE)
+export class MailProcessor {
   private resend: Resend;
   private from: string;
 
@@ -167,15 +216,15 @@ export class MailService {
     this.from   = this.configService.get('MAIL_FROM') ?? 'Waiona <onboarding@resend.dev>';
   }
 
-  async sendNombreEventoEmail(to: string, name: string, extraParam: string): Promise<void> {
+  @Process(MailJobType.SEND_NOMBRE_EVENTO)
+  async handleNombreEvento(job: Job<NombreEventoJobData>): Promise<void> {
+    const { to, name, extraParam } = job.data;
     const frontendUrl = this.configService.get('FRONTEND_URL');
-    const url         = `${frontendUrl}/ruta-del-frontend?param=${extraParam}`;
-
+    const url = `${frontendUrl}/ruta?param=${extraParam}`;
     await this.resend.emails.send({
-      from:    this.from,
-      to,
-      subject: 'Asunto del email en Waiona',
-      html:    nombreEventoTemplate(name, url),
+      from: this.from, to,
+      subject: 'Asunto',
+      html: nombreEventoTemplate(name, url),
     });
   }
 }
@@ -185,10 +234,15 @@ export class MailService {
 
 ## Existing Templates
 
-| Template | Archivo | Método en MailService | Expira |
-|---|---|---|---|
-| Activación de cuenta | `activation.template.ts` | `sendActivationEmail()` | 24hs |
-| Reset de password | `reset-password.template.ts` | `sendPasswordResetEmail()` | 1h |
+| Template | Archivo | Método en MailService | JobType | Expira |
+|---|---|---|---|---|
+| Activación de cuenta | `activation.template.ts` | `sendActivationEmail()` | `SEND_ACTIVATION` | 24hs |
+| Reset de password | `reset-password.template.ts` | `sendPasswordResetEmail()` | `SEND_PASSWORD_RESET` | 1h |
+| Orden confirmada | `order-confirmed.template.ts` | `sendOrderConfirmedEmail()` | `SEND_ORDER_CONFIRMED` | — |
+| Orden despachada | `order-dispatched.template.ts` | `sendOrderDispatchedEmail()` | `SEND_ORDER_DISPATCHED` | — |
+| Orden cancelada | `order-cancelled.template.ts` | `sendOrderCancelledEmail()` | `SEND_ORDER_CANCELLED` | — |
+| Orden entregada | `order-delivered.template.ts` | `sendOrderDeliveredEmail()` | `SEND_ORDER_DELIVERED` | — |
+| Alerta de stock | `stock-alert.template.ts` | `sendStockAlertEmail()` | `SEND_STOCK_ALERT` | — |
 
 ---
 
@@ -203,9 +257,11 @@ En desarrollo con `onboarding@resend.dev` como dominio:
 
 ## Common Mistakes
 
+- **Llamar a Resend directamente desde MailService**: Siempre encolar en BullMQ — el processor hace el envío. Permite reintentos automáticos y no bloquea el request.
+- **Mockear MailService en e2e con `sendActivationEmail: jest.fn()`**: Correcto — `MailService` debe mockearse completo en tests e2e para evitar dependencia de BullMQ.
 - **Hardcoding colors**: Siempre usar `EMAIL_THEME.colors.X` — permite cambiar el tema desde un solo archivo.
 - **Usar `<style>` blocks**: Gmail los elimina — todos los estilos deben ser inline.
 - **`localhost` en el logo**: Resend no puede acceder a localhost — usar CDN o URL pública en dev.
-- **Template directamente en el service**: El service debe ser solo lógica de envío — el HTML va en el archivo de template.
+- **Template directamente en el service**: El service encola — el HTML se construye en el processor.
 - **Sin `word-break:break-all` en la URL copiable**: URLs largas rompen el layout en mobile.
 - **Footer sin año dinámico**: Usar `${new Date().getFullYear()}` para que no quede desactualizado.

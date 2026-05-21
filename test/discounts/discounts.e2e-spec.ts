@@ -526,7 +526,7 @@ describe('Discounts (e2e)', () => {
         name: 'Producto Conflicto',
         description: 'Descripción',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
@@ -581,7 +581,7 @@ describe('Discounts (e2e)', () => {
         name: 'Producto GET',
         description: 'Descripción',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
@@ -635,7 +635,7 @@ describe('Discounts (e2e)', () => {
         name: 'Producto a desasignar',
         description: 'Descripción',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
@@ -690,7 +690,7 @@ describe('Discounts (e2e)', () => {
         name: 'Producto Reasignable',
         description: 'X',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
@@ -773,7 +773,7 @@ describe('Discounts (e2e)', () => {
         name: 'Combo Conflicto',
         description: 'Descripción',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
       });
 
       await request(app.getHttpServer())
@@ -822,7 +822,7 @@ describe('Discounts (e2e)', () => {
         name: 'Combo GET',
         description: 'Descripción',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
       });
 
       await request(app.getHttpServer())
@@ -874,7 +874,7 @@ describe('Discounts (e2e)', () => {
         name: 'Combo a desasignar',
         description: 'Descripción',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
       });
 
       await request(app.getHttpServer())
@@ -927,7 +927,7 @@ describe('Discounts (e2e)', () => {
         name: 'Combo Reasignable',
         description: 'X',
         isActive: true,
-        categoryId: category.id,
+        categoryId: category!.id,
       });
 
       await request(app.getHttpServer())

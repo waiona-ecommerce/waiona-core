@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'crypto';
 
@@ -13,6 +13,7 @@ import { UsersService } from '../../users/services/users.service';
 import { UserEntity } from '../../users/entities/user.entity';
 import { TokenEntity } from 'src/modules/mail/entities/token.entity';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 
 import { MailService } from 'src/modules/mail/services/mail.service';
 import { Payload } from '../models/payload.model';
@@ -192,6 +193,36 @@ export class AuthService {
     await this.tokenRepo.update(
       { userId: tokenEntity.userId, type: TokenType.PASSWORD_RESET },
       { usedAt: new Date() },
+    );
+  }
+
+  // ==========================
+  // CHANGE PASSWORD (authenticated)
+  // ==========================
+
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.usersService.findEntityWithPassword(userId);
+
+    if (!user) throw new BadRequestException('User not found');
+
+    const passwordMatch = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!passwordMatch)
+      throw new BadRequestException('Current password is incorrect');
+
+    await this.usersService.updatePassword(userId, dto.newPassword);
+  }
+
+  // ==========================
+  // LOGOUT ALL DEVICES
+  // ==========================
+
+  async logoutAll(userId: number): Promise<void> {
+    await this.refreshTokenRepo.update(
+      { userId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
     );
   }
 

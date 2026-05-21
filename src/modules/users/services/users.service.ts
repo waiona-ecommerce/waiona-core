@@ -174,6 +174,14 @@ export class UsersService {
     await this.userRepo.update(id, { password: hashed });
   }
 
+  async findEntityWithPassword(id: number): Promise<UserEntity | null> {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
   /* =======================
       INTERNAL
   ======================= */

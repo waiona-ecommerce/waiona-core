@@ -19,9 +19,12 @@ describe('AuthController', () => {
     logout: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    changePassword: jest.fn(),
+    logoutAll: jest.fn(),
   });
 
   const mockLocalGuard = { canActivate: jest.fn(() => true) };
+  const mockJwtGuard = { canActivate: jest.fn(() => true) };
 
   const mockUser = () => ({
     id: 1,
@@ -38,6 +41,8 @@ describe('AuthController', () => {
     })
       .overrideGuard(AuthGuard('local'))
       .useValue(mockLocalGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockJwtGuard)
       .compile();
 
     controller = module.get<AuthController>(AuthController);
@@ -165,6 +170,38 @@ describe('AuthController', () => {
 
       expect(service.resetPassword).toHaveBeenCalledWith(dto);
       expect(result.message).toContain('reset successfully');
+    });
+  });
+
+  // ==========================
+  // changePassword
+  // ==========================
+
+  describe('changePassword', () => {
+    it('should change password and return message', async () => {
+      service.changePassword.mockResolvedValue(undefined);
+      const req = { user: { sub: 1, role: RoleType.CLIENT } } as any;
+      const dto = { currentPassword: 'OldPass1!', newPassword: 'NewPass1!' };
+
+      const result = await controller.changePassword(req, dto);
+
+      expect(service.changePassword).toHaveBeenCalledWith(1, dto);
+      expect(result.message).toContain('changed successfully');
+    });
+  });
+
+  // ==========================
+  // logoutAll
+  // ==========================
+
+  describe('logoutAll', () => {
+    it('should call logoutAll with userId from JWT', async () => {
+      service.logoutAll.mockResolvedValue(undefined);
+      const req = { user: { sub: 1, role: RoleType.CLIENT } } as any;
+
+      await controller.logoutAll(req);
+
+      expect(service.logoutAll).toHaveBeenCalledWith(1);
     });
   });
 });

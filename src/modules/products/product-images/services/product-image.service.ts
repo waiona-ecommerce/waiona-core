@@ -7,7 +7,9 @@ import { ProductEntity } from '../../product/entities/product.entity';
 
 import { CreateProductImageDto } from '../dto/create-product-image.dto';
 import { UpdateProductImageDto } from '../dto/update-product-image.dto';
+import { UploadProductImageDto } from '../dto/upload-product-image.dto';
 import { ProductImageResponseDto } from '../dto/product-image-response.dto';
+import { StorageService } from '../../../storage/storage.service';
 
 @Injectable()
 export class ProductImageService {
@@ -17,6 +19,8 @@ export class ProductImageService {
 
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
+
+    private readonly storageService: StorageService,
   ) {}
 
   // ==========================
@@ -75,11 +79,44 @@ export class ProductImageService {
   }
 
   // ==========================
-  // DELETE (soft)
+  // UPLOAD (multipart → Cloudinary)
+  // ==========================
+
+  async uploadImage(
+    file: Express.Multer.File,
+    dto: UploadProductImageDto,
+  ): Promise<ProductImageResponseDto> {
+    const product = await this.productRepository.findOne({
+      where: { id: dto.productId },
+    });
+    if (!product) {
+      throw new NotFoundException(`Product with id ${dto.productId} not found`);
+    }
+
+    const { url, publicId } = await this.storageService.upload(
+      file,
+      'waiona/products',
+    );
+
+    const image = this.productImageRepository.create({
+      productId: dto.productId,
+      position: dto.position,
+      url,
+      publicId,
+    });
+    const saved = await this.productImageRepository.save(image);
+    return new ProductImageResponseDto(saved);
+  }
+
+  // ==========================
+  // DELETE (soft + Cloudinary)
   // ==========================
 
   async remove(id: number): Promise<void> {
     const image = await this.findEntity(id);
+    if (image.publicId) {
+      await this.storageService.delete(image.publicId);
+    }
     await this.productImageRepository.softDelete(image.id);
   }
 

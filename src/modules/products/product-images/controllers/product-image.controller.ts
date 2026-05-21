@@ -8,25 +8,41 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
+import { memoryStorage } from 'multer';
 
 import { ProductImageService } from '../services/product-image.service';
 import { CreateProductImageDto } from '../dto/create-product-image.dto';
 import { UpdateProductImageDto } from '../dto/update-product-image.dto';
+import { UploadProductImageDto } from '../dto/upload-product-image.dto';
 import { ProductImageResponseDto } from '../dto/product-image-response.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
 
 @ApiTags('Product Images')
 @ApiBearerAuth()
@@ -37,11 +53,65 @@ export class ProductImageController {
   constructor(private readonly productImageService: ProductImageService) {}
 
   // ==========================
-  // CREATE
+  // UPLOAD (multipart → Cloudinary)
+  // ==========================
+
+  @Post('upload')
+  @ApiOperation({ summary: 'Subir imagen de producto a Cloudinary' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'productId', 'position'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        productId: { type: 'integer' },
+        position: { type: 'integer' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Imagen subida',
+    type: ProductImageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivo inválido o datos faltantes',
+  })
+  @ApiResponse({ status: 404, description: 'Producto no encontrado' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_FILE_SIZE },
+      fileFilter: (_req, file, cb) => {
+        if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Only image files are allowed (jpeg, png, webp, gif)',
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  uploadImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadProductImageDto,
+  ): Promise<ProductImageResponseDto> {
+    if (!file) throw new BadRequestException('file is required');
+    return this.productImageService.uploadImage(file, dto);
+  }
+
+  // ==========================
+  // CREATE (URL manual)
   // ==========================
 
   @Post()
-  @ApiOperation({ summary: 'Agregar imagen a un producto' })
+  @ApiOperation({ summary: 'Agregar imagen a un producto (URL externa)' })
   @ApiResponse({
     status: 201,
     description: 'Imagen creada',

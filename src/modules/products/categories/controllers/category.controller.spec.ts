@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { CategoryController } from '../../../products/categories/controllers/category.controller';
 import { CategoryService } from '../../../products/categories/services/category.service';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 describe('CategoryController', () => {
   let controller: CategoryController;
@@ -55,10 +56,16 @@ describe('CategoryController', () => {
 
   describe('findAll', () => {
     it('should return all categories', async () => {
-      service.findAll.mockResolvedValue([mockResponse() as any]);
+      const paginated = new PaginatedResponseDto(
+        [mockResponse() as any],
+        1,
+        1,
+        20,
+      );
+      service.findAll.mockResolvedValue(paginated);
       const result = await controller.findAll({});
       expect(service.findAll).toHaveBeenCalled();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
   });
 

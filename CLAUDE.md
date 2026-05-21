@@ -146,8 +146,8 @@ JWT payload: `{ sub: userId, role: RoleType }`
 ## Convenciones del Proyecto
 
 ### Entidades
-- Todas extienden `BaseEntity` (`id`, `createdAt`, `updatedAt`, `isDeleted`)
-- Soft delete: setear `isDeleted = true`, nunca borrar físicamente
+- Todas extienden `BaseEntity` (`id`, `createdAt`, `updatedAt`, `deletedAt` via `@DeleteDateColumn`)
+- Soft delete: `repo.softDelete(id)` — TypeORM aplica `deletedAt IS NULL` automáticamente en `find*` y QueryBuilder
 - Snake_case en columnas de DB, camelCase en TypeScript
 - `@BeforeInsert` en `UserEntity` hashea la password automáticamente
 

@@ -10,12 +10,17 @@ Antes de generar código, la IA debe cargar la skill relevante. Cada skill tiene
 
 **Combinaciones frecuentes:**
 - Crear un módulo nuevo → `nestjs-core` + `typeorm-standard`
-- Implementar auth o guards → `nestjs-auth-jwt`
+- Implementar auth, guards o refresh tokens → `nestjs-auth-jwt`
+- Agregar un endpoint nuevo de auth → `nestjs-auth-jwt` (incluye flujo de refresh token rotation, change-password, logout-all)
 - Escribir unit tests → `nestjs-core` (sección testing) + `testing-standard`
+- Escribir unit tests con QueryBuilder → `testing-standard` (sección buildMockQB)
 - Escribir e2e tests → `testing-standard` + `nestjs-docker-postgres`
 - Configurar Docker/DB → `nestjs-docker-postgres` + `postgres-standard`
 - Trabajar con pagos → `mercadopago-payments`
-- Crear templates de email → `email-templates`
+- Crear templates de email o nuevos flujos de mail → `email-templates` (patrón BullMQ, no Resend directo)
+- Trabajar con Redis, cache o idempotencia → `nestjs-core` + `testing-standard` (mocks de `ShopCacheService` / `CACHE_MANAGER`)
+- Upload de imágenes → `nestjs-core` (StorageModule ya existe: `src/modules/storage/`)
+- Endpoints de agregación/analytics → `postgres-standard` + `testing-standard` (buildMockQB)
 - Operaciones SQL directas → `postgres-standard`
 - Documentar un módulo → `module-docs`
 

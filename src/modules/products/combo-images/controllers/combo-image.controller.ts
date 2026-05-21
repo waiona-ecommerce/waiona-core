@@ -8,25 +8,41 @@ import {
   Delete,
   ParseIntPipe,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
+import { memoryStorage } from 'multer';
 
 import { ComboImageService } from '../services/combo-image.service';
 import { CreateComboImageDto } from '../dto/create-combo-image.dto';
 import { UpdateComboImageDto } from '../dto/update-combo-image.dto';
+import { UploadComboImageDto } from '../dto/upload-combo-image.dto';
 import { ComboImageResponseDto } from '../dto/combo-image-response.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
 
 @ApiTags('Combo Images')
 @ApiBearerAuth()
@@ -37,11 +53,65 @@ export class ComboImageController {
   constructor(private readonly comboImageService: ComboImageService) {}
 
   // ==========================
-  // CREATE
+  // UPLOAD (multipart → Cloudinary)
+  // ==========================
+
+  @Post('upload')
+  @ApiOperation({ summary: 'Subir imagen de combo a Cloudinary' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'comboId', 'position'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        comboId: { type: 'integer' },
+        position: { type: 'integer' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Imagen subida',
+    type: ComboImageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivo inválido o datos faltantes',
+  })
+  @ApiResponse({ status: 404, description: 'Combo no encontrado' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_FILE_SIZE },
+      fileFilter: (_req, file, cb) => {
+        if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Only image files are allowed (jpeg, png, webp, gif)',
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  uploadImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadComboImageDto,
+  ): Promise<ComboImageResponseDto> {
+    if (!file) throw new BadRequestException('file is required');
+    return this.comboImageService.uploadImage(file, dto);
+  }
+
+  // ==========================
+  // CREATE (URL manual)
   // ==========================
 
   @Post()
-  @ApiOperation({ summary: 'Agregar imagen a un combo' })
+  @ApiOperation({ summary: 'Agregar imagen a un combo (URL externa)' })
   @ApiResponse({
     status: 201,
     description: 'Imagen creada',

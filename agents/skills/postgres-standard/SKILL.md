@@ -5,7 +5,7 @@ description: >
   Load when working with the database schema, naming columns, debugging queries, or managing the DB in development.
 metadata:
   author: @rodrigozucchini
-  version: "2.0"
+  version: "2.1"
 ---
 
 # PostgreSQL Standard Skill
@@ -83,12 +83,17 @@ UPDATE products SET category_id = 1 WHERE category_id IS NULL;
 
 **Soft delete manual:**
 ```sql
-UPDATE users SET "isDeleted" = true WHERE id = 5;
+UPDATE users SET deleted_at = NOW() WHERE id = 5;
 ```
 
 **Ver registros soft-deleted:**
 ```sql
-SELECT * FROM orders WHERE "isDeleted" = true;
+SELECT * FROM orders WHERE deleted_at IS NOT NULL;
+```
+
+**Restaurar un soft-deleted:**
+```sql
+UPDATE users SET deleted_at = NULL WHERE id = 5;
 ```
 
 **Reset de una tabla (solo dev):**
@@ -100,15 +105,18 @@ TRUNCATE TABLE tokens RESTART IDENTITY CASCADE;
 
 ## Columnas con camelCase en SQL
 
-TypeORM usa camelCase para las columnas que no tienen `name:` explícito. En SQL hay que escaparlas con comillas dobles:
+TypeORM usa camelCase para las columnas que no tienen `name:` explícito. En SQL hay que escaparlas con comillas dobles. Las columnas con `name:` explícito usan snake_case sin comillas:
 
 ```sql
--- ✅ correcto
-SELECT "isDeleted", "createdAt" FROM users;
+-- ✅ correcto — columna definida con @Column() sin name (camelCase en DB)
+SELECT "createdAt", "isActive" FROM users;
 UPDATE users SET "isActive" = true WHERE id = 1;
 
--- ❌ incorrecto (interpreta como lowercase)
-SELECT isdeleted FROM users;
+-- ✅ correcto — columna definida con @DeleteDateColumn() → TypeORM genera deleted_at (snake_case)
+SELECT * FROM users WHERE deleted_at IS NULL;
+
+-- ❌ incorrecto (interpreta como lowercase sin las comillas)
+SELECT createdat FROM users;
 ```
 
 ---
@@ -186,5 +194,5 @@ Agregar servidor en pgAdmin:
 
 - **`synchronize: true` en producción**: Puede borrar columnas renombradas o alterar el schema sin control.
 - **Sin comillas en columnas camelCase**: PostgreSQL convierte a lowercase — `isDeleted` → `isdeleted` sin comillas.
-- **Hard delete en lugar de soft delete**: Siempre usar `isDeleted = true` — nunca `DELETE FROM`.
+- **Hard delete en lugar de soft delete**: Siempre usar `deleted_at = NOW()` — nunca `DELETE FROM`.
 - **Agregar NOT NULL sin datos en columnas existentes**: Siempre agregar nullable primero, poblar datos, luego aplicar NOT NULL.
