@@ -118,8 +118,18 @@ describe('AnalyticsService', () => {
       const result = await service.getTopProducts();
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({ productId: 3, name: 'Milanesa', sku: 'MIL-001', totalSold: 42 });
-      expect(result[1]).toEqual({ productId: 7, name: 'Pizza', sku: 'PIZ-002', totalSold: 18 });
+      expect(result[0]).toEqual({
+        productId: 3,
+        name: 'Milanesa',
+        sku: 'MIL-001',
+        totalSold: 42,
+      });
+      expect(result[1]).toEqual({
+        productId: 7,
+        name: 'Pizza',
+        sku: 'PIZ-002',
+        totalSold: 18,
+      });
     });
   });
 

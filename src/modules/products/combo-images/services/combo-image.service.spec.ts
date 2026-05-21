@@ -130,7 +130,9 @@ describe('ComboImageService', () => {
       mockStorageService.delete.mockResolvedValue(undefined);
       mockImageRepo.softDelete.mockResolvedValue({} as any);
       await service.remove(1);
-      expect(mockStorageService.delete).toHaveBeenCalledWith('waiona/combos/abc123');
+      expect(mockStorageService.delete).toHaveBeenCalledWith(
+        'waiona/combos/abc123',
+      );
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
@@ -141,23 +143,41 @@ describe('ComboImageService', () => {
   });
 
   describe('uploadImage', () => {
-    const mockFile = { buffer: Buffer.from('img'), mimetype: 'image/jpeg', originalname: 'test.jpg' } as Express.Multer.File;
+    const mockFile = {
+      buffer: Buffer.from('img'),
+      mimetype: 'image/jpeg',
+      originalname: 'test.jpg',
+    } as Express.Multer.File;
 
     it('should upload to Cloudinary and save record', async () => {
       mockComboRepo.findOne.mockResolvedValue({ id: 1 });
-      mockStorageService.upload.mockResolvedValue({ url: 'https://res.cloudinary.com/x/combo.jpg', publicId: 'waiona/combos/abc' });
-      const saved = mockImage({ url: 'https://res.cloudinary.com/x/combo.jpg', publicId: 'waiona/combos/abc' });
+      mockStorageService.upload.mockResolvedValue({
+        url: 'https://res.cloudinary.com/x/combo.jpg',
+        publicId: 'waiona/combos/abc',
+      });
+      const saved = mockImage({
+        url: 'https://res.cloudinary.com/x/combo.jpg',
+        publicId: 'waiona/combos/abc',
+      });
       mockImageRepo.create.mockReturnValue(saved);
       mockImageRepo.save.mockResolvedValue(saved);
 
-      const result = await service.uploadImage(mockFile, { comboId: 1, position: 1 });
-      expect(mockStorageService.upload).toHaveBeenCalledWith(mockFile, 'waiona/combos');
+      const result = await service.uploadImage(mockFile, {
+        comboId: 1,
+        position: 1,
+      });
+      expect(mockStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        'waiona/combos',
+      );
       expect(result.url).toBe('https://res.cloudinary.com/x/combo.jpg');
     });
 
     it('should throw NotFoundException if combo not found', async () => {
       mockComboRepo.findOne.mockResolvedValue(null);
-      await expect(service.uploadImage(mockFile, { comboId: 99, position: 1 })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.uploadImage(mockFile, { comboId: 99, position: 1 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

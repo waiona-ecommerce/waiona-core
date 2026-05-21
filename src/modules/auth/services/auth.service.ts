@@ -205,8 +205,12 @@ export class AuthService {
 
     if (!user) throw new BadRequestException('User not found');
 
-    const passwordMatch = await bcrypt.compare(dto.currentPassword, user.password);
-    if (!passwordMatch) throw new BadRequestException('Current password is incorrect');
+    const passwordMatch = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!passwordMatch)
+      throw new BadRequestException('Current password is incorrect');
 
     await this.usersService.updatePassword(userId, dto.newPassword);
   }

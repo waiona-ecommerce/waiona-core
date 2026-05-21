@@ -57,7 +57,12 @@ describe('ComboController', () => {
 
   describe('findAll', () => {
     it('should return all combos', async () => {
-      const paginated = new PaginatedResponseDto([mockResponse() as any], 1, 1, 20);
+      const paginated = new PaginatedResponseDto(
+        [mockResponse() as any],
+        1,
+        1,
+        20,
+      );
       service.findAll.mockResolvedValue(paginated);
       const result = await controller.findAll({});
       expect(service.findAll).toHaveBeenCalled();

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -66,7 +70,11 @@ describe('Analytics (e2e)', () => {
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([OrderEntity, OrderItemEntity, StockItemEntity]),
+        TypeOrmModule.forFeature([
+          OrderEntity,
+          OrderItemEntity,
+          StockItemEntity,
+        ]),
       ],
       controllers: [AnalyticsController],
       providers: [AnalyticsService],
@@ -79,7 +87,13 @@ describe('Analytics (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.enableVersioning({ type: VersioningType.URI, prefix: 'v' });
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
 
     dataSource = moduleFixture.get(DataSource);
@@ -94,7 +108,9 @@ describe('Analytics (e2e)', () => {
 
   describe('GET /v1/analytics/orders', () => {
     it('returns 200 with correct shape', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/analytics/orders').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/analytics/orders')
+        .expect(200);
 
       expect(res.body).toMatchObject({
         total: expect.any(Number),
@@ -112,7 +128,9 @@ describe('Analytics (e2e)', () => {
     });
 
     it('counts seeded orders correctly', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/analytics/orders').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/analytics/orders')
+        .expect(200);
 
       // seed creates 1 delivered + 1 pending + 1 cancelled
       expect(res.body.total).toBe(3);
@@ -127,13 +145,17 @@ describe('Analytics (e2e)', () => {
 
   describe('GET /v1/analytics/products/top', () => {
     it('returns 200 with array of top products', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/analytics/products/top').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/analytics/products/top')
+        .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
     });
 
     it('only includes products from delivered orders', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/analytics/products/top').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/analytics/products/top')
+        .expect(200);
 
       // seed: 1 delivered order with 2 units of product A
       // pending order items should NOT appear
@@ -153,13 +175,17 @@ describe('Analytics (e2e)', () => {
 
   describe('GET /v1/analytics/stock/critical', () => {
     it('returns 200 with array', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/analytics/stock/critical').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/analytics/stock/critical')
+        .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
     });
 
     it('includes stock items at or below critical threshold', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/analytics/stock/critical').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/analytics/stock/critical')
+        .expect(200);
 
       // seed creates 1 critical stock item (current=2, critical=5)
       expect(res.body.length).toBeGreaterThan(0);
@@ -219,7 +245,10 @@ async function seedTestData(ds: DataSource): Promise<void> {
   );
 
   const location = await locationRepo.save(
-    locationRepo.create({ name: 'Depósito Test', type: StockLocationType.WAREHOUSE }),
+    locationRepo.create({
+      name: 'Depósito Test',
+      type: StockLocationType.WAREHOUSE,
+    }),
   );
 
   // stock item OK (above critical)
@@ -255,7 +284,9 @@ async function seedTestData(ds: DataSource): Promise<void> {
       total,
     });
 
-  const deliveredOrder = await orderRepo.save(makeOrder(OrderStatus.DELIVERED, 1500));
+  const deliveredOrder = await orderRepo.save(
+    makeOrder(OrderStatus.DELIVERED, 1500),
+  );
   await orderRepo.save(makeOrder(OrderStatus.PENDING, 800));
   await orderRepo.save(makeOrder(OrderStatus.CANCELLED, 500));
 

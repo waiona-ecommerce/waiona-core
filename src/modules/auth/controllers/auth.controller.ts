@@ -181,8 +181,14 @@ export class AuthController {
   @Patch('change-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cambiar contraseña (usuario autenticado)' })
-  @ApiResponse({ status: 200, description: 'Contraseña actualizada correctamente' })
-  @ApiResponse({ status: 400, description: 'Contraseña actual incorrecta o datos inválidos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada correctamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Contraseña actual incorrecta o datos inválidos',
+  })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   async changePassword(
     @Req() req: Request,

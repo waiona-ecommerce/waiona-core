@@ -133,7 +133,9 @@ describe('ProductImageService', () => {
       mockStorageService.delete.mockResolvedValue(undefined);
       mockImageRepo.softDelete.mockResolvedValue({} as any);
       await service.remove(1);
-      expect(mockStorageService.delete).toHaveBeenCalledWith('waiona/products/abc123');
+      expect(mockStorageService.delete).toHaveBeenCalledWith(
+        'waiona/products/abc123',
+      );
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
@@ -144,23 +146,41 @@ describe('ProductImageService', () => {
   });
 
   describe('uploadImage', () => {
-    const mockFile = { buffer: Buffer.from('img'), mimetype: 'image/jpeg', originalname: 'test.jpg' } as Express.Multer.File;
+    const mockFile = {
+      buffer: Buffer.from('img'),
+      mimetype: 'image/jpeg',
+      originalname: 'test.jpg',
+    } as Express.Multer.File;
 
     it('should upload to Cloudinary and save record', async () => {
       mockProductRepo.findOne.mockResolvedValue({ id: 1 });
-      mockStorageService.upload.mockResolvedValue({ url: 'https://res.cloudinary.com/x/img.jpg', publicId: 'waiona/products/abc' });
-      const saved = mockImage({ url: 'https://res.cloudinary.com/x/img.jpg', publicId: 'waiona/products/abc' });
+      mockStorageService.upload.mockResolvedValue({
+        url: 'https://res.cloudinary.com/x/img.jpg',
+        publicId: 'waiona/products/abc',
+      });
+      const saved = mockImage({
+        url: 'https://res.cloudinary.com/x/img.jpg',
+        publicId: 'waiona/products/abc',
+      });
       mockImageRepo.create.mockReturnValue(saved);
       mockImageRepo.save.mockResolvedValue(saved);
 
-      const result = await service.uploadImage(mockFile, { productId: 1, position: 1 });
-      expect(mockStorageService.upload).toHaveBeenCalledWith(mockFile, 'waiona/products');
+      const result = await service.uploadImage(mockFile, {
+        productId: 1,
+        position: 1,
+      });
+      expect(mockStorageService.upload).toHaveBeenCalledWith(
+        mockFile,
+        'waiona/products',
+      );
       expect(result.url).toBe('https://res.cloudinary.com/x/img.jpg');
     });
 
     it('should throw NotFoundException if product not found', async () => {
       mockProductRepo.findOne.mockResolvedValue(null);
-      await expect(service.uploadImage(mockFile, { productId: 99, position: 1 })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.uploadImage(mockFile, { productId: 99, position: 1 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

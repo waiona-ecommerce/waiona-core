@@ -399,9 +399,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('401 — sin access token', () =>
-      request(app.getHttpServer())
-        .post('/v1/auth/logout-all')
-        .expect(401));
+      request(app.getHttpServer()).post('/v1/auth/logout-all').expect(401));
 
     it('204 — revoca todas las sesiones activas', () =>
       request(app.getHttpServer())

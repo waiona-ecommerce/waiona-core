@@ -17,4 +17,3 @@ export class ProductImageResponseDto {
     this.updatedAt = entity.updatedAt;
   }
 }
-

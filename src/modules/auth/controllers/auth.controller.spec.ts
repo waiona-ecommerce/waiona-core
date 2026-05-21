@@ -23,8 +23,8 @@ describe('AuthController', () => {
     logoutAll: jest.fn(),
   });
 
-  const mockLocalGuard  = { canActivate: jest.fn(() => true) };
-  const mockJwtGuard    = { canActivate: jest.fn(() => true) };
+  const mockLocalGuard = { canActivate: jest.fn(() => true) };
+  const mockJwtGuard = { canActivate: jest.fn(() => true) };
 
   const mockUser = () => ({
     id: 1,

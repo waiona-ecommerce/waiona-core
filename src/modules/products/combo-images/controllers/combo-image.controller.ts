@@ -37,7 +37,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
 
 @ApiTags('Combo Images')
 @ApiBearerAuth()
@@ -65,8 +70,15 @@ export class ComboImageController {
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Imagen subida', type: ComboImageResponseDto })
-  @ApiResponse({ status: 400, description: 'Archivo inválido o datos faltantes' })
+  @ApiResponse({
+    status: 201,
+    description: 'Imagen subida',
+    type: ComboImageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivo inválido o datos faltantes',
+  })
   @ApiResponse({ status: 404, description: 'Combo no encontrado' })
   @UseInterceptors(
     FileInterceptor('file', {
@@ -76,7 +88,12 @@ export class ComboImageController {
         if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new BadRequestException('Only image files are allowed (jpeg, png, webp, gif)'), false);
+          cb(
+            new BadRequestException(
+              'Only image files are allowed (jpeg, png, webp, gif)',
+            ),
+            false,
+          );
         }
       },
     }),

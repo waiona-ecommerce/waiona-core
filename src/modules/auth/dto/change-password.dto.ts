@@ -8,7 +8,8 @@ export class ChangePasswordDto {
   @MinLength(8)
   @MaxLength(100)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: 'newPassword must contain at least one uppercase letter, one lowercase letter, and one number',
+    message:
+      'newPassword must contain at least one uppercase letter, one lowercase letter, and one number',
   })
   newPassword: string;
 }

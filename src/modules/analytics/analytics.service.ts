@@ -35,7 +35,10 @@ export class AnalyticsService {
       .where('o.status != :cancelled', { cancelled: OrderStatus.CANCELLED });
 
     const [totalRevenue, revenueToday, revenueThisMonth] = await Promise.all([
-      revenueBase.clone().select('COALESCE(SUM(o.total), 0)', 'v').getRawOne<{ v: string }>(),
+      revenueBase
+        .clone()
+        .select('COALESCE(SUM(o.total), 0)', 'v')
+        .getRawOne<{ v: string }>(),
       revenueBase
         .clone()
         .andWhere('o.createdAt >= CURRENT_DATE')
@@ -81,7 +84,12 @@ export class AnalyticsService {
       .addGroupBy('p.sku')
       .orderBy('SUM(oi.quantity)', 'DESC')
       .limit(limit)
-      .getRawMany<{ productId: string; name: string; sku: string; totalSold: string }>();
+      .getRawMany<{
+        productId: string;
+        name: string;
+        sku: string;
+        totalSold: string;
+      }>();
 
     return rows.map((r) => ({
       productId: Number(r.productId),

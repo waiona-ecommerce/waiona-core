@@ -464,7 +464,9 @@ describe('AuthService', () => {
     });
 
     it('should throw 400 if current password does not match', async () => {
-      usersService.findEntityWithPassword.mockResolvedValue(mockUser({ password: 'hashed_pw' }));
+      usersService.findEntityWithPassword.mockResolvedValue(
+        mockUser({ password: 'hashed_pw' }),
+      );
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
       await expect(service.changePassword(1, dto)).rejects.toThrow(
         BadRequestException,
@@ -472,13 +474,18 @@ describe('AuthService', () => {
     });
 
     it('should update password when current password matches', async () => {
-      usersService.findEntityWithPassword.mockResolvedValue(mockUser({ password: 'hashed_pw' }));
+      usersService.findEntityWithPassword.mockResolvedValue(
+        mockUser({ password: 'hashed_pw' }),
+      );
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       usersService.updatePassword.mockResolvedValue(undefined);
 
       await service.changePassword(1, dto);
 
-      expect(usersService.updatePassword).toHaveBeenCalledWith(1, dto.newPassword);
+      expect(usersService.updatePassword).toHaveBeenCalledWith(
+        1,
+        dto.newPassword,
+      );
     });
   });
 
