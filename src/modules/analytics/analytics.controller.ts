@@ -15,7 +15,7 @@ import { AnalyticsService } from './analytics.service';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('analytics')
+@Controller({ version: '1', path: 'analytics' })
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
