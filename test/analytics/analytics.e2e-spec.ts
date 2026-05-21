@@ -32,6 +32,10 @@ import { StockLocationEntity } from '../../src/modules/stocks/stock-locations/en
 import { StockMovementEntity } from '../../src/modules/stocks/stock-movement/entities/stock-movement.entity';
 import { StockWriteOffEntity } from '../../src/modules/stocks/stock-writeoff/entities/stock-writeoff.entity';
 import { StockLocationType } from '../../src/modules/stocks/stock-locations/enums/stock-location-type.enum';
+import { UserEntity } from '../../src/modules/users/entities/user.entity';
+import { ProfileEntity } from '../../src/modules/users/entities/profile.entity';
+import { RoleEntity } from '../../src/modules/users/entities/role.entity';
+import { CouponEntity } from '../../src/modules/coupons/coupon/entities/coupon.entity';
 
 const ALL_ENTITIES = [
   OrderEntity,
@@ -46,6 +50,10 @@ const ALL_ENTITIES = [
   StockLocationEntity,
   StockMovementEntity,
   StockWriteOffEntity,
+  UserEntity,
+  ProfileEntity,
+  RoleEntity,
+  CouponEntity,
 ];
 
 describe('Analytics (e2e)', () => {
@@ -98,7 +106,7 @@ describe('Analytics (e2e)', () => {
 
     dataSource = moduleFixture.get(DataSource);
     await seedTestData(dataSource);
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();

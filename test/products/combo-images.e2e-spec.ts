@@ -20,6 +20,7 @@ import { ProductEntity } from '../../src/modules/products/product/entities/produ
 import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
 import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
 import { ProductMeasurementUnit } from '../../src/modules/products/product/enums/product-measurement-unit.enum';
+import { StorageService } from '../../src/modules/storage/storage.service';
 
 describe('ComboImages (e2e)', () => {
   let app: INestApplication;
@@ -54,7 +55,21 @@ describe('ComboImages (e2e)', () => {
         TypeOrmModule.forFeature([ComboImageEntity, ComboEntity]),
       ],
       controllers: [ComboImageController],
-      providers: [ComboImageService],
+      providers: [
+        ComboImageService,
+        {
+          provide: StorageService,
+          useValue: {
+            upload: jest
+              .fn()
+              .mockResolvedValue({
+                url: 'https://cdn.example.com/img.jpg',
+                publicId: 'test/img',
+              }),
+            delete: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })
