@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import {
   NotFoundException,
   BadRequestException,
@@ -13,6 +14,7 @@ import { StockMovementEntity } from '../../stock-movement/entities/stock-movemen
 import { StockWriteOffEntity } from '../../stock-writeoff/entities/stock-writeoff.entity';
 import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
 import { StockWriteOffReason } from '../../stock-writeoff/enums/stock-writeoff-reason.enum';
+import { MailService } from 'src/modules/mail/services/mail.service';
 
 describe('StockItemsService', () => {
   let service: StockItemsService;
@@ -68,6 +70,7 @@ describe('StockItemsService', () => {
 
     mockDataSource = {
       transaction: jest.fn().mockImplementation((fn: any) => fn(mockManager)),
+      getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -96,6 +99,8 @@ describe('StockItemsService', () => {
           useValue: { find: jest.fn() },
         },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: MailService, useValue: { sendStockAlertEmail: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('admin@test.com') } },
       ],
     }).compile();
 

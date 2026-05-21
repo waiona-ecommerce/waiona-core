@@ -2,10 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGuard } from '@nestjs/passport';
 import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 import { OrdersController } from './orders.controller';
 import { OrdersService } from '../services/orders.service';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { IdempotencyInterceptor } from 'src/common/interceptors/idempotency.interceptor';
 import { OrderStatus } from '../enums/order-status.enum';
 import { DeliveryType } from '../enums/delivery-type.enum';
 import { RoleType } from 'src/common/enums/role-type.enum';
@@ -40,12 +42,16 @@ describe('OrdersController', () => {
   const mockRequest = (sub: number, role = RoleType.CLIENT) =>
     ({ user: { sub, role } }) as any;
 
+  const mockCache = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrdersController],
       providers: [
         { provide: OrdersService, useFactory: mockService },
         { provide: Reflector, useValue: { get: jest.fn() } },
+        { provide: CACHE_MANAGER, useValue: mockCache },
+        IdempotencyInterceptor,
       ],
     })
       .overrideGuard(AuthGuard('jwt'))

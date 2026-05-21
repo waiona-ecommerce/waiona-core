@@ -14,6 +14,7 @@ import { CreateMarginDto } from '../dto/create-margin.dto';
 import { UpdateMarginDto } from '../dto/update-margin.dto';
 import { MarginResponseDto } from '../dto/response-margin.dto';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class MarginsService {
@@ -26,6 +27,8 @@ export class MarginsService {
 
     @InjectRepository(ComboPricingEntity)
     private readonly comboPricingRepository: Repository<ComboPricingEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // CREATE
@@ -35,7 +38,7 @@ export class MarginsService {
 
     const margin = this.marginRepository.create(dto);
     const saved = await this.marginRepository.save(margin);
-
+    void this.shopCacheService.invalidate();
     return new MarginResponseDto(saved);
   }
 
@@ -78,7 +81,7 @@ export class MarginsService {
 
     const merged = this.marginRepository.merge(margin, dto);
     const updated = await this.marginRepository.save(merged);
-
+    void this.shopCacheService.invalidate();
     return new MarginResponseDto(updated);
   }
 
@@ -98,6 +101,7 @@ export class MarginsService {
     }
 
     await this.marginRepository.softDelete(margin.id);
+    void this.shopCacheService.invalidate();
   }
 
   // PRIVATE HELPERS

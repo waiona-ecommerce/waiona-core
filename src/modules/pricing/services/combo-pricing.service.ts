@@ -14,6 +14,7 @@ import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
 import { CreateComboPricingDto } from '../dto/create-combo-pricing.dto';
 import { UpdateComboPricingDto } from '../dto/update-combo-pricing.dto';
 import { ComboPricingResponseDto } from '../dto/combo-pricing-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class ComboPricingService {
@@ -23,6 +24,8 @@ export class ComboPricingService {
 
     @InjectRepository(MarginEntity)
     private marginRepo: Repository<MarginEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -49,6 +52,7 @@ export class ComboPricingService {
 
     try {
       const saved = await this.repo.save(entity);
+      void this.shopCacheService.invalidate();
       return new ComboPricingResponseDto(saved);
     } catch (err: any) {
       if (err.code === PG_UNIQUE_VIOLATION)
@@ -79,6 +83,7 @@ export class ComboPricingService {
     });
 
     const saved = await this.repo.save(entity);
+    void this.shopCacheService.invalidate();
     return new ComboPricingResponseDto(saved);
   }
 
@@ -136,6 +141,7 @@ export class ComboPricingService {
   async remove(id: number): Promise<void> {
     const entity = await this.findOneEntity(id);
     await this.repo.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================

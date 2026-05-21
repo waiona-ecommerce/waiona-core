@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Query,
   UseGuards,
+  UseInterceptors,
   Req,
   ForbiddenException,
 } from '@nestjs/common';
@@ -31,6 +32,7 @@ import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { IdempotencyInterceptor } from 'src/common/interceptors/idempotency.interceptor';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -40,6 +42,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponse({ status: 201, type: OrderResponseDto })
   @ApiResponse({

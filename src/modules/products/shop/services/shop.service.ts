@@ -20,6 +20,7 @@ import {
 
 import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
 import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 import { PriceBreakdownDto } from 'src/modules/pricing/calculation/dto/price-breakdown.dto';
 import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
 
@@ -36,6 +37,7 @@ export class ShopService {
 
     private readonly calculationService: CalculationService,
     private readonly stockItemsService: StockItemsService,
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -43,6 +45,10 @@ export class ShopService {
   // ==========================
 
   async search(dto: SearchShopDto): Promise<ShopPaginatedResponseDto> {
+    const cacheKey = `search:${JSON.stringify(dto)}`;
+    const cached = await this.shopCacheService.get<ShopPaginatedResponseDto>(cacheKey);
+    if (cached) return cached;
+
     const {
       search,
       type,
@@ -104,6 +110,8 @@ export class ShopService {
       candidates.length = PRICE_FILTER_SCAN_LIMIT;
     }
 
+    let result: ShopPaginatedResponseDto;
+
     if (!hasPriceFilter) {
       // Sin filtro de precio: paginamos primero y calculamos solo los items de la página
       const total = candidates.length;
@@ -120,38 +128,33 @@ export class ShopService {
         )
       ).filter((i): i is ShopItemResponseDto => i !== null);
 
-      return {
+      result = { total, page, limit, totalPages, hasNextPage: page < totalPages, data };
+    } else {
+      // Con filtro de precio: hay que calcular todos para saber cuáles pasan el filtro
+      const allItems = (
+        await Promise.all(
+          candidates.map((c) =>
+            c.kind === 'product'
+              ? this.buildProductListItem(c.entity, minPrice, maxPrice)
+              : this.buildComboListItem(c.entity, minPrice, maxPrice),
+          ),
+        )
+      ).filter((i): i is ShopItemResponseDto => i !== null);
+
+      const total = allItems.length;
+      const totalPages = Math.ceil(total / limit);
+      result = {
         total,
         page,
         limit,
         totalPages,
         hasNextPage: page < totalPages,
-        data,
+        data: allItems.slice(skip, skip + limit),
       };
     }
 
-    // Con filtro de precio: hay que calcular todos para saber cuáles pasan el filtro
-    const allItems = (
-      await Promise.all(
-        candidates.map((c) =>
-          c.kind === 'product'
-            ? this.buildProductListItem(c.entity, minPrice, maxPrice)
-            : this.buildComboListItem(c.entity, minPrice, maxPrice),
-        ),
-      )
-    ).filter((i): i is ShopItemResponseDto => i !== null);
-
-    const total = allItems.length;
-    const totalPages = Math.ceil(total / limit);
-
-    return {
-      total,
-      page,
-      limit,
-      totalPages,
-      hasNextPage: page < totalPages,
-      data: allItems.slice(skip, skip + limit),
-    };
+    await this.shopCacheService.set(cacheKey, result);
+    return result;
   }
 
   // ==========================
@@ -166,10 +169,17 @@ export class ShopService {
       throw new BadRequestException('type is required (product | combo)');
     }
 
-    if (type === 'product') return this.buildProductDetail(id);
-    if (type === 'combo') return this.buildComboDetail(id);
+    const cacheKey = `detail:${type}:${id}`;
+    const cached = await this.shopCacheService.get<ShopDetailResponseDto>(cacheKey);
+    if (cached) return cached;
 
-    throw new BadRequestException('Invalid type');
+    let result: ShopDetailResponseDto;
+    if (type === 'product') result = await this.buildProductDetail(id);
+    else if (type === 'combo') result = await this.buildComboDetail(id);
+    else throw new BadRequestException('Invalid type');
+
+    await this.shopCacheService.set(cacheKey, result);
+    return result;
   }
 
   // ==========================

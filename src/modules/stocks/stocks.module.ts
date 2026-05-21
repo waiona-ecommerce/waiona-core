@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailModule } from 'src/modules/mail/mail.module';
 
 import { StockItemsController } from './stock-item/controllers/stock-item.controller';
 import { StockItemsService } from './stock-item/services/stock-item.service';
@@ -29,6 +30,7 @@ import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item
       StockWriteOffEntity,
       ComboItemEntity,
     ]),
+    MailModule,
   ],
   providers: [
     StockLocationsService,

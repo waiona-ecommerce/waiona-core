@@ -11,7 +11,9 @@ import { Repository, EntityManager, DataSource } from 'typeorm';
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
 import { StockWriteOffEntity } from '../../stock-writeoff/entities/stock-writeoff.entity';
+import { StockLocationEntity } from '../../stock-locations/entities/stock-locations.entity';
 import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
+import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
 
 import { CreateStockItemDto } from '../dto/create-stock-item.dto';
 import { UpdateStockThresholdsDto } from '../dto/update-stock-thresholds.dto';
@@ -24,6 +26,9 @@ import { StockItemWithMovementsResponseDto } from '../dto/stock-item-with-moveme
 import { StockOperationType } from '../../stock-movement/enums/stock-operation-type.enum';
 import { StockFlow } from '../../stock-movement/enums/stock-flow.enum';
 import { StockReferenceType } from '../../stock-movement/enums/stock-reference.enum';
+import { MailService } from 'src/modules/mail/services/mail.service';
+import { ConfigService } from '@nestjs/config';
+import { Env } from 'src/env.model';
 
 @Injectable()
 export class StockItemsService {
@@ -41,6 +46,8 @@ export class StockItemsService {
     private readonly comboItemRepository: Repository<ComboItemEntity>,
 
     private readonly dataSource: DataSource,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService<Env>,
   ) {}
 
   // ==========================
@@ -409,6 +416,8 @@ export class StockItemsService {
     orderId: number,
     manager?: EntityManager,
   ): Promise<void> {
+    let alertThreshold: { quantityAvailable: number; stockCritical: number } | null = null;
+
     const execute = async (mgr: EntityManager): Promise<void> => {
       const stockRepo = mgr.getRepository(StockItemEntity);
       const movementRepo = mgr.getRepository(StockMovementEntity);
@@ -449,10 +458,19 @@ export class StockItemsService {
           referenceId: orderId,
         }),
       );
+
+      const quantityAvailable = stockItem.quantityCurrent - stockItem.quantityReserved;
+      if (quantityAvailable <= stockItem.stockCritical) {
+        alertThreshold = { quantityAvailable, stockCritical: stockItem.stockCritical };
+      }
     };
 
     if (manager) await execute(manager);
     else await this.dataSource.transaction(execute);
+
+    if (alertThreshold) {
+      void this.sendLowStockAlert(productId, locationId, alertThreshold);
+    }
   }
 
   // ==========================
@@ -508,6 +526,32 @@ export class StockItemsService {
   // ==========================
   // PRIVATE HELPERS
   // ==========================
+
+  private async sendLowStockAlert(
+    productId: number,
+    locationId: number,
+    alert: { quantityAvailable: number; stockCritical: number },
+  ): Promise<void> {
+    try {
+      const productRepo = this.dataSource.getRepository(ProductEntity);
+      const locationRepo = this.dataSource.getRepository(StockLocationEntity);
+
+      const [product, location] = await Promise.all([
+        productRepo.findOne({ where: { id: productId } }),
+        locationRepo.findOne({ where: { id: locationId } }),
+      ]);
+
+      await this.mailService.sendStockAlertEmail({
+        productName: product?.name ?? `#${productId}`,
+        locationName: location?.name ?? `#${locationId}`,
+        quantityAvailable: alert.quantityAvailable,
+        threshold: alert.stockCritical,
+        adminEmail: this.configService.get('SUPERADMIN_EMAIL', { infer: true })!,
+      });
+    } catch {
+      // swallow — alert failure must not affect order dispatch
+    }
+  }
 
   private async findEntity(id: number): Promise<StockItemEntity> {
     const stockItem = await this.stockItemRepository.findOne({

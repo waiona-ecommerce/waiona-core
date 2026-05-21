@@ -4,11 +4,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
+import { BullModule } from '@nestjs/bull';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 import * as Joi from 'joi';
 
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AppController } from './app.controller';
 import { HealthModule } from './modules/health/health.module';
+import { AppCacheModule } from './common/cache/cache.module';
 
 import { TaxationModule } from './modules/taxation/taxation.module';
 import { MarginsModule } from './modules/margins/margins.module';
@@ -41,6 +45,8 @@ import { MailModule } from './modules/mail/mail.module';
         RESEND_API_KEY: Joi.string().required(),
         FRONTEND_URL: Joi.string().required(),
         API_URL: Joi.string().required(),
+        REDIS_HOST: Joi.string().required(),
+        REDIS_PORT: Joi.number().required(),
       }),
     }),
 
@@ -56,6 +62,29 @@ import { MailModule } from './modules/mail/mail.module';
 
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 30 }]),
 
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: {
+          host: config.get('REDIS_HOST'),
+          port: config.get<number>('REDIS_PORT'),
+        },
+      }),
+    }),
+
+    CacheModule.registerAsync({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: async (config: ConfigService) => ({
+        store: redisStore,
+        socket: {
+          host: config.get('REDIS_HOST'),
+          port: config.get<number>('REDIS_PORT'),
+        },
+        ttl: 60_000,
+      }),
+    }),
+
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -70,6 +99,7 @@ import { MailModule } from './modules/mail/mail.module';
       }),
     }),
 
+    AppCacheModule,
     HealthModule,
     TaxationModule,
     MarginsModule,

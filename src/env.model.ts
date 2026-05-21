@@ -28,4 +28,8 @@ export interface Env {
 
   // API
   API_URL: string; // para el logo en templates de email
+
+  // Redis
+  REDIS_HOST: string;
+  REDIS_PORT: number;
 }

@@ -9,6 +9,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('MarginsService', () => {
   let service: MarginsService;
@@ -37,6 +38,8 @@ describe('MarginsService', () => {
     ...overrides,
   });
 
+  const mockShopCacheService = { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -50,6 +53,7 @@ describe('MarginsService', () => {
           provide: getRepositoryToken(ComboPricingEntity),
           useFactory: mockRepo,
         },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 

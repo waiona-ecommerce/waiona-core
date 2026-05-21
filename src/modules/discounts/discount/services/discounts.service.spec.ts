@@ -4,6 +4,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { DiscountsService } from '../../discount/services/discounts.service';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('DiscountsService', () => {
   let service: DiscountsService;
@@ -32,11 +33,14 @@ describe('DiscountsService', () => {
     ...overrides,
   });
 
+  const mockShopCacheService = { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscountsService,
         { provide: getRepositoryToken(DiscountEntity), useFactory: mockRepo },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
     service = module.get<DiscountsService>(DiscountsService);

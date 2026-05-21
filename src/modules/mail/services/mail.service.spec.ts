@@ -1,23 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { getQueueToken } from '@nestjs/bull';
 import { MailService } from './mail.service';
-
-// Mock de Resend
-const mockResendSend = jest.fn();
-jest.mock('resend', () => ({
-  Resend: jest.fn().mockImplementation(() => ({
-    emails: { send: mockResendSend },
-  })),
-}));
+import { MAIL_QUEUE, MailJobType } from '../mail.constants';
 
 describe('MailService', () => {
   let service: MailService;
+  let mockQueue: any;
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
-        RESEND_API_KEY: 're_test_key',
-        MAIL_FROM: 'Waiona <onboarding@resend.dev>',
         FRONTEND_URL: 'http://localhost:4200',
       };
       return config[key];
@@ -25,10 +18,13 @@ describe('MailService', () => {
   };
 
   beforeEach(async () => {
+    mockQueue = { add: jest.fn().mockResolvedValue({}) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: getQueueToken(MAIL_QUEUE), useValue: mockQueue },
       ],
     }).compile();
 
@@ -39,111 +35,77 @@ describe('MailService', () => {
 
   it('should be defined', () => expect(service).toBeDefined());
 
-  // ==========================
-  // sendActivationEmail
-  // ==========================
-
   describe('sendActivationEmail', () => {
-    it('should send an activation email with correct params', async () => {
-      mockResendSend.mockResolvedValue({ id: 'email_123' });
-
+    it('should enqueue SEND_ACTIVATION job with correct data', async () => {
       await service.sendActivationEmail('user@test.com', 'Juan', 'token_abc');
 
-      expect(mockResendSend).toHaveBeenCalledWith(
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_ACTIVATION,
         expect.objectContaining({
-          from: 'Waiona <onboarding@resend.dev>',
           to: 'user@test.com',
-          subject: 'Activá tu cuenta en Waiona',
+          name: 'Juan',
+          activationUrl: 'http://localhost:4200/auth/activate?token=token_abc',
         }),
+        expect.any(Object),
       );
-    });
-
-    it('should include the activation URL in the html', async () => {
-      mockResendSend.mockResolvedValue({ id: 'email_123' });
-
-      await service.sendActivationEmail('user@test.com', 'Juan', 'token_abc');
-
-      const call = mockResendSend.mock.calls[0][0];
-      expect(call.html).toContain(
-        'http://localhost:4200/auth/activate?token=token_abc',
-      );
-    });
-
-    it('should include the user name in the html', async () => {
-      mockResendSend.mockResolvedValue({ id: 'email_123' });
-
-      await service.sendActivationEmail('user@test.com', 'Juan', 'token_abc');
-
-      const call = mockResendSend.mock.calls[0][0];
-      expect(call.html).toContain('Juan');
-    });
-
-    it('should throw if Resend fails', async () => {
-      mockResendSend.mockRejectedValue(new Error('Resend error'));
-
-      await expect(
-        service.sendActivationEmail('user@test.com', 'Juan', 'token_abc'),
-      ).rejects.toThrow('Resend error');
     });
   });
 
-  // ==========================
-  // sendPasswordResetEmail
-  // ==========================
-
   describe('sendPasswordResetEmail', () => {
-    it('should send a reset email with correct params', async () => {
-      mockResendSend.mockResolvedValue({ id: 'email_456' });
+    it('should enqueue SEND_PASSWORD_RESET job with correct data', async () => {
+      await service.sendPasswordResetEmail('user@test.com', 'Juan', 'reset_token');
 
-      await service.sendPasswordResetEmail(
-        'user@test.com',
-        'Juan',
-        'reset_token',
-      );
-
-      expect(mockResendSend).toHaveBeenCalledWith(
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_PASSWORD_RESET,
         expect.objectContaining({
-          from: 'Waiona <onboarding@resend.dev>',
           to: 'user@test.com',
-          subject: 'Recuperá tu contraseña en Waiona',
+          name: 'Juan',
+          resetUrl: 'http://localhost:4200/auth/reset-password?token=reset_token',
         }),
+        expect.any(Object),
       );
     });
+  });
 
-    it('should include the reset URL in the html', async () => {
-      mockResendSend.mockResolvedValue({ id: 'email_456' });
+  describe('sendOrderConfirmedEmail', () => {
+    it('should enqueue SEND_ORDER_CONFIRMED job', async () => {
+      await service.sendOrderConfirmedEmail('u@t.com', 'Ana', 42);
 
-      await service.sendPasswordResetEmail(
-        'user@test.com',
-        'Juan',
-        'reset_token',
-      );
-
-      const call = mockResendSend.mock.calls[0][0];
-      expect(call.html).toContain(
-        'http://localhost:4200/auth/reset-password?token=reset_token',
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_ORDER_CONFIRMED,
+        expect.objectContaining({ to: 'u@t.com', orderId: 42 }),
+        expect.any(Object),
       );
     });
+  });
 
-    it('should include the user name in the html', async () => {
-      mockResendSend.mockResolvedValue({ id: 'email_456' });
+  describe('sendOrderCancelledEmail', () => {
+    it('should enqueue SEND_ORDER_CANCELLED job', async () => {
+      await service.sendOrderCancelledEmail('u@t.com', 'Ana', 42);
 
-      await service.sendPasswordResetEmail(
-        'user@test.com',
-        'Juan',
-        'reset_token',
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_ORDER_CANCELLED,
+        expect.objectContaining({ to: 'u@t.com', orderId: 42 }),
+        expect.any(Object),
       );
-
-      const call = mockResendSend.mock.calls[0][0];
-      expect(call.html).toContain('Juan');
     });
+  });
 
-    it('should throw if Resend fails', async () => {
-      mockResendSend.mockRejectedValue(new Error('Resend error'));
+  describe('sendStockAlertEmail', () => {
+    it('should enqueue SEND_STOCK_ALERT job', async () => {
+      await service.sendStockAlertEmail({
+        productName: 'Producto A',
+        locationName: 'Depósito 1',
+        quantityAvailable: 1,
+        threshold: 2,
+        adminEmail: 'admin@test.com',
+      });
 
-      await expect(
-        service.sendPasswordResetEmail('user@test.com', 'Juan', 'reset_token'),
-      ).rejects.toThrow('Resend error');
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_STOCK_ALERT,
+        expect.objectContaining({ productName: 'Producto A' }),
+        expect.any(Object),
+      );
     });
   });
 });

@@ -5,6 +5,7 @@ import { ProductPricingService } from './../services/product-pricing.service';
 import { ProductPricingEntity } from './../entities/product-pricing.entity';
 import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('ProductPricingService', () => {
   let service: ProductPricingService;
@@ -35,6 +36,8 @@ describe('ProductPricingService', () => {
   let repo: any;
   let marginRepo: any;
 
+  const mockShopCacheService = { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +50,7 @@ describe('ProductPricingService', () => {
           provide: getRepositoryToken(MarginEntity),
           useFactory: mockMarginRepo,
         },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 

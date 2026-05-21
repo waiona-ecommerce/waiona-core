@@ -13,6 +13,7 @@ import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
 import { TaxResponseDto } from '../dto/tax-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class TaxesService {
@@ -22,6 +23,8 @@ export class TaxesService {
 
     @InjectRepository(TaxTypeEntity)
     private taxTypeRepository: Repository<TaxTypeEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -79,6 +82,7 @@ export class TaxesService {
     });
 
     const saved = await this.taxRepository.save(newEntity);
+    void this.shopCacheService.invalidate();
     return new TaxResponseDto(await this.findEntity(saved.id));
   }
 
@@ -105,6 +109,7 @@ export class TaxesService {
 
     const merged = this.taxRepository.merge(entity, changes);
     const saved = await this.taxRepository.save(merged);
+    void this.shopCacheService.invalidate();
     return new TaxResponseDto(await this.findEntity(saved.id));
   }
 
@@ -115,6 +120,7 @@ export class TaxesService {
   async delete(id: number): Promise<void> {
     const entity = await this.findEntity(id);
     await this.taxRepository.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================

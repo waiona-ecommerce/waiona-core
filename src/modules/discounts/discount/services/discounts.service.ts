@@ -13,12 +13,15 @@ import { UpdateDiscountDto } from '../dto/update-discount.dto';
 import { DiscountResponseDto } from '../dto/response-discount.dto';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class DiscountsService {
   constructor(
     @InjectRepository(DiscountEntity)
     private readonly discountRepository: Repository<DiscountEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -51,7 +54,7 @@ export class DiscountsService {
     });
 
     const saved = await this.discountRepository.save(discount);
-
+    void this.shopCacheService.invalidate();
     return new DiscountResponseDto(saved);
   }
 
@@ -129,7 +132,7 @@ export class DiscountsService {
     discount.endsAt = endsAt ?? null;
 
     const updated = await this.discountRepository.save(discount);
-
+    void this.shopCacheService.invalidate();
     return new DiscountResponseDto(updated);
   }
 
@@ -140,6 +143,7 @@ export class DiscountsService {
   async remove(id: number): Promise<void> {
     const discount = await this.findEntity(id);
     await this.discountRepository.softDelete(discount.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================

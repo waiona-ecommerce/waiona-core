@@ -7,6 +7,7 @@ import { ProductEntity } from '../../../products/product/entities/product.entity
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
 import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('ShopService', () => {
   let service: ShopService;
@@ -78,6 +79,7 @@ describe('ShopService', () => {
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
         { provide: CalculationService, useValue: mockCalculation },
         { provide: StockItemsService, useValue: mockStock },
+        { provide: ShopCacheService, useValue: { get: jest.fn().mockResolvedValue(null), set: jest.fn(), invalidate: jest.fn() } },
       ],
     }).compile();
 
