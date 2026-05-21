@@ -9,7 +9,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
-@Controller('pricing/calculate')
+@Controller({ version: '1', path: 'pricing/calculate' })
 export class CalculationController {
   constructor(private readonly calculationService: CalculationService) {}
 

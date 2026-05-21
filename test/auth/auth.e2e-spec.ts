@@ -3,6 +3,7 @@ import {
   INestApplication,
   ValidationPipe,
   ClassSerializerInterceptor,
+  VersioningType,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import request from 'supertest';
@@ -95,6 +96,7 @@ describe('Auth (e2e)', () => {
     app.useGlobalInterceptors(
       new ClassSerializerInterceptor(app.get(Reflector)),
     );
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -123,7 +125,7 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/register', () => {
     it('should register and return 201', async () => {
       await request(app.getHttpServer())
-        .post('/auth/register')
+        .post('/v1/auth/register')
         .send(testUser)
         .expect(201);
       activationToken = mockMailService.sendActivationEmail.mock.calls[0][2];
@@ -131,13 +133,13 @@ describe('Auth (e2e)', () => {
 
     it('should return 409 if email exists', () =>
       request(app.getHttpServer())
-        .post('/auth/register')
+        .post('/v1/auth/register')
         .send(testUser)
         .expect(409));
 
     it('should return 400 with invalid body', () =>
       request(app.getHttpServer())
-        .post('/auth/register')
+        .post('/v1/auth/register')
         .send({ email: 'not-email' })
         .expect(400));
   });
@@ -149,7 +151,7 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/login — inactive', () => {
     it('should return 401 if not activated', () =>
       request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/v1/auth/login')
         .send({ email: testUser.email, password: testUser.password })
         .expect(401));
   });
@@ -161,17 +163,17 @@ describe('Auth (e2e)', () => {
   describe('GET /auth/activate', () => {
     it('should activate account', () =>
       request(app.getHttpServer())
-        .get(`/auth/activate?token=${activationToken}`)
+        .get(`/v1/auth/activate?token=${activationToken}`)
         .expect(200));
 
     it('should return 400 if token already used', () =>
       request(app.getHttpServer())
-        .get(`/auth/activate?token=${activationToken}`)
+        .get(`/v1/auth/activate?token=${activationToken}`)
         .expect(400));
 
     it('should return 400 if token invalid', () =>
       request(app.getHttpServer())
-        .get('/auth/activate?token=invalid')
+        .get('/v1/auth/activate?token=invalid')
         .expect(400));
   });
 
@@ -182,7 +184,7 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/login', () => {
     it('should login and return access_token, refresh_token and user without password', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/v1/auth/login')
         .send({ email: testUser.email, password: testUser.password })
         .expect(200);
 
@@ -196,7 +198,7 @@ describe('Auth (e2e)', () => {
 
     it('should return 401 with wrong password', () =>
       request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/v1/auth/login')
         .send({ email: testUser.email, password: 'wrong' })
         .expect(401));
   });
@@ -208,7 +210,7 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/refresh', () => {
     it('200 — retorna nuevos access_token y refresh_token', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/v1/auth/refresh')
         .send({ refresh_token: refreshToken })
         .expect(200);
 
@@ -222,7 +224,7 @@ describe('Auth (e2e)', () => {
 
     it('401 — token inválido (no existe)', async () => {
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/v1/auth/refresh')
         .send({ refresh_token: 'token_que_no_existe' })
         .expect(401);
     });
@@ -230,26 +232,26 @@ describe('Auth (e2e)', () => {
     it('401 — token ya fue rotado (revocado)', async () => {
       // obtener un token fresco y luego rotarlo
       const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/v1/auth/login')
         .send({ email: testUser.email, password: testUser.password });
       const tokenToRotate = loginRes.body.refresh_token;
 
       // primer refresh — lo rota
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/v1/auth/refresh')
         .send({ refresh_token: tokenToRotate })
         .expect(200);
 
       // segundo refresh con el token ya rotado → 401
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/v1/auth/refresh')
         .send({ refresh_token: tokenToRotate })
         .expect(401);
     });
 
     it('400 — body inválido (sin refresh_token)', async () => {
       await request(app.getHttpServer())
-        .post('/auth/refresh')
+        .post('/v1/auth/refresh')
         .send({})
         .expect(400);
     });
@@ -262,28 +264,28 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/logout', () => {
     it('204 — revoca el refresh token', async () => {
       await request(app.getHttpServer())
-        .post('/auth/logout')
+        .post('/v1/auth/logout')
         .send({ refresh_token: refreshToken })
         .expect(204);
     });
 
     it('401 — token ya revocado', async () => {
       await request(app.getHttpServer())
-        .post('/auth/logout')
+        .post('/v1/auth/logout')
         .send({ refresh_token: refreshToken })
         .expect(401);
     });
 
     it('401 — token inválido', async () => {
       await request(app.getHttpServer())
-        .post('/auth/logout')
+        .post('/v1/auth/logout')
         .send({ refresh_token: 'token_inexistente' })
         .expect(401);
     });
 
     it('400 — body inválido', async () => {
       await request(app.getHttpServer())
-        .post('/auth/logout')
+        .post('/v1/auth/logout')
         .send({})
         .expect(400);
     });
@@ -296,7 +298,7 @@ describe('Auth (e2e)', () => {
   describe('POST /auth/forgot-password', () => {
     it('should return 200 even for unknown email — no hints', async () => {
       await request(app.getHttpServer())
-        .post('/auth/forgot-password')
+        .post('/v1/auth/forgot-password')
         .send({ email: 'noexiste@test.com' })
         .expect(200);
       expect(mockMailService.sendPasswordResetEmail).not.toHaveBeenCalled();
@@ -304,7 +306,7 @@ describe('Auth (e2e)', () => {
 
     it('should send reset email', async () => {
       await request(app.getHttpServer())
-        .post('/auth/forgot-password')
+        .post('/v1/auth/forgot-password')
         .send({ email: testUser.email })
         .expect(200);
       expect(mockMailService.sendPasswordResetEmail).toHaveBeenCalled();
@@ -320,18 +322,18 @@ describe('Auth (e2e)', () => {
       const resetToken =
         mockMailService.sendPasswordResetEmail.mock.calls[0][2];
       await request(app.getHttpServer())
-        .post('/auth/reset-password')
+        .post('/v1/auth/reset-password')
         .send({ token: resetToken, password: 'NewPass1234!' })
         .expect(200);
       await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/v1/auth/login')
         .send({ email: testUser.email, password: 'NewPass1234!' })
         .expect(200);
     });
 
     it('should return 400 with invalid token', () =>
       request(app.getHttpServer())
-        .post('/auth/reset-password')
+        .post('/v1/auth/reset-password')
         .send({ token: 'invalid', password: 'NewPass1234!' })
         .expect(400));
   });

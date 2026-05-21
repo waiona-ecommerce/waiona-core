@@ -33,7 +33,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@Controller('users')
+@Controller({ version: '1', path: 'users' })
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

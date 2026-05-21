@@ -32,7 +32,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('product-images')
+@Controller({ version: '1', path: 'product-images' })
 export class ProductImageController {
   constructor(private readonly productImageService: ProductImageService) {}
 

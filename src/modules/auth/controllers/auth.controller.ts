@@ -22,7 +22,7 @@ import { ResetPasswordDto } from 'src/modules/mail/dto/reset-password.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 
 @ApiTags('Auth')
-@Controller('auth')
+@Controller({ version: '1', path: 'auth' })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

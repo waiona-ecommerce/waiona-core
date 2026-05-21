@@ -37,7 +37,7 @@ import { IdempotencyInterceptor } from 'src/common/interceptors/idempotency.inte
 @ApiTags('Orders')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
-@Controller('orders')
+@Controller({ version: '1', path: 'orders' })
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 

@@ -32,7 +32,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('combo-images')
+@Controller({ version: '1', path: 'combo-images' })
 export class ComboImageController {
   constructor(private readonly comboImageService: ComboImageService) {}
 

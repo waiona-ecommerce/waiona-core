@@ -35,7 +35,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('stock-locations')
+@Controller({ version: '1', path: 'stock-locations' })
 export class StockLocationsController {
   constructor(private readonly stockLocationsService: StockLocationsService) {}
 

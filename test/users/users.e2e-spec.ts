@@ -3,6 +3,7 @@ import {
   INestApplication,
   ValidationPipe,
   ExecutionContext,
+  VersioningType,
 } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -76,6 +77,7 @@ describe('Users (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
     usersService = moduleFixture.get(UsersService);
@@ -95,7 +97,7 @@ describe('Users (e2e)', () => {
   // -------------------------
 
   it('GET /users -> 200 retorna paginado', async () => {
-    const res = await request(app.getHttpServer()).get('/users').expect(200);
+    const res = await request(app.getHttpServer()).get('/v1/users').expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -105,7 +107,7 @@ describe('Users (e2e)', () => {
 
   it('GET /users?email=test@waiona.com -> filtra por email', async () => {
     const res = await request(app.getHttpServer())
-      .get('/users?email=test@waiona.com')
+      .get('/v1/users?email=test@waiona.com')
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
@@ -114,7 +116,7 @@ describe('Users (e2e)', () => {
 
   it('GET /users?name=Test -> filtra por nombre', async () => {
     const res = await request(app.getHttpServer())
-      .get('/users?name=Test')
+      .get('/v1/users?name=Test')
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
@@ -126,7 +128,7 @@ describe('Users (e2e)', () => {
 
   it('GET /users/:id -> 200 propio usuario', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/users/${userId}`)
+      .get(`/v1/users/${userId}`)
       .expect(200);
 
     expect(res.body.id).toBe(userId);
@@ -137,13 +139,13 @@ describe('Users (e2e)', () => {
 
   it('GET /users/:id -> 403 si accede a otro usuario', async () => {
     mockSub = userId + 999;
-    await request(app.getHttpServer()).get(`/users/${userId}`).expect(403);
+    await request(app.getHttpServer()).get(`/v1/users/${userId}`).expect(403);
     mockSub = userId;
   });
 
   it('GET /users/999999 -> 404 si no existe', async () => {
     mockSub = 999999;
-    await request(app.getHttpServer()).get('/users/999999').expect(404);
+    await request(app.getHttpServer()).get('/v1/users/999999').expect(404);
     mockSub = userId;
   });
 
@@ -153,7 +155,7 @@ describe('Users (e2e)', () => {
 
   it('PATCH /users/:id -> 200 actualiza nombre', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/users/${userId}`)
+      .patch(`/v1/users/${userId}`)
       .send({ name: 'Updated' })
       .expect(200);
 
@@ -163,7 +165,7 @@ describe('Users (e2e)', () => {
 
   it('PATCH /users/:id -> 200 limpia avatar (null)', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/users/${userId}`)
+      .patch(`/v1/users/${userId}`)
       .send({ avatar: null })
       .expect(200);
 
@@ -172,7 +174,7 @@ describe('Users (e2e)', () => {
 
   it('PATCH /users/:id -> 400 si body contiene email (campo no permitido)', async () => {
     await request(app.getHttpServer())
-      .patch(`/users/${userId}`)
+      .patch(`/v1/users/${userId}`)
       .send({ email: 'hack@waiona.com' })
       .expect(400);
   });
@@ -180,7 +182,7 @@ describe('Users (e2e)', () => {
   it('PATCH /users/:id -> 403 si actualiza otro usuario', async () => {
     mockSub = userId + 999;
     await request(app.getHttpServer())
-      .patch(`/users/${userId}`)
+      .patch(`/v1/users/${userId}`)
       .send({ name: 'Hacked' })
       .expect(403);
     mockSub = userId;
@@ -189,7 +191,7 @@ describe('Users (e2e)', () => {
   it('PATCH /users/999999 -> 404 si no existe', async () => {
     mockSub = 999999;
     await request(app.getHttpServer())
-      .patch('/users/999999')
+      .patch('/v1/users/999999')
       .send({ name: 'Ghost' })
       .expect(404);
     mockSub = userId;
@@ -201,19 +203,23 @@ describe('Users (e2e)', () => {
 
   it('DELETE /users/:id -> 403 si elimina otro usuario', async () => {
     mockSub = userId + 999;
-    await request(app.getHttpServer()).delete(`/users/${userId}`).expect(403);
+    await request(app.getHttpServer())
+      .delete(`/v1/users/${userId}`)
+      .expect(403);
     mockSub = userId;
   });
 
   it('DELETE /users/999999 -> 404 si no existe', async () => {
     mockSub = 999999;
-    await request(app.getHttpServer()).delete('/users/999999').expect(404);
+    await request(app.getHttpServer()).delete('/v1/users/999999').expect(404);
     mockSub = userId;
   });
 
   it('DELETE /users/:id -> 204 y luego GET devuelve 404', async () => {
-    await request(app.getHttpServer()).delete(`/users/${userId}`).expect(204);
+    await request(app.getHttpServer())
+      .delete(`/v1/users/${userId}`)
+      .expect(204);
 
-    await request(app.getHttpServer()).get(`/users/${userId}`).expect(404);
+    await request(app.getHttpServer()).get(`/v1/users/${userId}`).expect(404);
   });
 });

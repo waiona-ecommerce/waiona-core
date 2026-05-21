@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -117,6 +121,7 @@ describe('Shop (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -159,7 +164,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items → 200 con resultados paginados', async () => {
     const res = await request(app.getHttpServer())
-      .get('/shop/items')
+      .get('/v1/shop/items')
       .expect(200);
 
     expect(res.body.total).toBeGreaterThan(0);
@@ -170,7 +175,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items?type=product → solo productos', async () => {
     const res = await request(app.getHttpServer())
-      .get('/shop/items?type=product')
+      .get('/v1/shop/items?type=product')
       .expect(200);
 
     expect(res.body.data.every((i: any) => i.type === 'product')).toBe(true);
@@ -178,7 +183,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items?type=combo → solo combos', async () => {
     const res = await request(app.getHttpServer())
-      .get('/shop/items?type=combo')
+      .get('/v1/shop/items?type=combo')
       .expect(200);
 
     expect(res.body.data.every((i: any) => i.type === 'combo')).toBe(true);
@@ -186,7 +191,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items?search=coca → filtra por nombre', async () => {
     const res = await request(app.getHttpServer())
-      .get('/shop/items?search=coca')
+      .get('/v1/shop/items?search=coca')
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThan(0);
@@ -194,7 +199,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items?minPrice=999999 → sin resultados', async () => {
     const res = await request(app.getHttpServer())
-      .get('/shop/items?minPrice=999999')
+      .get('/v1/shop/items?minPrice=999999')
       .expect(200);
 
     expect(res.body.data).toHaveLength(0);
@@ -202,7 +207,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items?minPrice=100&maxPrice=50 → 400 rango inválido', async () => {
     await request(app.getHttpServer())
-      .get('/shop/items?minPrice=100&maxPrice=50')
+      .get('/v1/shop/items?minPrice=100&maxPrice=50')
       .expect(400);
   });
 
@@ -212,7 +217,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items/:id?type=product → 200 detalle producto', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/shop/items/${productId}?type=product`)
+      .get(`/v1/shop/items/${productId}?type=product`)
       .expect(200);
 
     expect(res.body.type).toBe('product');
@@ -223,7 +228,7 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items/:id?type=combo → 200 detalle combo con items', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/shop/items/${comboId}?type=combo`)
+      .get(`/v1/shop/items/${comboId}?type=combo`)
       .expect(200);
 
     expect(res.body.type).toBe('combo');
@@ -232,13 +237,13 @@ describe('Shop (e2e)', () => {
 
   it('GET /shop/items/:id → 400 sin type', async () => {
     await request(app.getHttpServer())
-      .get(`/shop/items/${productId}`)
+      .get(`/v1/shop/items/${productId}`)
       .expect(400);
   });
 
   it('GET /shop/items/999999?type=product → 404', async () => {
     await request(app.getHttpServer())
-      .get('/shop/items/999999?type=product')
+      .get('/v1/shop/items/999999?type=product')
       .expect(404);
   });
 });

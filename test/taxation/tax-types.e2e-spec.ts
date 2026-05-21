@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -53,6 +57,7 @@ describe('TaxTypes (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
   }, 30000);
@@ -70,7 +75,7 @@ describe('TaxTypes (e2e)', () => {
     const dto = { code: 'IVA', name: 'Impuesto' };
 
     const res = await request(app.getHttpServer())
-      .post('/tax-types')
+      .post('/v1/tax-types')
       .send(dto)
       .expect(201);
 
@@ -80,7 +85,7 @@ describe('TaxTypes (e2e)', () => {
 
   it('POST /tax-types -> should fail validation (code too short)', async () => {
     await request(app.getHttpServer())
-      .post('/tax-types')
+      .post('/v1/tax-types')
       .send({ code: 'I', name: '' })
       .expect(400);
   });
@@ -88,9 +93,15 @@ describe('TaxTypes (e2e)', () => {
   it('POST /tax-types -> should fail duplicate code', async () => {
     const dto = { code: 'DUP', name: 'Test' };
 
-    await request(app.getHttpServer()).post('/tax-types').send(dto).expect(201);
+    await request(app.getHttpServer())
+      .post('/v1/tax-types')
+      .send(dto)
+      .expect(201);
 
-    await request(app.getHttpServer()).post('/tax-types').send(dto).expect(400);
+    await request(app.getHttpServer())
+      .post('/v1/tax-types')
+      .send(dto)
+      .expect(400);
   });
 
   // -------------------------
@@ -99,7 +110,7 @@ describe('TaxTypes (e2e)', () => {
 
   it('GET /tax-types -> should return paginated result', async () => {
     const res = await request(app.getHttpServer())
-      .get('/tax-types')
+      .get('/v1/tax-types')
       .expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -110,7 +121,7 @@ describe('TaxTypes (e2e)', () => {
 
   it('GET /tax-types?page=1&limit=1 -> should respect pagination', async () => {
     const res = await request(app.getHttpServer())
-      .get('/tax-types?page=1&limit=1')
+      .get('/v1/tax-types?page=1&limit=1')
       .expect(200);
 
     expect(res.body.data.length).toBeLessThanOrEqual(1);
@@ -123,18 +134,18 @@ describe('TaxTypes (e2e)', () => {
 
   it('GET /tax-types/:id -> should return one', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/tax-types')
+      .post('/v1/tax-types')
       .send({ code: 'IIBB', name: 'Ingresos Brutos' });
 
     const res = await request(app.getHttpServer())
-      .get(`/tax-types/${createRes.body.id}`)
+      .get(`/v1/tax-types/${createRes.body.id}`)
       .expect(200);
 
     expect(res.body.code).toBe('IIBB');
   });
 
   it('GET /tax-types/:id -> should return 404', async () => {
-    await request(app.getHttpServer()).get('/tax-types/999999').expect(404);
+    await request(app.getHttpServer()).get('/v1/tax-types/999999').expect(404);
   });
 
   // -------------------------
@@ -143,11 +154,11 @@ describe('TaxTypes (e2e)', () => {
 
   it('PATCH /tax-types/:id -> should update partially', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/tax-types')
+      .post('/v1/tax-types')
       .send({ code: 'ECO', name: 'Eco Tax' });
 
     const res = await request(app.getHttpServer())
-      .patch(`/tax-types/${createRes.body.id}`)
+      .patch(`/v1/tax-types/${createRes.body.id}`)
       .send({ name: 'Eco Updated' })
       .expect(200);
 
@@ -156,7 +167,7 @@ describe('TaxTypes (e2e)', () => {
 
   it('PATCH /tax-types/:id -> should return 404', async () => {
     await request(app.getHttpServer())
-      .patch('/tax-types/999999')
+      .patch('/v1/tax-types/999999')
       .send({ name: 'Updated' })
       .expect(404);
   });
@@ -167,19 +178,21 @@ describe('TaxTypes (e2e)', () => {
 
   it('DELETE /tax-types/:id -> should soft delete and return 404 after', async () => {
     const createRes = await request(app.getHttpServer())
-      .post('/tax-types')
+      .post('/v1/tax-types')
       .send({ code: 'DEL', name: 'Delete Me' });
 
     await request(app.getHttpServer())
-      .delete(`/tax-types/${createRes.body.id}`)
+      .delete(`/v1/tax-types/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/tax-types/${createRes.body.id}`)
+      .get(`/v1/tax-types/${createRes.body.id}`)
       .expect(404);
   });
 
   it('DELETE /tax-types/:id -> should return 404 if not found', async () => {
-    await request(app.getHttpServer()).delete('/tax-types/999999').expect(404);
+    await request(app.getHttpServer())
+      .delete('/v1/tax-types/999999')
+      .expect(404);
   });
 });

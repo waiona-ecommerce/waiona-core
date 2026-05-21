@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -80,6 +84,7 @@ describe('ComboPricing (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -123,7 +128,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('POST /combo-pricing -> 201 sin margen', async () => {
     const res = await request(app.getHttpServer())
-      .post('/combo-pricing')
+      .post('/v1/combo-pricing')
       .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1200 })
       .expect(201);
 
@@ -135,7 +140,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('POST /combo-pricing -> 201 con margen', async () => {
     const res = await request(app.getHttpServer())
-      .post('/combo-pricing')
+      .post('/v1/combo-pricing')
       .send({
         comboId: combo2Id,
         currency: CurrencyCode.ARS,
@@ -149,14 +154,14 @@ describe('ComboPricing (e2e)', () => {
 
   it('POST /combo-pricing -> 400 si el combo ya tiene pricing', async () => {
     await request(app.getHttpServer())
-      .post('/combo-pricing')
+      .post('/v1/combo-pricing')
       .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1300 })
       .expect(400);
   });
 
   it('POST /combo-pricing -> 400 si faltan campos', async () => {
     await request(app.getHttpServer())
-      .post('/combo-pricing')
+      .post('/v1/combo-pricing')
       .send({})
       .expect(400);
   });
@@ -174,7 +179,7 @@ describe('ComboPricing (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .post('/combo-pricing')
+      .post('/v1/combo-pricing')
       .send({
         comboId: extra.id,
         currency: CurrencyCode.ARS,
@@ -190,7 +195,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('GET /combo-pricing -> 200 paginado', async () => {
     const res = await request(app.getHttpServer())
-      .get('/combo-pricing')
+      .get('/v1/combo-pricing')
       .expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -201,7 +206,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('GET /combo-pricing?page=1&limit=1 -> respeta paginación', async () => {
     const res = await request(app.getHttpServer())
-      .get('/combo-pricing?page=1&limit=1')
+      .get('/v1/combo-pricing?page=1&limit=1')
       .expect(200);
 
     expect(res.body.data.length).toBeLessThanOrEqual(1);
@@ -214,19 +219,21 @@ describe('ComboPricing (e2e)', () => {
 
   it('GET /combo-pricing/:id -> 200 retorna el pricing', async () => {
     const listRes = await request(app.getHttpServer())
-      .get('/combo-pricing')
+      .get('/v1/combo-pricing')
       .expect(200);
 
     const id = listRes.body.data[0].id;
     const res = await request(app.getHttpServer())
-      .get(`/combo-pricing/${id}`)
+      .get(`/v1/combo-pricing/${id}`)
       .expect(200);
 
     expect(res.body.id).toBe(id);
   });
 
   it('GET /combo-pricing/:id -> 404 si no existe', async () => {
-    await request(app.getHttpServer()).get('/combo-pricing/999999').expect(404);
+    await request(app.getHttpServer())
+      .get('/v1/combo-pricing/999999')
+      .expect(404);
   });
 
   // -------------------------
@@ -235,7 +242,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('GET /combo-pricing/combo/:comboId -> 200', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/combo-pricing/combo/${comboId}`)
+      .get(`/v1/combo-pricing/combo/${comboId}`)
       .expect(200);
 
     expect(res.body.comboId).toBe(comboId);
@@ -243,7 +250,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('GET /combo-pricing/combo/:comboId -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .get('/combo-pricing/combo/999999')
+      .get('/v1/combo-pricing/combo/999999')
       .expect(404);
   });
 
@@ -252,11 +259,11 @@ describe('ComboPricing (e2e)', () => {
   // -------------------------
 
   it('PATCH /combo-pricing/:id -> 200 actualiza precio', async () => {
-    const listRes = await request(app.getHttpServer()).get('/combo-pricing');
+    const listRes = await request(app.getHttpServer()).get('/v1/combo-pricing');
     const id = listRes.body.data[0].id;
 
     const res = await request(app.getHttpServer())
-      .patch(`/combo-pricing/${id}`)
+      .patch(`/v1/combo-pricing/${id}`)
       .send({ unitPrice: 1800 })
       .expect(200);
 
@@ -264,11 +271,11 @@ describe('ComboPricing (e2e)', () => {
   });
 
   it('PATCH /combo-pricing/:id -> 200 asigna margen', async () => {
-    const listRes = await request(app.getHttpServer()).get('/combo-pricing');
+    const listRes = await request(app.getHttpServer()).get('/v1/combo-pricing');
     const item = listRes.body.data.find((p: any) => p.marginId === null);
 
     const res = await request(app.getHttpServer())
-      .patch(`/combo-pricing/${item.id}`)
+      .patch(`/v1/combo-pricing/${item.id}`)
       .send({ marginId })
       .expect(200);
 
@@ -276,11 +283,11 @@ describe('ComboPricing (e2e)', () => {
   });
 
   it('PATCH /combo-pricing/:id -> 200 desvincula margen con null', async () => {
-    const listRes = await request(app.getHttpServer()).get('/combo-pricing');
+    const listRes = await request(app.getHttpServer()).get('/v1/combo-pricing');
     const item = listRes.body.data.find((p: any) => p.marginId !== null);
 
     const res = await request(app.getHttpServer())
-      .patch(`/combo-pricing/${item.id}`)
+      .patch(`/v1/combo-pricing/${item.id}`)
       .send({ marginId: null })
       .expect(200);
 
@@ -289,7 +296,7 @@ describe('ComboPricing (e2e)', () => {
 
   it('PATCH /combo-pricing/:id -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/combo-pricing/999999')
+      .patch('/v1/combo-pricing/999999')
       .send({ unitPrice: 100 })
       .expect(404);
   });
@@ -311,7 +318,7 @@ describe('ComboPricing (e2e)', () => {
     });
 
     const createRes = await request(app.getHttpServer())
-      .post('/combo-pricing')
+      .post('/v1/combo-pricing')
       .send({
         comboId: toDelete.id,
         currency: CurrencyCode.ARS,
@@ -320,17 +327,17 @@ describe('ComboPricing (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .delete(`/combo-pricing/${createRes.body.id}`)
+      .delete(`/v1/combo-pricing/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/combo-pricing/${createRes.body.id}`)
+      .get(`/v1/combo-pricing/${createRes.body.id}`)
       .expect(404);
   });
 
   it('DELETE /combo-pricing/:id -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .delete('/combo-pricing/999999')
+      .delete('/v1/combo-pricing/999999')
       .expect(404);
   });
 });

@@ -33,7 +33,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @ApiParam({ name: 'taxTypeId', type: Number })
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('tax-types/:taxTypeId/taxes')
+@Controller({ version: '1', path: 'tax-types/:taxTypeId/taxes' })
 export class TaxesController {
   constructor(private readonly taxesService: TaxesService) {}
 

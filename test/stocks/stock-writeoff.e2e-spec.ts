@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -85,6 +89,7 @@ describe('StockWriteOff (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -163,7 +168,7 @@ describe('StockWriteOff (e2e)', () => {
   describe('GET /stock-write-offs', () => {
     it('200 — retorna lista paginada', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-write-offs')
+        .get('/v1/stock-write-offs')
         .expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -174,7 +179,7 @@ describe('StockWriteOff (e2e)', () => {
 
     it('200 — respeta limit y page', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-write-offs?page=1&limit=1')
+        .get('/v1/stock-write-offs?page=1&limit=1')
         .expect(200);
 
       expect(res.body.data).toHaveLength(1);
@@ -189,7 +194,7 @@ describe('StockWriteOff (e2e)', () => {
   describe('GET /stock-write-offs/stock-item/:stockItemId', () => {
     it('200 — retorna bajas del stock item', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-write-offs/stock-item/${stockItemId}`)
+        .get(`/v1/stock-write-offs/stock-item/${stockItemId}`)
         .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
@@ -199,7 +204,7 @@ describe('StockWriteOff (e2e)', () => {
 
     it('200 — retorna array vacío para stockItemId sin bajas', async () => {
       const res = await request(app.getHttpServer())
-        .get('/stock-write-offs/stock-item/999999')
+        .get('/v1/stock-write-offs/stock-item/999999')
         .expect(200);
 
       expect(res.body).toEqual([]);
@@ -207,7 +212,7 @@ describe('StockWriteOff (e2e)', () => {
 
     it('200 — los campos del DTO son correctos', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-write-offs/stock-item/${stockItemId}`)
+        .get(`/v1/stock-write-offs/stock-item/${stockItemId}`)
         .expect(200);
 
       const wo = res.body[0];
@@ -230,7 +235,7 @@ describe('StockWriteOff (e2e)', () => {
   describe('GET /stock-write-offs/:id', () => {
     it('200 — retorna una baja por id', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-write-offs/${writeOffId}`)
+        .get(`/v1/stock-write-offs/${writeOffId}`)
         .expect(200);
 
       expect(res.body.id).toBe(writeOffId);
@@ -242,7 +247,7 @@ describe('StockWriteOff (e2e)', () => {
 
     it('200 — attachments es undefined cuando no se cargaron', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/stock-write-offs/${writeOffId}`)
+        .get(`/v1/stock-write-offs/${writeOffId}`)
         .expect(200);
 
       expect(res.body.attachments).toBeUndefined();
@@ -250,7 +255,7 @@ describe('StockWriteOff (e2e)', () => {
 
     it('404 — baja no encontrada', async () => {
       await request(app.getHttpServer())
-        .get('/stock-write-offs/999999')
+        .get('/v1/stock-write-offs/999999')
         .expect(404);
     });
   });
@@ -262,7 +267,7 @@ describe('StockWriteOff (e2e)', () => {
   describe('PATCH /stock-write-offs/:id', () => {
     it('200 — actualiza reason y description', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/stock-write-offs/${writeOffId}`)
+        .patch(`/v1/stock-write-offs/${writeOffId}`)
         .send({
           reason: StockWriteOffReason.EXPIRED,
           description: 'Producto vencido',
@@ -276,7 +281,7 @@ describe('StockWriteOff (e2e)', () => {
 
     it('200 — actualiza solo attachments (body parcial)', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/stock-write-offs/${writeOffId}`)
+        .patch(`/v1/stock-write-offs/${writeOffId}`)
         .send({ attachments: ['https://cdn.ejemplo.com/foto.jpg'] })
         .expect(200);
 
@@ -287,11 +292,11 @@ describe('StockWriteOff (e2e)', () => {
 
     it('200 — body vacío no modifica nada', async () => {
       const before = await request(app.getHttpServer())
-        .get(`/stock-write-offs/${writeOffId}`)
+        .get(`/v1/stock-write-offs/${writeOffId}`)
         .expect(200);
 
       const res = await request(app.getHttpServer())
-        .patch(`/stock-write-offs/${writeOffId}`)
+        .patch(`/v1/stock-write-offs/${writeOffId}`)
         .send({})
         .expect(200);
 
@@ -301,14 +306,14 @@ describe('StockWriteOff (e2e)', () => {
 
     it('400 — reason con valor inválido', async () => {
       await request(app.getHttpServer())
-        .patch(`/stock-write-offs/${writeOffId}`)
+        .patch(`/v1/stock-write-offs/${writeOffId}`)
         .send({ reason: 'INVALID_REASON' })
         .expect(400);
     });
 
     it('404 — baja no encontrada', async () => {
       await request(app.getHttpServer())
-        .patch('/stock-write-offs/999999')
+        .patch('/v1/stock-write-offs/999999')
         .send({ reason: StockWriteOffReason.LOST })
         .expect(404);
     });

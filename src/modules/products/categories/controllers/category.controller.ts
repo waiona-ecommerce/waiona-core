@@ -35,7 +35,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @ApiBearerAuth()
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller('categories')
+@Controller({ version: '1', path: 'categories' })
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 

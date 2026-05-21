@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -80,6 +84,7 @@ describe('Combos (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -111,7 +116,7 @@ describe('Combos (e2e)', () => {
 
   it('POST /combos → 201 con datos válidos', async () => {
     const res = await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send(validCombo())
       .expect(201);
 
@@ -123,21 +128,21 @@ describe('Combos (e2e)', () => {
 
   it('POST /combos → 400 con categoría inválida', async () => {
     await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send({ ...validCombo(), categoryId: 999999 })
       .expect(400);
   });
 
   it('POST /combos → 400 con producto inválido en items', async () => {
     await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send({ ...validCombo(), items: [{ productId: 999999, quantity: 1 }] })
       .expect(400);
   });
 
   it('POST /combos → 400 con items duplicados', async () => {
     await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send({
         ...validCombo(),
         items: [
@@ -150,7 +155,7 @@ describe('Combos (e2e)', () => {
 
   it('POST /combos → 400 sin items', async () => {
     await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send({
         name: 'Sin items',
         description: 'Sin items',
@@ -165,7 +170,9 @@ describe('Combos (e2e)', () => {
   // -------------------------
 
   it('GET /combos → 200 paginado', async () => {
-    const res = await request(app.getHttpServer()).get('/combos').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/v1/combos')
+      .expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(res.body.total).toBeGreaterThan(0);
@@ -177,18 +184,18 @@ describe('Combos (e2e)', () => {
 
   it('GET /combos/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send(validCombo());
 
     const res = await request(app.getHttpServer())
-      .get(`/combos/${created.body.id}`)
+      .get(`/v1/combos/${created.body.id}`)
       .expect(200);
 
     expect(res.body.items).toHaveLength(1);
   });
 
   it('GET /combos/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).get('/combos/999999').expect(404);
+    await request(app.getHttpServer()).get('/v1/combos/999999').expect(404);
   });
 
   // -------------------------
@@ -197,11 +204,11 @@ describe('Combos (e2e)', () => {
 
   it('PATCH /combos/:id → 200 actualiza nombre', async () => {
     const created = await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send(validCombo());
 
     const res = await request(app.getHttpServer())
-      .patch(`/combos/${created.body.id}`)
+      .patch(`/v1/combos/${created.body.id}`)
       .send({ name: 'Combo Actualizado' })
       .expect(200);
 
@@ -219,11 +226,11 @@ describe('Combos (e2e)', () => {
     });
 
     const created = await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send(validCombo());
 
     const res = await request(app.getHttpServer())
-      .patch(`/combos/${created.body.id}`)
+      .patch(`/v1/combos/${created.body.id}`)
       .send({ items: [{ productId: product2.id, quantity: 3 }] })
       .expect(200);
 
@@ -233,7 +240,7 @@ describe('Combos (e2e)', () => {
 
   it('PATCH /combos/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/combos/999999')
+      .patch('/v1/combos/999999')
       .send({ name: 'Actualizado' })
       .expect(404);
   });
@@ -244,19 +251,19 @@ describe('Combos (e2e)', () => {
 
   it('DELETE /combos/:id → 204 y luego 404', async () => {
     const created = await request(app.getHttpServer())
-      .post('/combos')
+      .post('/v1/combos')
       .send(validCombo());
 
     await request(app.getHttpServer())
-      .delete(`/combos/${created.body.id}`)
+      .delete(`/v1/combos/${created.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/combos/${created.body.id}`)
+      .get(`/v1/combos/${created.body.id}`)
       .expect(404);
   });
 
   it('DELETE /combos/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).delete('/combos/999999').expect(404);
+    await request(app.getHttpServer()).delete('/v1/combos/999999').expect(404);
   });
 });

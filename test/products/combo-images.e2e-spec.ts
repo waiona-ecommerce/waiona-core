@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -67,6 +71,7 @@ describe('ComboImages (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -107,7 +112,7 @@ describe('ComboImages (e2e)', () => {
 
   it('POST /combo-images → 201 con datos válidos', async () => {
     const res = await request(app.getHttpServer())
-      .post('/combo-images')
+      .post('/v1/combo-images')
       .send({ comboId, url: 'https://img.com/combo1.jpg', position: 1 })
       .expect(201);
 
@@ -118,14 +123,14 @@ describe('ComboImages (e2e)', () => {
 
   it('POST /combo-images → 404 si combo no existe', async () => {
     await request(app.getHttpServer())
-      .post('/combo-images')
+      .post('/v1/combo-images')
       .send({ comboId: 999999, url: 'https://img.com/x.jpg', position: 1 })
       .expect(404);
   });
 
   it('POST /combo-images → 400 con datos inválidos', async () => {
     await request(app.getHttpServer())
-      .post('/combo-images')
+      .post('/v1/combo-images')
       .send({})
       .expect(400);
   });
@@ -136,7 +141,7 @@ describe('ComboImages (e2e)', () => {
 
   it('GET /combo-images/combo/:comboId → 200', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/combo-images/combo/${comboId}`)
+      .get(`/v1/combo-images/combo/${comboId}`)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
@@ -148,16 +153,18 @@ describe('ComboImages (e2e)', () => {
 
   it('GET /combo-images/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/combo-images')
+      .post('/v1/combo-images')
       .send({ comboId, url: 'https://img.com/combo2.jpg', position: 2 });
 
     await request(app.getHttpServer())
-      .get(`/combo-images/${created.body.id}`)
+      .get(`/v1/combo-images/${created.body.id}`)
       .expect(200);
   });
 
   it('GET /combo-images/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer()).get('/combo-images/999999').expect(404);
+    await request(app.getHttpServer())
+      .get('/v1/combo-images/999999')
+      .expect(404);
   });
 
   // -------------------------
@@ -166,11 +173,11 @@ describe('ComboImages (e2e)', () => {
 
   it('PATCH /combo-images/:id → 200', async () => {
     const created = await request(app.getHttpServer())
-      .post('/combo-images')
+      .post('/v1/combo-images')
       .send({ comboId, url: 'https://img.com/combo3.jpg', position: 3 });
 
     const res = await request(app.getHttpServer())
-      .patch(`/combo-images/${created.body.id}`)
+      .patch(`/v1/combo-images/${created.body.id}`)
       .send({ position: 10 })
       .expect(200);
 
@@ -179,7 +186,7 @@ describe('ComboImages (e2e)', () => {
 
   it('PATCH /combo-images/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/combo-images/999999')
+      .patch('/v1/combo-images/999999')
       .send({ position: 1 })
       .expect(404);
   });
@@ -190,21 +197,21 @@ describe('ComboImages (e2e)', () => {
 
   it('DELETE /combo-images/:id → 204 y luego 404', async () => {
     const created = await request(app.getHttpServer())
-      .post('/combo-images')
+      .post('/v1/combo-images')
       .send({ comboId, url: 'https://img.com/combo4.jpg', position: 4 });
 
     await request(app.getHttpServer())
-      .delete(`/combo-images/${created.body.id}`)
+      .delete(`/v1/combo-images/${created.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/combo-images/${created.body.id}`)
+      .get(`/v1/combo-images/${created.body.id}`)
       .expect(404);
   });
 
   it('DELETE /combo-images/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .delete('/combo-images/999999')
+      .delete('/v1/combo-images/999999')
       .expect(404);
   });
 });

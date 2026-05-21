@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -81,6 +85,7 @@ describe('ProductPricing (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -128,7 +133,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('POST /product-pricing -> 201 sin margen', async () => {
     const res = await request(app.getHttpServer())
-      .post('/product-pricing')
+      .post('/v1/product-pricing')
       .send({ productId, currency: CurrencyCode.ARS, unitPrice: 500 })
       .expect(201);
 
@@ -140,7 +145,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('POST /product-pricing -> 201 con margen', async () => {
     const res = await request(app.getHttpServer())
-      .post('/product-pricing')
+      .post('/v1/product-pricing')
       .send({
         productId: product2Id,
         currency: CurrencyCode.ARS,
@@ -154,14 +159,14 @@ describe('ProductPricing (e2e)', () => {
 
   it('POST /product-pricing -> 400 si el producto ya tiene pricing', async () => {
     await request(app.getHttpServer())
-      .post('/product-pricing')
+      .post('/v1/product-pricing')
       .send({ productId, currency: CurrencyCode.ARS, unitPrice: 600 })
       .expect(400);
   });
 
   it('POST /product-pricing -> 400 si faltan campos', async () => {
     await request(app.getHttpServer())
-      .post('/product-pricing')
+      .post('/v1/product-pricing')
       .send({})
       .expect(400);
   });
@@ -181,7 +186,7 @@ describe('ProductPricing (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .post('/product-pricing')
+      .post('/v1/product-pricing')
       .send({
         productId: extra.id,
         currency: CurrencyCode.ARS,
@@ -197,7 +202,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('GET /product-pricing -> 200 paginado', async () => {
     const res = await request(app.getHttpServer())
-      .get('/product-pricing')
+      .get('/v1/product-pricing')
       .expect(200);
 
     expect(res.body.data).toBeDefined();
@@ -208,7 +213,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('GET /product-pricing?page=1&limit=1 -> respeta paginación', async () => {
     const res = await request(app.getHttpServer())
-      .get('/product-pricing?page=1&limit=1')
+      .get('/v1/product-pricing?page=1&limit=1')
       .expect(200);
 
     expect(res.body.data.length).toBeLessThanOrEqual(1);
@@ -221,12 +226,12 @@ describe('ProductPricing (e2e)', () => {
 
   it('GET /product-pricing/:id -> 200 retorna el pricing', async () => {
     const createRes = await request(app.getHttpServer())
-      .get('/product-pricing')
+      .get('/v1/product-pricing')
       .expect(200);
 
     const id = createRes.body.data[0].id;
     const res = await request(app.getHttpServer())
-      .get(`/product-pricing/${id}`)
+      .get(`/v1/product-pricing/${id}`)
       .expect(200);
 
     expect(res.body.id).toBe(id);
@@ -234,7 +239,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('GET /product-pricing/:id -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .get('/product-pricing/999999')
+      .get('/v1/product-pricing/999999')
       .expect(404);
   });
 
@@ -244,7 +249,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('GET /product-pricing/product/:productId -> 200', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/product-pricing/product/${productId}`)
+      .get(`/v1/product-pricing/product/${productId}`)
       .expect(200);
 
     expect(res.body.productId).toBe(productId);
@@ -252,7 +257,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('GET /product-pricing/product/:productId -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .get('/product-pricing/product/999999')
+      .get('/v1/product-pricing/product/999999')
       .expect(404);
   });
 
@@ -261,11 +266,13 @@ describe('ProductPricing (e2e)', () => {
   // -------------------------
 
   it('PATCH /product-pricing/:id -> 200 actualiza precio', async () => {
-    const listRes = await request(app.getHttpServer()).get('/product-pricing');
+    const listRes = await request(app.getHttpServer()).get(
+      '/v1/product-pricing',
+    );
     const id = listRes.body.data[0].id;
 
     const res = await request(app.getHttpServer())
-      .patch(`/product-pricing/${id}`)
+      .patch(`/v1/product-pricing/${id}`)
       .send({ unitPrice: 750 })
       .expect(200);
 
@@ -273,11 +280,13 @@ describe('ProductPricing (e2e)', () => {
   });
 
   it('PATCH /product-pricing/:id -> 200 asigna margen', async () => {
-    const listRes = await request(app.getHttpServer()).get('/product-pricing');
+    const listRes = await request(app.getHttpServer()).get(
+      '/v1/product-pricing',
+    );
     const item = listRes.body.data.find((p: any) => p.marginId === null);
 
     const res = await request(app.getHttpServer())
-      .patch(`/product-pricing/${item.id}`)
+      .patch(`/v1/product-pricing/${item.id}`)
       .send({ marginId })
       .expect(200);
 
@@ -285,11 +294,13 @@ describe('ProductPricing (e2e)', () => {
   });
 
   it('PATCH /product-pricing/:id -> 200 desvincula margen con null', async () => {
-    const listRes = await request(app.getHttpServer()).get('/product-pricing');
+    const listRes = await request(app.getHttpServer()).get(
+      '/v1/product-pricing',
+    );
     const item = listRes.body.data.find((p: any) => p.marginId !== null);
 
     const res = await request(app.getHttpServer())
-      .patch(`/product-pricing/${item.id}`)
+      .patch(`/v1/product-pricing/${item.id}`)
       .send({ marginId: null })
       .expect(200);
 
@@ -298,7 +309,7 @@ describe('ProductPricing (e2e)', () => {
 
   it('PATCH /product-pricing/:id -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch('/product-pricing/999999')
+      .patch('/v1/product-pricing/999999')
       .send({ unitPrice: 100 })
       .expect(404);
   });
@@ -322,7 +333,7 @@ describe('ProductPricing (e2e)', () => {
     });
 
     const createRes = await request(app.getHttpServer())
-      .post('/product-pricing')
+      .post('/v1/product-pricing')
       .send({
         productId: toDelete.id,
         currency: CurrencyCode.ARS,
@@ -331,17 +342,17 @@ describe('ProductPricing (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .delete(`/product-pricing/${createRes.body.id}`)
+      .delete(`/v1/product-pricing/${createRes.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/product-pricing/${createRes.body.id}`)
+      .get(`/v1/product-pricing/${createRes.body.id}`)
       .expect(404);
   });
 
   it('DELETE /product-pricing/:id -> 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .delete('/product-pricing/999999')
+      .delete('/v1/product-pricing/999999')
       .expect(404);
   });
 });

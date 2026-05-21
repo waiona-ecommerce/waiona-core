@@ -3,6 +3,7 @@ import {
   INestApplication,
   ValidationPipe,
   ExecutionContext,
+  VersioningType,
 } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -172,6 +173,7 @@ describe('Orders (e2e)', () => {
       }),
     );
 
+    app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -242,7 +244,7 @@ describe('Orders (e2e)', () => {
   describe('POST /orders', () => {
     it('201 — crea orden con pickup', async () => {
       const res = await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId, quantity: 1 }],
           deliveryType: DeliveryType.PICKUP,
@@ -261,7 +263,7 @@ describe('Orders (e2e)', () => {
 
     it('201 — crea orden con delivery y dirección', async () => {
       const res = await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId, quantity: 1 }],
           deliveryType: DeliveryType.DELIVERY,
@@ -275,14 +277,14 @@ describe('Orders (e2e)', () => {
 
     it('400 — body sin items', async () => {
       await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({ items: [], deliveryType: DeliveryType.PICKUP })
         .expect(400);
     });
 
     it('400 — delivery sin dirección', async () => {
       await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId, quantity: 1 }],
           deliveryType: DeliveryType.DELIVERY,
@@ -292,14 +294,14 @@ describe('Orders (e2e)', () => {
 
     it('400 — item sin productId ni comboId', async () => {
       await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({ items: [{ quantity: 1 }], deliveryType: DeliveryType.PICKUP })
         .expect(400);
     });
 
     it('404 — producto inexistente', async () => {
       await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId: 999999, quantity: 1 }],
           deliveryType: DeliveryType.PICKUP,
@@ -309,7 +311,7 @@ describe('Orders (e2e)', () => {
 
     it('400 — stock insuficiente', async () => {
       await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId, quantity: 999 }],
           deliveryType: DeliveryType.PICKUP,
@@ -324,7 +326,9 @@ describe('Orders (e2e)', () => {
 
   describe('GET /orders', () => {
     it('200 — retorna lista paginada', async () => {
-      const res = await request(app.getHttpServer()).get('/orders').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/v1/orders')
+        .expect(200);
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.total).toBeGreaterThanOrEqual(1);
       expect(res.body.page).toBe(1);
@@ -333,7 +337,7 @@ describe('Orders (e2e)', () => {
 
     it('200 — respeta limit=1', async () => {
       const res = await request(app.getHttpServer())
-        .get('/orders?page=1&limit=1')
+        .get('/v1/orders?page=1&limit=1')
         .expect(200);
       expect(res.body.data).toHaveLength(1);
       expect(res.body.limit).toBe(1);
@@ -347,7 +351,7 @@ describe('Orders (e2e)', () => {
   describe('GET /orders/user/:userId', () => {
     it('200 — retorna órdenes del usuario', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/orders/user/${userId}`)
+        .get(`/v1/orders/user/${userId}`)
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
@@ -356,7 +360,9 @@ describe('Orders (e2e)', () => {
 
     it('403 — cliente accede a órdenes de otro usuario', async () => {
       mockUser.role = RoleType.CLIENT;
-      await request(app.getHttpServer()).get('/orders/user/999999').expect(403);
+      await request(app.getHttpServer())
+        .get('/v1/orders/user/999999')
+        .expect(403);
       mockUser.role = RoleType.ADMIN;
     });
   });
@@ -370,7 +376,7 @@ describe('Orders (e2e)', () => {
 
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId, quantity: 1 }],
           deliveryType: DeliveryType.PICKUP,
@@ -380,7 +386,7 @@ describe('Orders (e2e)', () => {
 
     it('200 — retorna orden por id', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/orders/${orderId}`)
+        .get(`/v1/orders/${orderId}`)
         .expect(200);
       expect(res.body.id).toBe(orderId);
       expect(res.body.status).toBe(OrderStatus.PENDING);
@@ -388,13 +394,15 @@ describe('Orders (e2e)', () => {
     });
 
     it('404 — orden inexistente', async () => {
-      await request(app.getHttpServer()).get('/orders/999999').expect(404);
+      await request(app.getHttpServer()).get('/v1/orders/999999').expect(404);
     });
 
     it('403 — cliente accede a orden de otro usuario', async () => {
       mockUser.sub = 999999;
       mockUser.role = RoleType.CLIENT;
-      await request(app.getHttpServer()).get(`/orders/${orderId}`).expect(403);
+      await request(app.getHttpServer())
+        .get(`/v1/orders/${orderId}`)
+        .expect(403);
       mockUser.sub = userId;
       mockUser.role = RoleType.ADMIN;
     });
@@ -409,7 +417,7 @@ describe('Orders (e2e)', () => {
 
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
-        .post('/orders')
+        .post('/v1/orders')
         .send({
           items: [{ productId, quantity: 1 }],
           deliveryType: DeliveryType.PICKUP,
@@ -419,7 +427,7 @@ describe('Orders (e2e)', () => {
 
     it('200 — PENDING → CONFIRMED', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/orders/${orderId}/status`)
+        .patch(`/v1/orders/${orderId}/status`)
         .send({ status: OrderStatus.CONFIRMED })
         .expect(200);
       expect(res.body.status).toBe(OrderStatus.CONFIRMED);
@@ -427,14 +435,14 @@ describe('Orders (e2e)', () => {
 
     it('400 — transición inválida CONFIRMED → PENDING', async () => {
       await request(app.getHttpServer())
-        .patch(`/orders/${orderId}/status`)
+        .patch(`/v1/orders/${orderId}/status`)
         .send({ status: OrderStatus.PENDING })
         .expect(400);
     });
 
     it('200 — CONFIRMED → CANCELLED (libera stock)', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/orders/${orderId}/status`)
+        .patch(`/v1/orders/${orderId}/status`)
         .send({ status: OrderStatus.CANCELLED })
         .expect(200);
       expect(res.body.status).toBe(OrderStatus.CANCELLED);
@@ -442,21 +450,21 @@ describe('Orders (e2e)', () => {
 
     it('400 — transición inválida CANCELLED → CONFIRMED', async () => {
       await request(app.getHttpServer())
-        .patch(`/orders/${orderId}/status`)
+        .patch(`/v1/orders/${orderId}/status`)
         .send({ status: OrderStatus.CONFIRMED })
         .expect(400);
     });
 
     it('400 — status inválido', async () => {
       await request(app.getHttpServer())
-        .patch(`/orders/${orderId}/status`)
+        .patch(`/v1/orders/${orderId}/status`)
         .send({ status: 'invalid_status' })
         .expect(400);
     });
 
     it('404 — orden inexistente', async () => {
       await request(app.getHttpServer())
-        .patch('/orders/999999/status')
+        .patch('/v1/orders/999999/status')
         .send({ status: OrderStatus.CONFIRMED })
         .expect(404);
     });
