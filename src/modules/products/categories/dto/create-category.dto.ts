@@ -10,7 +10,6 @@ import {
 } from 'class-validator';
 
 export class CreateCategoryDto {
-
   @IsString()
   @IsNotEmpty()
   @MinLength(2)

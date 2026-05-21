@@ -3,7 +3,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 
 export class CreatePaymentDto {
-
   @ApiProperty({ example: 1, minimum: 1 })
   @IsInt()
   @Min(1)

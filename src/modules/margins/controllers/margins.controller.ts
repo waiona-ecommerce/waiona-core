@@ -13,7 +13,13 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { MarginsService } from '../services/margins.service';
 import { CreateMarginDto } from '../dto/create-margin.dto';
@@ -36,8 +42,14 @@ export class MarginsController {
   @Post()
   @ApiOperation({ summary: 'Crear un margen de ganancia' })
   @ApiResponse({ status: 201, type: MarginResponseDto })
-  @ApiResponse({ status: 400, description: 'Porcentaje mayor a 100 o datos inválidos' })
-  @ApiResponse({ status: 409, description: 'Ya existe un margen con ese nombre' })
+  @ApiResponse({
+    status: 400,
+    description: 'Porcentaje mayor a 100 o datos inválidos',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Ya existe un margen con ese nombre',
+  })
   create(@Body() dto: CreateMarginDto): Promise<MarginResponseDto> {
     return this.marginsService.create(dto);
   }
@@ -45,7 +57,9 @@ export class MarginsController {
   @Get()
   @ApiOperation({ summary: 'Listar márgenes paginados' })
   @ApiResponse({ status: 200, type: MarginResponseDto, isArray: true })
-  findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<MarginResponseDto>> {
+  findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<MarginResponseDto>> {
     return this.marginsService.findAll(page, limit);
   }
 
@@ -64,7 +78,10 @@ export class MarginsController {
   @ApiResponse({ status: 200, type: MarginResponseDto })
   @ApiResponse({ status: 400, description: 'Porcentaje mayor a 100' })
   @ApiResponse({ status: 404, description: 'Margen no encontrado' })
-  @ApiResponse({ status: 409, description: 'Ya existe un margen con ese nombre' })
+  @ApiResponse({
+    status: 409,
+    description: 'Ya existe un margen con ese nombre',
+  })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMarginDto,
@@ -78,7 +95,10 @@ export class MarginsController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Eliminado correctamente' })
   @ApiResponse({ status: 404, description: 'Margen no encontrado' })
-  @ApiResponse({ status: 409, description: 'Margen en uso por uno o más pricings' })
+  @ApiResponse({
+    status: 409,
+    description: 'Margen en uso por uno o más pricings',
+  })
   remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.marginsService.remove(id);
   }

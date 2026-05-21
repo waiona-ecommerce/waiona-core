@@ -16,46 +16,61 @@ describe('ComboService', () => {
 
   const mockCombo = (overrides = {}): ComboEntity =>
     ({
-      id:          1,
-      name:        'Combo Coca x3',
+      id: 1,
+      name: 'Combo Coca x3',
       description: 'Tres Coca Cola',
-      isActive:    true,
-      deletedAt:   null,
-      categoryId:  1,
-      category:    mockCategory,
-      items:       [{ productId: 1, quantity: 3, product: { name: 'Coca Cola 500ml' } }],
-      images:      [],
-      createdAt:   new Date(),
-      updatedAt:   new Date(),
+      isActive: true,
+      deletedAt: null,
+      categoryId: 1,
+      category: mockCategory,
+      items: [
+        { productId: 1, quantity: 3, product: { name: 'Coca Cola 500ml' } },
+      ],
+      images: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
       ...overrides,
     }) as unknown as ComboEntity;
 
   const mockEntityManager = {
-    create:     jest.fn(),
-    save:       jest.fn(),
-    findOne:    jest.fn(),
-    merge:      jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    merge: jest.fn(),
     softDelete: jest.fn(),
   };
 
   const mockDataSource = {
-    transaction: jest.fn(cb => cb(mockEntityManager)),
+    transaction: jest.fn((cb) => cb(mockEntityManager)),
   };
 
-  const mockComboRepo    = { findAndCount: jest.fn(), findOne: jest.fn(), softDelete: jest.fn() };
-  const mockItemRepo     = { find: jest.fn() };
-  const mockProductRepo  = { findOne: jest.fn(), findBy: jest.fn() };
+  const mockComboRepo = {
+    findAndCount: jest.fn(),
+    findOne: jest.fn(),
+    softDelete: jest.fn(),
+  };
+  const mockItemRepo = { find: jest.fn() };
+  const mockProductRepo = { findOne: jest.fn(), findBy: jest.fn() };
   const mockCategoryRepo = { findOne: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComboService,
-        { provide: getRepositoryToken(ComboEntity),     useValue: mockComboRepo    },
-        { provide: getRepositoryToken(ComboItemEntity), useValue: mockItemRepo     },
-        { provide: getRepositoryToken(ProductEntity),   useValue: mockProductRepo  },
-        { provide: getRepositoryToken(CategoryEntity),  useValue: mockCategoryRepo },
-        { provide: DataSource,                          useValue: mockDataSource   },
+        { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useValue: mockItemRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useValue: mockProductRepo,
+        },
+        {
+          provide: getRepositoryToken(CategoryEntity),
+          useValue: mockCategoryRepo,
+        },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -116,7 +131,12 @@ describe('ComboService', () => {
 
   describe('create', () => {
     it('should create a combo', async () => {
-      const dto   = { name: 'Combo', description: 'Desc', categoryId: 1, items: [{ productId: 1, quantity: 2 }] };
+      const dto = {
+        name: 'Combo',
+        description: 'Desc',
+        categoryId: 1,
+        items: [{ productId: 1, quantity: 2 }],
+      };
       const combo = mockCombo();
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
@@ -125,7 +145,7 @@ describe('ComboService', () => {
       mockEntityManager.save.mockResolvedValue(combo);
       mockEntityManager.findOne.mockResolvedValue(combo);
 
-      const result = await service.create(dto as any);
+      const result = await service.create(dto);
 
       expect(result.name).toBe('Combo Coca x3');
       expect(result.categoryName).toBe('Combos');
@@ -133,22 +153,36 @@ describe('ComboService', () => {
 
     it('should throw BadRequestException for duplicate productId', async () => {
       const dto = {
-        name: 'Combo', description: 'Desc', categoryId: 1,
-        items: [{ productId: 1, quantity: 1 }, { productId: 1, quantity: 2 }],
+        name: 'Combo',
+        description: 'Desc',
+        categoryId: 1,
+        items: [
+          { productId: 1, quantity: 1 },
+          { productId: 1, quantity: 2 },
+        ],
       };
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
 
-      await expect(service.create(dto as any)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if product not found', async () => {
-      const dto = { name: 'Combo', description: 'Desc', categoryId: 1, items: [{ productId: 99, quantity: 1 }] };
+      const dto = {
+        name: 'Combo',
+        description: 'Desc',
+        categoryId: 1,
+        items: [{ productId: 99, quantity: 1 }],
+      };
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
       mockProductRepo.findBy.mockResolvedValue([]);
 
-      await expect(service.create(dto as any)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -158,7 +192,7 @@ describe('ComboService', () => {
 
   describe('update', () => {
     it('should update a combo', async () => {
-      const dto   = { name: 'Nuevo nombre', categoryId: 1 };
+      const dto = { name: 'Nuevo nombre', categoryId: 1 };
       const combo = mockCombo();
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
@@ -168,16 +202,18 @@ describe('ComboService', () => {
       mockEntityManager.merge.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
 
-      const result = await service.update(1, dto as any);
+      const result = await service.update(1, dto);
 
       expect(result.name).toBe('Nuevo nombre');
       expect(result.categoryName).toBe('Combos');
     });
 
     it('should replace items if dto.items is provided', async () => {
-      const dto   = { items: [{ productId: 2, quantity: 1 }] };
+      const dto = { items: [{ productId: 2, quantity: 1 }] };
       const combo = mockCombo();
-      const updated = mockCombo({ items: [{ productId: 2, quantity: 1, product: { name: 'Sprite' } }] });
+      const updated = mockCombo({
+        items: [{ productId: 2, quantity: 1, product: { name: 'Sprite' } }],
+      });
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
       mockProductRepo.findBy.mockResolvedValue([{ id: 2 }]);
@@ -188,7 +224,7 @@ describe('ComboService', () => {
       mockEntityManager.save.mockResolvedValue(combo);
       mockEntityManager.softDelete.mockResolvedValue({});
 
-      const result = await service.update(1, dto as any);
+      const result = await service.update(1, dto);
 
       expect(mockEntityManager.softDelete).toHaveBeenCalled();
       expect(result).toBeDefined();
@@ -198,7 +234,9 @@ describe('ComboService', () => {
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
       mockEntityManager.findOne.mockResolvedValue(null);
 
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

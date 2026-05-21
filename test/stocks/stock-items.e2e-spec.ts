@@ -40,59 +40,82 @@ describe('StockItems (e2e)', () => {
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
-            type:     'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            type: 'postgres',
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
-              StockItemEntity, StockLocationEntity,
-              StockMovementEntity, StockWriteOffEntity,
-              ProductEntity, ProductImageEntity, CategoryEntity,
-              ComboItemEntity, ComboEntity, ComboImageEntity,
+              StockItemEntity,
+              StockLocationEntity,
+              StockMovementEntity,
+              StockWriteOffEntity,
+              ProductEntity,
+              ProductImageEntity,
+              CategoryEntity,
+              ComboItemEntity,
+              ComboEntity,
+              ComboImageEntity,
             ],
             synchronize: true,
-            dropSchema:  true,
+            dropSchema: true,
           }),
         }),
         TypeOrmModule.forFeature([
-          StockItemEntity, StockMovementEntity, StockWriteOffEntity, ComboItemEntity,
+          StockItemEntity,
+          StockMovementEntity,
+          StockWriteOffEntity,
+          ComboItemEntity,
         ]),
       ],
       controllers: [StockItemsController, StockMovementController],
-      providers: [
-        StockItemsService,
-        StockMovementService,
-      ],
+      providers: [StockItemsService, StockMovementService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist:            true,
-      forbidNonWhitelisted: true,
-      transform:            true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     // Seed: category + product + location (directo vía DB, sin exponer esos endpoints en este módulo)
-    const categoryRepo: Repository<CategoryEntity> = dataSource.getRepository(CategoryEntity);
-    const productRepo:  Repository<ProductEntity>  = dataSource.getRepository(ProductEntity);
-    const locationRepo: Repository<StockLocationEntity> = dataSource.getRepository(StockLocationEntity);
+    const categoryRepo: Repository<CategoryEntity> =
+      dataSource.getRepository(CategoryEntity);
+    const productRepo: Repository<ProductEntity> =
+      dataSource.getRepository(ProductEntity);
+    const locationRepo: Repository<StockLocationEntity> =
+      dataSource.getRepository(StockLocationEntity);
 
     const categoryObj = categoryRepo.create({ name: 'Electrónica' });
-    const category    = await categoryRepo.save(categoryObj) as CategoryEntity;
+    const category = await categoryRepo.save(categoryObj);
 
-    const productObj = productRepo.create({ name: 'Notebook X1', sku: 'NB-X1-001', description: 'Notebook de prueba', categoryId: category.id });
-    const product    = await productRepo.save(productObj) as ProductEntity;
-    const location = await locationRepo.save(locationRepo.create({ name: 'Depósito Principal', type: StockLocationType.WAREHOUSE }));
+    const productObj = productRepo.create({
+      name: 'Notebook X1',
+      sku: 'NB-X1-001',
+      description: 'Notebook de prueba',
+      categoryId: category.id,
+    });
+    const product = await productRepo.save(productObj);
+    const location = await locationRepo.save(
+      locationRepo.create({
+        name: 'Depósito Principal',
+        type: StockLocationType.WAREHOUSE,
+      }),
+    );
 
-    productId  = product.id;
+    productId = product.id;
     locationId = location.id;
   }, 30000);
 
@@ -108,7 +131,13 @@ describe('StockItems (e2e)', () => {
   it('POST /stock-items -> 201 creates stock item', async () => {
     const res = await request(app.getHttpServer())
       .post('/stock-items')
-      .send({ productId, locationId, stockMin: 5, stockCritical: 2, stockMax: 100 })
+      .send({
+        productId,
+        locationId,
+        stockMin: 5,
+        stockCritical: 2,
+        stockMax: 100,
+      })
       .expect(201);
 
     expect(res.body.id).toBeDefined();
@@ -160,9 +189,7 @@ describe('StockItems (e2e)', () => {
   });
 
   it('GET /stock-items/:id -> 404 when not found', async () => {
-    await request(app.getHttpServer())
-      .get('/stock-items/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/stock-items/999999').expect(404);
   });
 
   // -------------------------

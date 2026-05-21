@@ -20,13 +20,21 @@ export class TaxTypesService {
     private taxTypeRepository: Repository<TaxTypeEntity>,
   ) {}
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<TaxTypeResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<TaxTypeResponseDto>> {
     const [entities, total] = await this.taxTypeRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(entities.map(TaxTypeResponseDto.fromEntity), total, page, limit);
+    return new PaginatedResponseDto(
+      entities.map(TaxTypeResponseDto.fromEntity),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findById(id: number): Promise<TaxTypeResponseDto> {

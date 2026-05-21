@@ -10,28 +10,49 @@ describe('ComboTaxesService', () => {
   let comboTaxRepo: any;
   let taxRepo: any;
 
-  const mockComboTaxRepo = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn(), softDelete: jest.fn() });
-  const mockTaxRepo      = () => ({ findOne: jest.fn() });
+  const mockComboTaxRepo = () => ({
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    merge: jest.fn(),
+    softDelete: jest.fn(),
+  });
+  const mockTaxRepo = () => ({ findOne: jest.fn() });
 
-  const mockTax = (overrides = {}) =>
-    ({ id: 1, isGlobal: false, deletedAt: null, ...overrides });
+  const mockTax = (overrides = {}) => ({
+    id: 1,
+    isGlobal: false,
+    deletedAt: null,
+    ...overrides,
+  });
 
   const mockComboTax = (overrides = {}): ComboTaxEntity =>
-    ({ id: 1, comboId: 1, taxId: 1, deletedAt: null,
-       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ComboTaxEntity;
+    ({
+      id: 1,
+      comboId: 1,
+      taxId: 1,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    }) as unknown as ComboTaxEntity;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComboTaxesService,
-        { provide: getRepositoryToken(ComboTaxEntity), useFactory: mockComboTaxRepo },
-        { provide: getRepositoryToken(TaxEntity),      useFactory: mockTaxRepo      },
+        {
+          provide: getRepositoryToken(ComboTaxEntity),
+          useFactory: mockComboTaxRepo,
+        },
+        { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
       ],
     }).compile();
 
-    service      = module.get<ComboTaxesService>(ComboTaxesService);
+    service = module.get<ComboTaxesService>(ComboTaxesService);
     comboTaxRepo = module.get(getRepositoryToken(ComboTaxEntity));
-    taxRepo      = module.get(getRepositoryToken(TaxEntity));
+    taxRepo = module.get(getRepositoryToken(TaxEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -42,18 +63,22 @@ describe('ComboTaxesService', () => {
       taxRepo.findOne.mockResolvedValue(mockTax());
       comboTaxRepo.create.mockReturnValue(ct);
       comboTaxRepo.save.mockResolvedValue(ct);
-      const result = await service.create({ comboId: 1, taxId: 1 } as any);
+      const result = await service.create({ comboId: 1, taxId: 1 });
       expect(result.comboId).toBe(1);
     });
 
     it('should throw NotFoundException if tax not found', async () => {
       taxRepo.findOne.mockResolvedValue(null);
-      await expect(service.create({ comboId: 1, taxId: 999 } as any)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.create({ comboId: 1, taxId: 999 } as any),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException if tax is global', async () => {
       taxRepo.findOne.mockResolvedValue(mockTax({ isGlobal: true }));
-      await expect(service.create({ comboId: 1, taxId: 1 } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ comboId: 1, taxId: 1 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -78,7 +103,7 @@ describe('ComboTaxesService', () => {
 
   describe('update', () => {
     it('should update a combo tax', async () => {
-      const ct      = mockComboTax();
+      const ct = mockComboTax();
       const updated = mockComboTax({ taxId: 2 });
       comboTaxRepo.findOne.mockResolvedValue(ct);
       comboTaxRepo.merge.mockReturnValue(updated);
@@ -88,7 +113,9 @@ describe('ComboTaxesService', () => {
 
     it('should throw NotFoundException', async () => {
       comboTaxRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

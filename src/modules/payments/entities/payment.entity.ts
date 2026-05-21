@@ -8,7 +8,6 @@ import { PaymentProvider } from '../enums/payment-provider.enum';
 @Index(['orderId'])
 @Index(['externalId'])
 export class PaymentEntity extends BaseEntity {
-
   // ==========================
   // Orden
   // ==========================
@@ -73,7 +72,7 @@ export class PaymentEntity extends BaseEntity {
     precision: 12,
     scale: 2,
     nullable: false,
-    transformer: { to: v => v, from: v => Number(v) },
+    transformer: { to: (v) => v, from: (v) => Number(v) },
   })
   amount: number;
 

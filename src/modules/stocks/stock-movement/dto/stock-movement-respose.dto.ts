@@ -5,7 +5,6 @@ import { StockFlow } from '../enums/stock-flow.enum';
 import { StockReferenceType } from '../enums/stock-reference.enum';
 
 export class StockMovementResponseDto {
-
   @ApiProperty({ example: 1 })
   id: number;
 
@@ -24,20 +23,23 @@ export class StockMovementResponseDto {
   @ApiProperty({ enum: StockReferenceType })
   referenceType: StockReferenceType;
 
-  @ApiPropertyOptional({ example: 42, description: 'ID de la orden o referencia; null si es MANUAL' })
+  @ApiPropertyOptional({
+    example: 42,
+    description: 'ID de la orden o referencia; null si es MANUAL',
+  })
   referenceId?: number;
 
   @ApiProperty()
   createdAt: Date;
 
   constructor(entity: StockMovementEntity) {
-    this.id            = entity.id;
-    this.stockItemId   = entity.stockItemId;
+    this.id = entity.id;
+    this.stockItemId = entity.stockItemId;
     this.operationType = entity.operationType;
-    this.stockFlow     = entity.stockFlow;
-    this.quantity      = entity.quantity;
+    this.stockFlow = entity.stockFlow;
+    this.quantity = entity.quantity;
     this.referenceType = entity.referenceType;
-    this.referenceId   = entity.referenceId ?? undefined;
-    this.createdAt     = entity.createdAt;
+    this.referenceId = entity.referenceId ?? undefined;
+    this.createdAt = entity.createdAt;
   }
 }

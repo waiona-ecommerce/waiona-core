@@ -17,7 +17,6 @@ import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class ProductService {
-
   constructor(
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
@@ -30,8 +29,10 @@ export class ProductService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ProductResponseDto>> {
-
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
     const [products, total] = await this.productRepository.findAndCount({
       relations: ['category'],
       order: {
@@ -42,7 +43,7 @@ export class ProductService {
     });
 
     return new PaginatedResponseDto(
-      products.map(product => new ProductResponseDto(product)),
+      products.map((product) => new ProductResponseDto(product)),
       total,
       page,
       limit,
@@ -54,7 +55,6 @@ export class ProductService {
   // ==========================
 
   async findById(id: number): Promise<ProductResponseDto> {
-
     const product = await this.findOne(id);
 
     return new ProductResponseDto(product);
@@ -64,10 +64,7 @@ export class ProductService {
   // CREATE
   // ==========================
 
-  async create(
-    dto: CreateProductDto,
-  ): Promise<ProductResponseDto> {
-
+  async create(dto: CreateProductDto): Promise<ProductResponseDto> {
     await this.validateCategoryExists(dto.categoryId);
 
     const existingSku = await this.productRepository.findOne({
@@ -77,9 +74,7 @@ export class ProductService {
     });
 
     if (existingSku) {
-      throw new ConflictException(
-        `Product with SKU ${dto.sku} already exists`,
-      );
+      throw new ConflictException(`Product with SKU ${dto.sku} already exists`);
     }
 
     const product = this.productRepository.create({
@@ -90,9 +85,7 @@ export class ProductService {
 
     const saved = await this.productRepository.save(product);
 
-    return new ProductResponseDto(
-      await this.findOne(saved.id),
-    );
+    return new ProductResponseDto(await this.findOne(saved.id));
   }
 
   // ==========================
@@ -103,7 +96,6 @@ export class ProductService {
     id: number,
     changes: UpdateProductDto,
   ): Promise<ProductResponseDto> {
-
     const product = await this.findOne(id);
 
     if (changes.categoryId !== undefined) {
@@ -111,7 +103,6 @@ export class ProductService {
     }
 
     if (changes.sku && changes.sku !== product.sku) {
-
       const existingSku = await this.productRepository.findOne({
         where: {
           sku: changes.sku,
@@ -131,9 +122,7 @@ export class ProductService {
 
     await this.productRepository.save(merged);
 
-    return new ProductResponseDto(
-      await this.findOne(merged.id),
-    );
+    return new ProductResponseDto(await this.findOne(merged.id));
   }
 
   // ==========================
@@ -141,7 +130,6 @@ export class ProductService {
   // ==========================
 
   async delete(id: number): Promise<void> {
-
     const product = await this.findOne(id);
 
     await this.productRepository.softDelete(product.id);
@@ -152,8 +140,9 @@ export class ProductService {
   // ==========================
 
   private async validateCategoryExists(categoryId: number): Promise<void> {
-
-    const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId },
+    });
 
     if (!category) {
       throw new BadRequestException(`Category with id ${categoryId} not found`);
@@ -161,7 +150,6 @@ export class ProductService {
   }
 
   private async findOne(id: number): Promise<ProductEntity> {
-
     const product = await this.productRepository.findOne({
       where: {
         id,
@@ -170,9 +158,7 @@ export class ProductService {
     });
 
     if (!product) {
-      throw new NotFoundException(
-        `Product with id ${id} not found`,
-      );
+      throw new NotFoundException(`Product with id ${id} not found`);
     }
 
     return product;

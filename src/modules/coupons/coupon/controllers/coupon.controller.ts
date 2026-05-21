@@ -42,7 +42,10 @@ export class CouponController {
   @Post()
   @ApiOperation({ summary: 'Crear cupón' })
   @ApiResponse({ status: 201, type: CouponResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o fechas incorrectas' })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o fechas incorrectas',
+  })
   @ApiResponse({ status: 409, description: 'El código ya existe' })
   async create(@Body() dto: CreateCouponDto): Promise<CouponResponseDto> {
     return this.couponService.create(dto);
@@ -51,7 +54,9 @@ export class CouponController {
   @Get()
   @ApiOperation({ summary: 'Listar cupones paginado' })
   @ApiResponse({ status: 200, type: CouponResponseDto, isArray: true })
-  async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<CouponResponseDto>> {
+  async findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CouponResponseDto>> {
     return this.couponService.findAll(page, limit);
   }
 
@@ -60,7 +65,9 @@ export class CouponController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, type: CouponResponseDto })
   @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<CouponResponseDto> {
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<CouponResponseDto> {
     return this.couponService.findOne(id);
   }
 

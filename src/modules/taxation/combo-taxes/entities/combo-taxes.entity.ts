@@ -8,7 +8,6 @@ import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
 @Entity('combo_taxes')
 @Index(['comboId', 'taxId'], { unique: true })
 export class ComboTaxEntity extends BaseEntity {
-
   @Column({
     name: 'combo_id',
     type: 'int',

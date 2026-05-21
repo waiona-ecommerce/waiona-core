@@ -15,7 +15,6 @@ import { StockMovementEntity } from '../../stock-movement/entities/stock-movemen
 @Entity('stock_items')
 @Index(['productId', 'locationId'], { unique: true })
 export class StockItemEntity extends BaseEntity {
-
   @Column({
     name: 'product_id', // 🔥 snake_case
     type: 'int',
@@ -100,9 +99,6 @@ export class StockItemEntity extends BaseEntity {
   // RELATIONS
   // =============================
 
-  @OneToMany(
-    () => StockMovementEntity,
-    movement => movement.stockItem,
-  )
+  @OneToMany(() => StockMovementEntity, (movement) => movement.stockItem)
   movements: StockMovementEntity[];
 }

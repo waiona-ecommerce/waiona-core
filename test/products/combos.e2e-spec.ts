@@ -38,43 +38,64 @@ describe('Combos (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [ComboEntity, ComboItemEntity, ComboImageEntity, ProductEntity, ProductImageEntity, CategoryEntity],
+            entities: [
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
+              ProductEntity,
+              ProductImageEntity,
+              CategoryEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([ComboEntity, ComboItemEntity, ProductEntity, CategoryEntity]),
+        TypeOrmModule.forFeature([
+          ComboEntity,
+          ComboItemEntity,
+          ProductEntity,
+          CategoryEntity,
+        ]),
       ],
       controllers: [ComboController],
       providers: [ComboService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     const category = await dataSource.getRepository(CategoryEntity).save({
-      name: 'Combos', isActive: true,
+      name: 'Combos',
+      isActive: true,
     });
     categoryId = category.id;
 
     const product = await dataSource.getRepository(ProductEntity).save({
-      sku: 'COMBO-PROD-001', name: 'Coca Cola 500ml', description: 'Gaseosa',
-      isActive: true, categoryId, measurementUnit: ProductMeasurementUnit.UNIT,
+      sku: 'COMBO-PROD-001',
+      name: 'Coca Cola 500ml',
+      description: 'Gaseosa',
+      isActive: true,
+      categoryId,
+      measurementUnit: ProductMeasurementUnit.UNIT,
     });
     productId = product.id;
   }, 30000);
@@ -119,7 +140,10 @@ describe('Combos (e2e)', () => {
       .post('/combos')
       .send({
         ...validCombo(),
-        items: [{ productId, quantity: 1 }, { productId, quantity: 2 }],
+        items: [
+          { productId, quantity: 1 },
+          { productId, quantity: 2 },
+        ],
       })
       .expect(400);
   });
@@ -127,7 +151,12 @@ describe('Combos (e2e)', () => {
   it('POST /combos → 400 sin items', async () => {
     await request(app.getHttpServer())
       .post('/combos')
-      .send({ name: 'Sin items', description: 'Sin items', categoryId, items: [] })
+      .send({
+        name: 'Sin items',
+        description: 'Sin items',
+        categoryId,
+        items: [],
+      })
       .expect(400);
   });
 
@@ -136,9 +165,7 @@ describe('Combos (e2e)', () => {
   // -------------------------
 
   it('GET /combos → 200 paginado', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/combos')
-      .expect(200);
+    const res = await request(app.getHttpServer()).get('/combos').expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(res.body.total).toBeGreaterThan(0);
@@ -161,9 +188,7 @@ describe('Combos (e2e)', () => {
   });
 
   it('GET /combos/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/combos/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/combos/999999').expect(404);
   });
 
   // -------------------------
@@ -185,8 +210,12 @@ describe('Combos (e2e)', () => {
 
   it('PATCH /combos/:id → 200 reemplaza items', async () => {
     const product2 = await dataSource.getRepository(ProductEntity).save({
-      sku: `COMBO-PROD-${Date.now()}`, name: 'Sprite', description: 'Gaseosa verde',
-      isActive: true, categoryId, measurementUnit: ProductMeasurementUnit.UNIT,
+      sku: `COMBO-PROD-${Date.now()}`,
+      name: 'Sprite',
+      description: 'Gaseosa verde',
+      isActive: true,
+      categoryId,
+      measurementUnit: ProductMeasurementUnit.UNIT,
     });
 
     const created = await request(app.getHttpServer())
@@ -228,8 +257,6 @@ describe('Combos (e2e)', () => {
   });
 
   it('DELETE /combos/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .delete('/combos/999999')
-      .expect(404);
+    await request(app.getHttpServer()).delete('/combos/999999').expect(404);
   });
 });

@@ -1,7 +1,6 @@
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateComboImageDto {
-
   @IsOptional()
   @IsString()
   url?: string;
@@ -10,5 +9,4 @@ export class UpdateComboImageDto {
   @IsInt()
   @Min(1)
   position?: number;
-
 }

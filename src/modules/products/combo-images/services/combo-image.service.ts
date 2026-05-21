@@ -29,9 +29,7 @@ export class ComboImageService {
     });
 
     if (!combo) {
-      throw new NotFoundException(
-        `Combo with id ${dto.comboId} not found`,
-      );
+      throw new NotFoundException(`Combo with id ${dto.comboId} not found`);
     }
 
     const image = this.comboImageRepository.create(dto);
@@ -51,9 +49,7 @@ export class ComboImageService {
       order: { position: 'ASC' },
     });
 
-    return images.map(
-      (image) => new ComboImageResponseDto(image),
-    );
+    return images.map((image) => new ComboImageResponseDto(image));
   }
 
   // ==========================
@@ -68,7 +64,10 @@ export class ComboImageService {
   // UPDATE
   // ==========================
 
-  async update(id: number, dto: UpdateComboImageDto): Promise<ComboImageResponseDto> {
+  async update(
+    id: number,
+    dto: UpdateComboImageDto,
+  ): Promise<ComboImageResponseDto> {
     const image = await this.findEntity(id);
     const merged = this.comboImageRepository.merge(image, dto);
     const updated = await this.comboImageRepository.save(merged);
@@ -90,7 +89,8 @@ export class ComboImageService {
 
   private async findEntity(id: number): Promise<ComboImageEntity> {
     const image = await this.comboImageRepository.findOne({ where: { id } });
-    if (!image) throw new NotFoundException(`ComboImage with id ${id} not found`);
+    if (!image)
+      throw new NotFoundException(`ComboImage with id ${id} not found`);
     return image;
   }
 }

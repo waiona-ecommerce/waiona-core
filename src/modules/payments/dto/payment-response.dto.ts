@@ -4,7 +4,6 @@ import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 
 export class PaymentResponseDto {
-
   @ApiProperty({ example: 1 })
   id: number;
 
@@ -20,7 +19,11 @@ export class PaymentResponseDto {
   @ApiProperty({ example: 'pref_abc123', nullable: true })
   externalId?: string | null;
 
-  @ApiProperty({ example: 'https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=pref_abc123', nullable: true })
+  @ApiProperty({
+    example:
+      'https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=pref_abc123',
+    nullable: true,
+  })
   checkoutUrl?: string | null;
 
   @ApiProperty({ example: 4950 })
@@ -33,14 +36,14 @@ export class PaymentResponseDto {
   updatedAt: Date;
 
   constructor(entity: PaymentEntity) {
-    this.id          = entity.id;
-    this.orderId     = entity.orderId;
-    this.provider    = entity.provider;
-    this.status      = entity.status;
-    this.externalId  = entity.externalId;
+    this.id = entity.id;
+    this.orderId = entity.orderId;
+    this.provider = entity.provider;
+    this.status = entity.status;
+    this.externalId = entity.externalId;
     this.checkoutUrl = entity.checkoutUrl;
-    this.amount      = entity.amount;
-    this.createdAt   = entity.createdAt;
-    this.updatedAt   = entity.updatedAt;
+    this.amount = entity.amount;
+    this.createdAt = entity.createdAt;
+    this.updatedAt = entity.updatedAt;
   }
 }

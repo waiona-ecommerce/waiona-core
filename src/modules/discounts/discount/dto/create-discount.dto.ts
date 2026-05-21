@@ -16,7 +16,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class CreateDiscountDto {
-
   // ==========================
   // BASIC INFO
   // ==========================
@@ -27,7 +26,11 @@ export class CreateDiscountDto {
   @MaxLength(100)
   name: string;
 
-  @ApiPropertyOptional({ example: 'Descuento de temporada', minLength: 3, maxLength: 255 })
+  @ApiPropertyOptional({
+    example: 'Descuento de temporada',
+    minLength: 3,
+    maxLength: 255,
+  })
   @IsOptional()
   @IsString()
   @MinLength(3)
@@ -45,11 +48,18 @@ export class CreateDiscountDto {
   @Max(99999999)
   value: number;
 
-  @ApiProperty({ example: true, description: 'true = porcentaje, false = monto fijo' })
+  @ApiProperty({
+    example: true,
+    description: 'true = porcentaje, false = monto fijo',
+  })
   @IsBoolean()
   isPercentage: boolean;
 
-  @ApiPropertyOptional({ enum: CurrencyCode, example: CurrencyCode.ARS, description: 'Requerido si isPercentage = false' })
+  @ApiPropertyOptional({
+    enum: CurrencyCode,
+    example: CurrencyCode.ARS,
+    description: 'Requerido si isPercentage = false',
+  })
   @IsOptional()
   @IsEnum(CurrencyCode)
   currency?: CurrencyCode;

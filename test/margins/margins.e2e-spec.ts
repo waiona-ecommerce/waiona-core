@@ -30,8 +30,8 @@ describe('Margins (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
@@ -45,20 +45,30 @@ describe('Margins (e2e)', () => {
       controllers: [MarginsController],
       providers: [
         MarginsService,
-        { provide: getRepositoryToken(ProductPricingEntity), useFactory: mockPricingRepo },
-        { provide: getRepositoryToken(ComboPricingEntity),   useFactory: mockPricingRepo },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useFactory: mockPricingRepo,
+        },
+        {
+          provide: getRepositoryToken(ComboPricingEntity),
+          useFactory: mockPricingRepo,
+        },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -96,10 +106,7 @@ describe('Margins (e2e)', () => {
   });
 
   it('POST /margins -> 400 si faltan campos', async () => {
-    await request(app.getHttpServer())
-      .post('/margins')
-      .send({})
-      .expect(400);
+    await request(app.getHttpServer()).post('/margins').send({}).expect(400);
   });
 
   it('POST /margins -> 400 si porcentaje supera 100', async () => {
@@ -132,9 +139,7 @@ describe('Margins (e2e)', () => {
   // -------------------------
 
   it('GET /margins -> 200 retorna paginado', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/margins')
-      .expect(200);
+    const res = await request(app.getHttpServer()).get('/margins').expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -169,9 +174,7 @@ describe('Margins (e2e)', () => {
   });
 
   it('GET /margins/:id -> 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/margins/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/margins/999999').expect(404);
   });
 
   // -------------------------
@@ -257,8 +260,6 @@ describe('Margins (e2e)', () => {
   });
 
   it('DELETE /margins/:id -> 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .delete('/margins/999999')
-      .expect(404);
+    await request(app.getHttpServer()).delete('/margins/999999').expect(404);
   });
 });

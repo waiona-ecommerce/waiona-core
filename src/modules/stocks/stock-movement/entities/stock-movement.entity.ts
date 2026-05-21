@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  Index,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 
 import { BaseAuditEntity } from 'src/common/entities/base.audit.entity';
 import { StockItemEntity } from '../../stock-item/entities/stock-item.entity';
@@ -19,7 +13,6 @@ import { StockReferenceType } from '../enums/stock-reference.enum';
 @Index(['stockFlow'])
 @Index(['referenceType', 'referenceId']) // 🔥 índice compuesto para buscar por referencia
 export class StockMovementEntity extends BaseAuditEntity {
-
   @Column({
     name: 'stock_item_id', // 🔥 snake_case
     type: 'int',

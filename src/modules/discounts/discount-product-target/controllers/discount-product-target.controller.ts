@@ -32,10 +32,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('discounts/:discountId/targets/products')
 export class DiscountProductTargetController {
-
-  constructor(
-    private readonly service: DiscountProductTargetService,
-  ) {}
+  constructor(private readonly service: DiscountProductTargetService) {}
 
   // ==========================
   // CREATE
@@ -46,7 +43,10 @@ export class DiscountProductTargetController {
   @ApiParam({ name: 'discountId', type: Number })
   @ApiResponse({ status: 201, type: DiscountProductTargetResponseDto })
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
-  @ApiResponse({ status: 409, description: 'El producto ya tiene un descuento asignado' })
+  @ApiResponse({
+    status: 409,
+    description: 'El producto ya tiene un descuento asignado',
+  })
   async create(
     @Param('discountId', ParseIntPipe) discountId: number,
     @Body() dto: CreateDiscountProductTargetDto,
@@ -61,7 +61,11 @@ export class DiscountProductTargetController {
   @Get()
   @ApiOperation({ summary: 'Listar productos asignados a un descuento' })
   @ApiParam({ name: 'discountId', type: Number })
-  @ApiResponse({ status: 200, type: DiscountProductTargetResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    type: DiscountProductTargetResponseDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
   async findAll(
     @Param('discountId', ParseIntPipe) discountId: number,

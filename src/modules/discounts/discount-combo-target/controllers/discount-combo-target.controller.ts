@@ -32,7 +32,6 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('discounts/:discountId/targets/combos')
 export class DiscountComboTargetController {
-
   constructor(private readonly service: DiscountComboTargetService) {}
 
   @Post()
@@ -40,7 +39,10 @@ export class DiscountComboTargetController {
   @ApiParam({ name: 'discountId', type: Number })
   @ApiResponse({ status: 201, type: DiscountComboTargetResponseDto })
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
-  @ApiResponse({ status: 409, description: 'El combo ya tiene un descuento asignado' })
+  @ApiResponse({
+    status: 409,
+    description: 'El combo ya tiene un descuento asignado',
+  })
   async create(
     @Param('discountId', ParseIntPipe) discountId: number,
     @Body() dto: CreateDiscountComboTargetDto,
@@ -51,7 +53,11 @@ export class DiscountComboTargetController {
   @Get()
   @ApiOperation({ summary: 'Listar combos asignados a un descuento' })
   @ApiParam({ name: 'discountId', type: Number })
-  @ApiResponse({ status: 200, type: DiscountComboTargetResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    type: DiscountComboTargetResponseDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
   async findAll(
     @Param('discountId', ParseIntPipe) discountId: number,

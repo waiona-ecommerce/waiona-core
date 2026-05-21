@@ -12,21 +12,29 @@ describe('StockLocationsController', () => {
   let service: jest.Mocked<StockLocationsService>;
 
   const mockService = () => ({
-    create:  jest.fn(),
+    create: jest.fn(),
     findAll: jest.fn(),
     findOne: jest.fn(),
-    update:  jest.fn(),
-    remove:  jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
   });
 
   const mockPaginated = (items: any[]) => ({
-    data: items, total: items.length, page: 1, limit: 20,
-    totalPages: 1, hasNextPage: false,
+    data: items,
+    total: items.length,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
   });
 
   const mockLocationResponse = (overrides = {}) => ({
-    id: 1, name: 'Depósito Central', type: StockLocationType.WAREHOUSE,
-    address: null, createdAt: new Date(), updatedAt: new Date(),
+    id: 1,
+    name: 'Depósito Central',
+    type: StockLocationType.WAREHOUSE,
+    address: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   });
 
@@ -38,22 +46,27 @@ describe('StockLocationsController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<StockLocationsController>(StockLocationsController);
-    service    = module.get(StockLocationsService);
+    service = module.get(StockLocationsService);
   });
 
   afterEach(() => jest.clearAllMocks());
 
   describe('create', () => {
     it('delegates to service.create', async () => {
-      const dto = { name: 'Depósito Central', type: StockLocationType.WAREHOUSE };
+      const dto = {
+        name: 'Depósito Central',
+        type: StockLocationType.WAREHOUSE,
+      };
       const loc = mockLocationResponse();
       service.create.mockResolvedValue(loc as any);
-      const result = await controller.create(dto as any);
+      const result = await controller.create(dto);
       expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toBe(loc);
     });
@@ -62,7 +75,7 @@ describe('StockLocationsController', () => {
   describe('findAll', () => {
     it('delegates to service.findAll with page and limit', async () => {
       const paginated = mockPaginated([mockLocationResponse()]);
-      service.findAll.mockResolvedValue(paginated as any);
+      service.findAll.mockResolvedValue(paginated);
       const result = await controller.findAll({ page: 1, limit: 20 });
       expect(service.findAll).toHaveBeenCalledWith(1, 20);
       expect(result).toBe(paginated);
@@ -84,7 +97,7 @@ describe('StockLocationsController', () => {
       const dto = { name: 'Actualizado' };
       const loc = mockLocationResponse({ name: 'Actualizado' });
       service.update.mockResolvedValue(loc as any);
-      const result = await controller.update(1, dto as any);
+      const result = await controller.update(1, dto);
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toBe(loc);
     });

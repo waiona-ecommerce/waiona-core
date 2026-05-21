@@ -27,7 +27,6 @@ import { StockReferenceType } from '../../stock-movement/enums/stock-reference.e
 
 @Injectable()
 export class StockItemsService {
-
   constructor(
     @InjectRepository(StockItemEntity)
     private readonly stockItemRepository: Repository<StockItemEntity>,
@@ -48,14 +47,22 @@ export class StockItemsService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<StockItemResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<StockItemResponseDto>> {
     const [stockItems, total] = await this.stockItemRepository.findAndCount({
       relations: ['location', 'product'],
       order: { id: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(stockItems.map((item) => new StockItemResponseDto(item)), total, page, limit);
+    return new PaginatedResponseDto(
+      stockItems.map((item) => new StockItemResponseDto(item)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -96,8 +103,9 @@ export class StockItemsService {
   // Fórmula: min(floor(quantityAvailable / quantity)) para cada item.
   // ==========================
 
-  async findByCombo(comboId: number): Promise<{ quantityAvailable: number; inStock: boolean }> {
-
+  async findByCombo(
+    comboId: number,
+  ): Promise<{ quantityAvailable: number; inStock: boolean }> {
     const items = await this.comboItemRepository.find({
       where: { comboId },
     });
@@ -109,7 +117,6 @@ export class StockItemsService {
     let minAvailable = Infinity;
 
     for (const item of items) {
-
       const stockItems = await this.stockItemRepository.find({
         where: { productId: item.productId },
       });
@@ -117,7 +124,7 @@ export class StockItemsService {
       // máximo stock disponible en una sola ubicación
       // (consistente con reserveStock, que elige la mejor ubicación — no mezcla ubicaciones)
       const bestAvailable = stockItems.reduce(
-        (best, s) => s.quantityAvailable > best ? s.quantityAvailable : best,
+        (best, s) => (s.quantityAvailable > best ? s.quantityAvailable : best),
         0,
       );
 
@@ -187,7 +194,7 @@ export class StockItemsService {
 
     let stockItemId: number;
 
-    await this.dataSource.transaction(async manager => {
+    await this.dataSource.transaction(async (manager) => {
       const stockItem = await manager.findOne(StockItemEntity, {
         where: { productId, locationId },
         lock: { mode: 'pessimistic_write' },
@@ -214,7 +221,9 @@ export class StockItemsService {
       stockItemId = stockItem.id;
     });
 
-    return new StockItemWithMovementsResponseDto(await this.findEntity(stockItemId!));
+    return new StockItemWithMovementsResponseDto(
+      await this.findEntity(stockItemId!),
+    );
   }
 
   // ==========================
@@ -229,14 +238,16 @@ export class StockItemsService {
       throw new BadRequestException('Quantity must be greater than 0');
     }
 
-    await this.dataSource.transaction(async manager => {
+    await this.dataSource.transaction(async (manager) => {
       const stockItem = await manager.findOne(StockItemEntity, {
         where: { id: stockItemId },
         lock: { mode: 'pessimistic_write' },
       });
 
       if (!stockItem) {
-        throw new NotFoundException(`StockItem with id ${stockItemId} not found`);
+        throw new NotFoundException(
+          `StockItem with id ${stockItemId} not found`,
+        );
       }
 
       if (stockItem.quantityAvailable < quantity) {
@@ -258,7 +269,9 @@ export class StockItemsService {
       await manager.save(StockMovementEntity, movement);
     });
 
-    return new StockItemWithMovementsResponseDto(await this.findEntity(stockItemId));
+    return new StockItemWithMovementsResponseDto(
+      await this.findEntity(stockItemId),
+    );
   }
 
   // ==========================
@@ -272,14 +285,16 @@ export class StockItemsService {
       throw new BadRequestException('Quantity must be greater than 0');
     }
 
-    await this.dataSource.transaction(async manager => {
+    await this.dataSource.transaction(async (manager) => {
       const stockItem = await manager.findOne(StockItemEntity, {
         where: { id: dto.stockItemId },
         lock: { mode: 'pessimistic_write' },
       });
 
       if (!stockItem) {
-        throw new NotFoundException(`StockItem with id ${dto.stockItemId} not found`);
+        throw new NotFoundException(
+          `StockItem with id ${dto.stockItemId} not found`,
+        );
       }
 
       if (stockItem.quantityAvailable < dto.quantity) {
@@ -312,7 +327,9 @@ export class StockItemsService {
       await manager.save(StockWriteOffEntity, writeOff);
     });
 
-    return new StockItemWithMovementsResponseDto(await this.findEntity(dto.stockItemId));
+    return new StockItemWithMovementsResponseDto(
+      await this.findEntity(dto.stockItemId),
+    );
   }
 
   // ==========================
@@ -334,7 +351,8 @@ export class StockItemsService {
 
     const stockMin = dto.stockMin ?? stockItem.stockMin;
     const stockCritical = dto.stockCritical ?? stockItem.stockCritical;
-    const stockMax = dto.stockMax !== undefined ? dto.stockMax : stockItem.stockMax;
+    const stockMax =
+      dto.stockMax !== undefined ? dto.stockMax : stockItem.stockMax;
 
     this.validateThresholds(stockMin, stockCritical, stockMax);
 
@@ -357,17 +375,23 @@ export class StockItemsService {
     quantity: number,
     manager?: EntityManager,
   ): Promise<void> {
-    const repo = manager?.getRepository(StockItemEntity) ?? this.stockItemRepository;
+    const repo =
+      manager?.getRepository(StockItemEntity) ?? this.stockItemRepository;
 
     const stockItem = await repo.findOne({
       where: { productId, locationId },
       lock: { mode: 'pessimistic_write' },
     });
 
-    if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
+    if (!stockItem)
+      throw new NotFoundException(
+        `StockItem not found for product ${productId}`,
+      );
 
     if (stockItem.quantityCurrent - stockItem.quantityReserved < quantity) {
-      throw new BadRequestException(`Insufficient available stock for product ${productId}`);
+      throw new BadRequestException(
+        `Insufficient available stock for product ${productId}`,
+      );
     }
 
     stockItem.quantityReserved += quantity;
@@ -386,7 +410,7 @@ export class StockItemsService {
     manager?: EntityManager,
   ): Promise<void> {
     const execute = async (mgr: EntityManager): Promise<void> => {
-      const stockRepo    = mgr.getRepository(StockItemEntity);
+      const stockRepo = mgr.getRepository(StockItemEntity);
       const movementRepo = mgr.getRepository(StockMovementEntity);
 
       const stockItem = await stockRepo.findOne({
@@ -394,7 +418,10 @@ export class StockItemsService {
         lock: { mode: 'pessimistic_write' },
       });
 
-      if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
+      if (!stockItem)
+        throw new NotFoundException(
+          `StockItem not found for product ${productId}`,
+        );
 
       if (stockItem.quantityReserved < quantity) {
         throw new BadRequestException(
@@ -412,17 +439,20 @@ export class StockItemsService {
       stockItem.quantityReserved -= quantity;
       await stockRepo.save(stockItem);
 
-      await movementRepo.save(movementRepo.create({
-        stockItemId: stockItem.id,
-        operationType: StockOperationType.EXIT,
-        stockFlow: StockFlow.OUTBOUND,
-        quantity,
-        referenceType: StockReferenceType.ORDER,
-        referenceId: orderId,
-      }));
+      await movementRepo.save(
+        movementRepo.create({
+          stockItemId: stockItem.id,
+          operationType: StockOperationType.EXIT,
+          stockFlow: StockFlow.OUTBOUND,
+          quantity,
+          referenceType: StockReferenceType.ORDER,
+          referenceId: orderId,
+        }),
+      );
     };
 
-    manager ? await execute(manager) : await this.dataSource.transaction(execute);
+    if (manager) await execute(manager);
+    else await this.dataSource.transaction(execute);
   }
 
   // ==========================
@@ -437,7 +467,7 @@ export class StockItemsService {
     manager?: EntityManager,
   ): Promise<void> {
     const execute = async (mgr: EntityManager): Promise<void> => {
-      const stockRepo    = mgr.getRepository(StockItemEntity);
+      const stockRepo = mgr.getRepository(StockItemEntity);
       const movementRepo = mgr.getRepository(StockMovementEntity);
 
       const stockItem = await stockRepo.findOne({
@@ -445,7 +475,10 @@ export class StockItemsService {
         lock: { mode: 'pessimistic_write' },
       });
 
-      if (!stockItem) throw new NotFoundException(`StockItem not found for product ${productId}`);
+      if (!stockItem)
+        throw new NotFoundException(
+          `StockItem not found for product ${productId}`,
+        );
 
       if (stockItem.quantityReserved < quantity) {
         throw new BadRequestException(
@@ -456,17 +489,20 @@ export class StockItemsService {
       stockItem.quantityReserved -= quantity;
       await stockRepo.save(stockItem);
 
-      await movementRepo.save(movementRepo.create({
-        stockItemId: stockItem.id,
-        operationType: StockOperationType.RETURN,
-        stockFlow: StockFlow.INBOUND,
-        quantity,
-        referenceType: StockReferenceType.ORDER,
-        referenceId: orderId,
-      }));
+      await movementRepo.save(
+        movementRepo.create({
+          stockItemId: stockItem.id,
+          operationType: StockOperationType.RETURN,
+          stockFlow: StockFlow.INBOUND,
+          quantity,
+          referenceType: StockReferenceType.ORDER,
+          referenceId: orderId,
+        }),
+      );
     };
 
-    manager ? await execute(manager) : await this.dataSource.transaction(execute);
+    if (manager) await execute(manager);
+    else await this.dataSource.transaction(execute);
   }
 
   // ==========================
@@ -495,7 +531,9 @@ export class StockItemsService {
     stockMax?: number | null,
   ): void {
     if (stockMin < 0 || stockCritical < 0) {
-      throw new BadRequestException('stockMin and stockCritical must be non-negative');
+      throw new BadRequestException(
+        'stockMin and stockCritical must be non-negative',
+      );
     }
     if (stockMax != null && stockMax < 0) {
       throw new BadRequestException('stockMax must be non-negative');

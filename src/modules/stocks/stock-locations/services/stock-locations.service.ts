@@ -35,13 +35,21 @@ export class StockLocationsService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<StockLocationResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<StockLocationResponseDto>> {
     const [locations, total] = await this.stockLocationRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(locations.map((l) => new StockLocationResponseDto(l)), total, page, limit);
+    return new PaginatedResponseDto(
+      locations.map((l) => new StockLocationResponseDto(l)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

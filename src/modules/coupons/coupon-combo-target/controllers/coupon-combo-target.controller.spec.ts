@@ -9,10 +9,21 @@ describe('CouponComboTargetController', () => {
   let controller: CouponComboTargetController;
   let service: jest.Mocked<CouponComboTargetService>;
 
-  const mockService    = () => ({ create: jest.fn(), findAll: jest.fn(), remove: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    create: jest.fn(),
+    findAll: jest.fn(),
+    remove: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
-  const mockResponse   = (overrides = {}) => ({ id: 1, couponId: 1, comboId: 1, createdAt: new Date(), updatedAt: new Date(), ...overrides });
+  const mockResponse = (overrides = {}) => ({
+    id: 1,
+    couponId: 1,
+    comboId: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,12 +33,16 @@ describe('CouponComboTargetController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
-    controller = module.get<CouponComboTargetController>(CouponComboTargetController);
-    service    = module.get(CouponComboTargetService);
+    controller = module.get<CouponComboTargetController>(
+      CouponComboTargetController,
+    );
+    service = module.get(CouponComboTargetService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -35,14 +50,14 @@ describe('CouponComboTargetController', () => {
   it('should be defined', () => expect(controller).toBeDefined());
 
   it('create should delegate to service', async () => {
-    service.create.mockResolvedValue(mockResponse() as any);
-    const result = await controller.create(1, { comboId: 1 } as any);
+    service.create.mockResolvedValue(mockResponse());
+    const result = await controller.create(1, { comboId: 1 });
     expect(service.create).toHaveBeenCalledWith(1, { comboId: 1 });
     expect(result.comboId).toBe(1);
   });
 
   it('findAll should return targets', async () => {
-    service.findAll.mockResolvedValue([mockResponse() as any]);
+    service.findAll.mockResolvedValue([mockResponse()]);
     const result = await controller.findAll(1);
     expect(service.findAll).toHaveBeenCalledWith(1);
     expect(result).toHaveLength(1);

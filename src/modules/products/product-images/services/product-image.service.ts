@@ -29,9 +29,7 @@ export class ProductImageService {
     });
 
     if (!product) {
-      throw new NotFoundException(
-        `Product with id ${dto.productId} not found`,
-      );
+      throw new NotFoundException(`Product with id ${dto.productId} not found`);
     }
 
     const image = this.productImageRepository.create(dto);
@@ -51,9 +49,7 @@ export class ProductImageService {
       order: { position: 'ASC' },
     });
 
-    return images.map(
-      (image) => new ProductImageResponseDto(image),
-    );
+    return images.map((image) => new ProductImageResponseDto(image));
   }
 
   // ==========================
@@ -93,7 +89,8 @@ export class ProductImageService {
 
   private async findEntity(id: number): Promise<ProductImageEntity> {
     const image = await this.productImageRepository.findOne({ where: { id } });
-    if (!image) throw new NotFoundException(`ProductImage with id ${id} not found`);
+    if (!image)
+      throw new NotFoundException(`ProductImage with id ${id} not found`);
     return image;
   }
 }

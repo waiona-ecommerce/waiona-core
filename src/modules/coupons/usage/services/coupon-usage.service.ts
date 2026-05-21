@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { CouponUsageEntity } from '../entities/coupon-usage.entity';
@@ -9,7 +14,6 @@ import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
 
 @Injectable()
 export class CouponUsageService {
-
   constructor(
     @InjectRepository(CouponUsageEntity)
     private readonly repo: Repository<CouponUsageEntity>,
@@ -26,8 +30,7 @@ export class CouponUsageService {
 
     // Toda la validación y escritura ocurren dentro de la transacción con lock
     // sobre la fila del cupón para evitar race conditions en el límite de uso.
-    const usage = await this.dataSource.transaction(async manager => {
-
+    const usage = await this.dataSource.transaction(async (manager) => {
       const coupon = await manager.findOne(CouponEntity, {
         where: { code: dto.code },
         lock: { mode: 'pessimistic_write' },
@@ -57,9 +60,9 @@ export class CouponUsageService {
       }
 
       const newUsage = manager.create(CouponUsageEntity, {
-        couponId:  coupon.id,
-        orderId:   dto.orderId,
-        userId:    dto.userId,
+        couponId: coupon.id,
+        orderId: dto.orderId,
+        userId: dto.userId,
         appliedAt: now,
       });
       await manager.save(newUsage);
@@ -77,13 +80,21 @@ export class CouponUsageService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<CouponUsageResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<CouponUsageResponseDto>> {
     const [usages, total] = await this.repo.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(usages.map(u => new CouponUsageResponseDto(u)), total, page, limit);
+    return new PaginatedResponseDto(
+      usages.map((u) => new CouponUsageResponseDto(u)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -95,7 +106,7 @@ export class CouponUsageService {
       where: { couponId },
       order: { createdAt: 'DESC' },
     });
-    return usages.map(u => new CouponUsageResponseDto(u));
+    return usages.map((u) => new CouponUsageResponseDto(u));
   }
 
   // ==========================
@@ -107,6 +118,6 @@ export class CouponUsageService {
       where: { userId },
       order: { createdAt: 'DESC' },
     });
-    return usages.map(u => new CouponUsageResponseDto(u));
+    return usages.map((u) => new CouponUsageResponseDto(u));
   }
 }

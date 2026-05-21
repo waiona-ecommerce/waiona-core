@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, DataSource, FindOptionsWhere } from 'typeorm';
@@ -39,25 +43,25 @@ export class UsersService {
     });
 
     // transacción — si falla el save del user el profile no queda huérfano
-    const saved = await this.dataSource.transaction(async manager => {
-
+    const saved = await this.dataSource.transaction(async (manager) => {
       const profile = manager.create(ProfileEntity, {
-        name:     dto.name,
+        name: dto.name,
         lastName: dto.lastName,
-        avatar:   dto.avatar ?? null,
+        avatar: dto.avatar ?? null,
       });
 
       const user = manager.create(UserEntity, {
-        email:    dto.email,
+        email: dto.email,
         password: dto.password,
         profile,
-        role:     clientRole ?? undefined,
+        role: clientRole ?? undefined,
       });
 
       try {
         return await manager.save(UserEntity, user);
       } catch (err: any) {
-        if (err.code === '23505') throw new ConflictException('Email already in use');
+        if (err.code === '23505')
+          throw new ConflictException('Email already in use');
         throw err;
       }
     });
@@ -70,26 +74,61 @@ export class UsersService {
   ======================= */
 
   async findByEmail(email: string): Promise<UserEntity | null> {
-    return this.userRepo.findOne({ where: { email } });
+    return this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.role', 'role')
+      .where('user.email = :email', { email })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
   }
 
-  async findAll(dto?: SearchUsersDto, page = 1, limit = 20): Promise<PaginatedResponseDto<UserResponseDto>> {
+  async findAll(
+    dto?: SearchUsersDto,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<UserResponseDto>> {
     const skip = (page - 1) * limit;
 
     if (dto?.name) {
       const where = [
-        { ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { name: ILike(`%${dto.name}%`) } },
-        { ...(dto.email && { email: ILike(`%${dto.email}%`) }), profile: { lastName: ILike(`%${dto.name}%`) } },
+        {
+          ...(dto.email && { email: ILike(`%${dto.email}%`) }),
+          profile: { name: ILike(`%${dto.name}%`) },
+        },
+        {
+          ...(dto.email && { email: ILike(`%${dto.email}%`) }),
+          profile: { lastName: ILike(`%${dto.name}%`) },
+        },
       ];
-      const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
-      return new PaginatedResponseDto(users.map(u => new UserResponseDto(u)), total, page, limit);
+      const [users, total] = await this.userRepo.findAndCount({
+        where,
+        skip,
+        take: limit,
+      });
+      return new PaginatedResponseDto(
+        users.map((u) => new UserResponseDto(u)),
+        total,
+        page,
+        limit,
+      );
     }
 
     const where: FindOptionsWhere<UserEntity> = {};
     if (dto?.email) where.email = ILike(`%${dto.email}%`);
 
-    const [users, total] = await this.userRepo.findAndCount({ where, skip, take: limit });
-    return new PaginatedResponseDto(users.map(u => new UserResponseDto(u)), total, page, limit);
+    const [users, total] = await this.userRepo.findAndCount({
+      where,
+      skip,
+      take: limit,
+    });
+    return new PaginatedResponseDto(
+      users.map((u) => new UserResponseDto(u)),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(id: number): Promise<UserResponseDto> {

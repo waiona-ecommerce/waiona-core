@@ -8,18 +8,37 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 describe('ComboImageService', () => {
   let service: ComboImageService;
 
-  const mockImageRepo = { find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn(), softDelete: jest.fn() };
+  const mockImageRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    merge: jest.fn(),
+    softDelete: jest.fn(),
+  };
   const mockComboRepo = { findOne: jest.fn() };
 
   const mockImage = (overrides = {}): ComboImageEntity =>
-    ({ id: 1, comboId: 1, url: 'https://img.com/combo1.jpg', position: 1, deletedAt: null, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ComboImageEntity;
+    ({
+      id: 1,
+      comboId: 1,
+      url: 'https://img.com/combo1.jpg',
+      position: 1,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    }) as unknown as ComboImageEntity;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComboImageService,
-        { provide: getRepositoryToken(ComboImageEntity), useValue: mockImageRepo },
-        { provide: getRepositoryToken(ComboEntity),      useValue: mockComboRepo },
+        {
+          provide: getRepositoryToken(ComboImageEntity),
+          useValue: mockImageRepo,
+        },
+        { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
       ],
     }).compile();
     service = module.get<ComboImageService>(ComboImageService);
@@ -32,13 +51,19 @@ describe('ComboImageService', () => {
       mockComboRepo.findOne.mockResolvedValue({ id: 1 });
       mockImageRepo.create.mockReturnValue(mockImage());
       mockImageRepo.save.mockResolvedValue(mockImage());
-      const result = await service.create({ comboId: 1, url: 'https://img.com/combo1.jpg', position: 1 } as any);
+      const result = await service.create({
+        comboId: 1,
+        url: 'https://img.com/combo1.jpg',
+        position: 1,
+      });
       expect(result.url).toBe('https://img.com/combo1.jpg');
     });
 
     it('should throw NotFoundException if combo not found', async () => {
       mockComboRepo.findOne.mockResolvedValue(null);
-      await expect(service.create({ comboId: 99 } as any)).rejects.toThrow(NotFoundException);
+      await expect(service.create({ comboId: 99 } as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -64,17 +89,21 @@ describe('ComboImageService', () => {
 
   describe('update', () => {
     it('should update an image', async () => {
-      const image   = mockImage();
+      const image = mockImage();
       const updated = mockImage({ position: 2 });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockImageRepo.merge.mockReturnValue(updated);
       mockImageRepo.save.mockResolvedValue(updated);
-      expect((await service.update(1, { position: 2 } as any)).position).toBe(2);
+      expect((await service.update(1, { position: 2 } as any)).position).toBe(
+        2,
+      );
     });
 
     it('should throw NotFoundException', async () => {
       mockImageRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

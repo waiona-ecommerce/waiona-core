@@ -12,17 +12,24 @@ describe('StockWriteOffService', () => {
 
   const mockRepo = () => ({
     findAndCount: jest.fn(),
-    find:         jest.fn(),
-    findOne:      jest.fn(),
-    save:         jest.fn(),
+    find: jest.fn(),
+    findOne: jest.fn(),
+    save: jest.fn(),
   });
 
   const mockWriteOff = (overrides = {}): StockWriteOffEntity =>
     ({
-      id: 1, stockItemId: 1, movementId: 10, quantity: 3,
+      id: 1,
+      stockItemId: 1,
+      movementId: 10,
+      quantity: 3,
       reason: StockWriteOffReason.DAMAGED,
-      description: null, attachments: null, reportedBy: 99,
-      deletedAt: null, createdAt: new Date(), updatedAt: new Date(),
+      description: null,
+      attachments: null,
+      reportedBy: 99,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       ...overrides,
     }) as unknown as StockWriteOffEntity;
 
@@ -30,11 +37,14 @@ describe('StockWriteOffService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StockWriteOffService,
-        { provide: getRepositoryToken(StockWriteOffEntity), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(StockWriteOffEntity),
+          useFactory: mockRepo,
+        },
       ],
     }).compile();
     service = module.get<StockWriteOffService>(StockWriteOffService);
-    repo    = module.get(getRepositoryToken(StockWriteOffEntity));
+    repo = module.get(getRepositoryToken(StockWriteOffEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -96,8 +106,16 @@ describe('StockWriteOffService', () => {
     it('updates reason and description', async () => {
       const writeOff = mockWriteOff();
       repo.findOne.mockResolvedValue(writeOff);
-      repo.save.mockResolvedValue(mockWriteOff({ reason: StockWriteOffReason.EXPIRED, description: 'vencido' }));
-      const result = await service.update(1, { reason: StockWriteOffReason.EXPIRED, description: 'vencido' });
+      repo.save.mockResolvedValue(
+        mockWriteOff({
+          reason: StockWriteOffReason.EXPIRED,
+          description: 'vencido',
+        }),
+      );
+      const result = await service.update(1, {
+        reason: StockWriteOffReason.EXPIRED,
+        description: 'vencido',
+      });
       expect(result.reason).toBe(StockWriteOffReason.EXPIRED);
     });
 

@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ComboTaxEntity } from "../entities/combo-taxes.entity";
+import { ComboTaxEntity } from '../entities/combo-taxes.entity';
 
 export class ComboTaxResponseDto {
-
   @ApiProperty()
   id: number;
 

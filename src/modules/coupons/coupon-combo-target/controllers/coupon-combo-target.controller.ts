@@ -32,14 +32,19 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('coupons/:couponId/targets/combos')
 export class CouponComboTargetController {
-  constructor(private readonly couponComboTargetService: CouponComboTargetService) {}
+  constructor(
+    private readonly couponComboTargetService: CouponComboTargetService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Asignar combo a un cupón' })
   @ApiParam({ name: 'couponId', type: Number })
   @ApiResponse({ status: 201, type: CouponComboTargetResponseDto })
   @ApiResponse({ status: 404, description: 'Cupón o combo no encontrado' })
-  @ApiResponse({ status: 409, description: 'El combo ya está asignado o el cupón es global' })
+  @ApiResponse({
+    status: 409,
+    description: 'El combo ya está asignado o el cupón es global',
+  })
   async create(
     @Param('couponId', ParseIntPipe) couponId: number,
     @Body() dto: CreateCouponComboTargetDto,
@@ -50,7 +55,11 @@ export class CouponComboTargetController {
   @Get()
   @ApiOperation({ summary: 'Listar combos asignados a un cupón' })
   @ApiParam({ name: 'couponId', type: Number })
-  @ApiResponse({ status: 200, type: CouponComboTargetResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    type: CouponComboTargetResponseDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
   async findAll(
     @Param('couponId', ParseIntPipe) couponId: number,

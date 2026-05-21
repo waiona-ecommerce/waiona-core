@@ -1,4 +1,4 @@
 export enum CurrencyCode {
-    ARS = 'ARS',
-    // USD = 'USD',
-  }
+  ARS = 'ARS',
+  // USD = 'USD',
+}

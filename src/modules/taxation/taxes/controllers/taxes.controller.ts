@@ -11,7 +11,13 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { TaxesService } from '../services/taxes.service';
 import { CreateTaxDto } from '../dto/create-tax.dto';
@@ -29,7 +35,6 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('tax-types/:taxTypeId/taxes')
 export class TaxesController {
-
   constructor(private readonly taxesService: TaxesService) {}
 
   @ApiOperation({ summary: 'List taxes for a tax type' })
@@ -45,15 +50,16 @@ export class TaxesController {
   @ApiResponse({ status: 200, type: TaxResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
   @Get(':id')
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<TaxResponseDto> {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<TaxResponseDto> {
     return this.taxesService.findById(id);
   }
 
   @ApiOperation({ summary: 'Create a tax' })
   @ApiResponse({ status: 201, type: TaxResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation error or tax type not found' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or tax type not found',
+  })
   @Post()
   create(
     @Param('taxTypeId', ParseIntPipe) taxTypeId: number,
@@ -78,9 +84,7 @@ export class TaxesController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.taxesService.delete(id);
   }
 }

@@ -37,12 +37,19 @@ describe('Product (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [ProductEntity, ProductImageEntity, ComboEntity, ComboItemEntity, ComboImageEntity, CategoryEntity],
+            entities: [
+              ProductEntity,
+              ProductImageEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
+              CategoryEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
@@ -52,16 +59,20 @@ describe('Product (e2e)', () => {
       controllers: [ProductController],
       providers: [ProductService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -118,9 +129,7 @@ describe('Product (e2e)', () => {
   // -------------------------
 
   it('GET /products → 200 paginado', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/products')
-      .expect(200);
+    const res = await request(app.getHttpServer()).get('/products').expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -144,9 +153,7 @@ describe('Product (e2e)', () => {
   });
 
   it('GET /products/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/products/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/products/999999').expect(404);
   });
 
   // -------------------------
@@ -193,8 +200,6 @@ describe('Product (e2e)', () => {
   });
 
   it('DELETE /products/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .delete('/products/999999')
-      .expect(404);
+    await request(app.getHttpServer()).delete('/products/999999').expect(404);
   });
 });

@@ -65,7 +65,10 @@ export class CouponService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<CouponResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<CouponResponseDto>> {
     const [coupons, total] = await this.couponRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,

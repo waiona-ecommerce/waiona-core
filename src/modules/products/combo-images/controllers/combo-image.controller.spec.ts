@@ -9,10 +9,22 @@ describe('ComboImageController', () => {
   let controller: ComboImageController;
   let service: jest.Mocked<ComboImageService>;
 
-  const mockService = () => ({ create: jest.fn(), findByCombo: jest.fn(), findOne: jest.fn(), update: jest.fn(), remove: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    create: jest.fn(),
+    findByCombo: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
-  const mockResponse   = (overrides = {}) => ({ id: 1, comboId: 1, url: 'https://img.com/combo1.jpg', position: 1, ...overrides });
+  const mockResponse = (overrides = {}) => ({
+    id: 1,
+    comboId: 1,
+    url: 'https://img.com/combo1.jpg',
+    position: 1,
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,12 +34,14 @@ describe('ComboImageController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<ComboImageController>(ComboImageController);
-    service    = module.get(ComboImageService);
+    service = module.get(ComboImageService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -36,7 +50,11 @@ describe('ComboImageController', () => {
 
   it('create should delegate to service', async () => {
     service.create.mockResolvedValue(mockResponse() as any);
-    const result = await controller.create({ comboId: 1, url: 'https://img.com/combo1.jpg', position: 1 } as any);
+    const result = await controller.create({
+      comboId: 1,
+      url: 'https://img.com/combo1.jpg',
+      position: 1,
+    });
     expect(service.create).toHaveBeenCalled();
     expect(result).toBeDefined();
   });
@@ -56,7 +74,7 @@ describe('ComboImageController', () => {
 
   it('update should delegate to service', async () => {
     service.update.mockResolvedValue(mockResponse({ position: 2 }) as any);
-    const result = await controller.update(1, { position: 2 } as any);
+    const result = await controller.update(1, { position: 2 });
     expect(result.position).toBe(2);
   });
 

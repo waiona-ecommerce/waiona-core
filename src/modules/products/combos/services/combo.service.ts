@@ -19,7 +19,6 @@ import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class ComboService {
-
   constructor(
     @InjectRepository(ComboEntity)
     private readonly comboRepository: Repository<ComboEntity>,
@@ -40,8 +39,10 @@ export class ComboService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ComboResponseDto>> {
-
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<ComboResponseDto>> {
     const [combos, total] = await this.comboRepository.findAndCount({
       relations: ['category', 'items', 'items.product'],
       order: { name: 'ASC' },
@@ -50,7 +51,7 @@ export class ComboService {
     });
 
     return new PaginatedResponseDto(
-      combos.map(combo => new ComboResponseDto(combo)),
+      combos.map((combo) => new ComboResponseDto(combo)),
       total,
       page,
       limit,
@@ -62,7 +63,6 @@ export class ComboService {
   // ==========================
 
   async findById(id: number): Promise<ComboResponseDto> {
-
     const combo = await this.findOne(id);
 
     return new ComboResponseDto(combo);
@@ -73,27 +73,25 @@ export class ComboService {
   // ==========================
 
   async create(dto: CreateComboDto): Promise<ComboResponseDto> {
-
     await this.validateCategoryExists(dto.categoryId);
 
-    return this.dataSource.transaction(async manager => {
-
+    return this.dataSource.transaction(async (manager) => {
       await this.validateItems(dto.items);
 
       const combo = manager.create(ComboEntity, {
-        name:        dto.name,
+        name: dto.name,
         description: dto.description,
-        isActive:    dto.isActive ?? true,
-        categoryId:  dto.categoryId,
+        isActive: dto.isActive ?? true,
+        categoryId: dto.categoryId,
       });
 
       const savedCombo = await manager.save(combo);
 
-      const items = dto.items.map(item =>
+      const items = dto.items.map((item) =>
         manager.create(ComboItemEntity, {
-          comboId:   savedCombo.id,
+          comboId: savedCombo.id,
           productId: item.productId,
-          quantity:  item.quantity,
+          quantity: item.quantity,
         }),
       );
 
@@ -113,13 +111,11 @@ export class ComboService {
   // ==========================
 
   async update(id: number, dto: UpdateComboDto): Promise<ComboResponseDto> {
-
     if (dto.categoryId !== undefined) {
       await this.validateCategoryExists(dto.categoryId);
     }
 
-    return this.dataSource.transaction(async manager => {
-
+    return this.dataSource.transaction(async (manager) => {
       const combo = await manager.findOne(ComboEntity, {
         where: { id },
       });
@@ -129,25 +125,24 @@ export class ComboService {
       }
 
       manager.merge(ComboEntity, combo, {
-        name:        dto.name        ?? combo.name,
+        name: dto.name ?? combo.name,
         description: dto.description ?? combo.description,
-        isActive:    dto.isActive    ?? combo.isActive,
-        categoryId:  dto.categoryId  ?? combo.categoryId,
+        isActive: dto.isActive ?? combo.isActive,
+        categoryId: dto.categoryId ?? combo.categoryId,
       });
 
       await manager.save(combo);
 
       if (dto.items) {
-
         await this.validateItems(dto.items);
 
         await manager.softDelete(ComboItemEntity, { comboId: combo.id });
 
-        const newItems = dto.items.map(item =>
+        const newItems = dto.items.map((item) =>
           manager.create(ComboItemEntity, {
-            comboId:   combo.id,
+            comboId: combo.id,
             productId: item.productId,
-            quantity:  item.quantity,
+            quantity: item.quantity,
           }),
         );
 
@@ -168,7 +163,6 @@ export class ComboService {
   // ==========================
 
   async delete(id: number): Promise<void> {
-
     const combo = await this.comboRepository.findOne({
       where: { id },
     });
@@ -185,7 +179,6 @@ export class ComboService {
   // ==========================
 
   private async findOne(id: number): Promise<ComboEntity> {
-
     const combo = await this.comboRepository.findOne({
       where: { id },
       relations: ['category', 'items', 'items.product'],
@@ -201,8 +194,7 @@ export class ComboService {
   private async validateItems(
     items: { productId: number; quantity: number }[],
   ): Promise<void> {
-
-    const ids = items.map(i => i.productId);
+    const ids = items.map((i) => i.productId);
 
     const seen = new Set<number>();
     for (const id of ids) {
@@ -215,15 +207,16 @@ export class ComboService {
     const found = await this.productRepository.findBy({ id: In(ids) });
 
     if (found.length !== ids.length) {
-      const foundIds = new Set(found.map(p => p.id));
-      const missing  = ids.find(id => !foundIds.has(id));
+      const foundIds = new Set(found.map((p) => p.id));
+      const missing = ids.find((id) => !foundIds.has(id));
       throw new BadRequestException(`Product with id ${missing} not found`);
     }
   }
 
   private async validateCategoryExists(categoryId: number): Promise<void> {
-
-    const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId },
+    });
 
     if (!category) {
       throw new BadRequestException(`Category with id ${categoryId} not found`);

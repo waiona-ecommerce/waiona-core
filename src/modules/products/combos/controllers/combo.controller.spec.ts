@@ -9,14 +9,27 @@ describe('ComboController', () => {
   let controller: ComboController;
   let service: jest.Mocked<ComboService>;
 
-  const mockService = () => ({ findAll: jest.fn(), findById: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    findAll: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
   const mockResponse = (overrides = {}) => ({
-    id: 1, name: 'Combo Coca x3', description: 'Tres Coca Cola',
-    isActive: true, categoryId: 1, categoryName: 'Combos',
-    items: [], createdAt: new Date(), updatedAt: new Date(), ...overrides,
+    id: 1,
+    name: 'Combo Coca x3',
+    description: 'Tres Coca Cola',
+    isActive: true,
+    categoryId: 1,
+    categoryName: 'Combos',
+    items: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
   });
 
   beforeEach(async () => {
@@ -27,12 +40,14 @@ describe('ComboController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<ComboController>(ComboController);
-    service    = module.get(ComboService);
+    service = module.get(ComboService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -42,7 +57,7 @@ describe('ComboController', () => {
   describe('findAll', () => {
     it('should return all combos', async () => {
       service.findAll.mockResolvedValue([mockResponse() as any]);
-      const result = await controller.findAll({} as any);
+      const result = await controller.findAll({});
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });
@@ -50,7 +65,7 @@ describe('ComboController', () => {
 
   describe('findById', () => {
     it('should return a combo by id', async () => {
-      service.findById.mockResolvedValue(mockResponse() as any);
+      service.findById.mockResolvedValue(mockResponse());
       const result = await controller.findById(1);
       expect(service.findById).toHaveBeenCalledWith(1);
       expect(result.id).toBe(1);
@@ -60,7 +75,7 @@ describe('ComboController', () => {
   describe('create', () => {
     it('should create a combo', async () => {
       const dto = { name: 'Combo', categoryId: 1, items: [] };
-      service.create.mockResolvedValue(mockResponse() as any);
+      service.create.mockResolvedValue(mockResponse());
       const result = await controller.create(dto as any);
       expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toBeDefined();
@@ -70,8 +85,10 @@ describe('ComboController', () => {
   describe('update', () => {
     it('should update a combo', async () => {
       const dto = { name: 'Combo Actualizado' };
-      service.update.mockResolvedValue(mockResponse({ name: 'Combo Actualizado' }) as any);
-      const result = await controller.update(1, dto as any);
+      service.update.mockResolvedValue(
+        mockResponse({ name: 'Combo Actualizado' }),
+      );
+      const result = await controller.update(1, dto);
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result.name).toBe('Combo Actualizado');
     });

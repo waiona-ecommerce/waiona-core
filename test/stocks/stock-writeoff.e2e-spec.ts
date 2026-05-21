@@ -43,37 +43,47 @@ describe('StockWriteOff (e2e)', () => {
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
-            type:     'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            type: 'postgres',
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
-              StockWriteOffEntity, StockMovementEntity,
-              StockItemEntity, StockLocationEntity,
-              ProductEntity, ProductImageEntity, CategoryEntity,
-              ComboEntity, ComboItemEntity, ComboImageEntity,
+              StockWriteOffEntity,
+              StockMovementEntity,
+              StockItemEntity,
+              StockLocationEntity,
+              ProductEntity,
+              ProductImageEntity,
+              CategoryEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
             ],
             synchronize: true,
-            dropSchema:  true,
+            dropSchema: true,
           }),
         }),
         TypeOrmModule.forFeature([StockWriteOffEntity]),
       ],
       controllers: [StockWriteOffController],
-      providers:   [StockWriteOffService],
+      providers: [StockWriteOffService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist:            true,
-      forbidNonWhitelisted: true,
-      transform:            true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -81,44 +91,63 @@ describe('StockWriteOff (e2e)', () => {
     // Seed: category → product → location → stockItem → movement → writeOff
     // Los write-offs los crea internamente el service al hacer bajas, no hay POST endpoint
     const categoryRepo = dataSource.getRepository(CategoryEntity);
-    const productRepo  = dataSource.getRepository(ProductEntity);
+    const productRepo = dataSource.getRepository(ProductEntity);
     const locationRepo = dataSource.getRepository(StockLocationEntity);
-    const stockRepo    = dataSource.getRepository(StockItemEntity);
+    const stockRepo = dataSource.getRepository(StockItemEntity);
     const movementRepo = dataSource.getRepository(StockMovementEntity);
     const writeOffRepo = dataSource.getRepository(StockWriteOffEntity);
 
-    const category = await categoryRepo.save(categoryRepo.create({ name: 'Test Category' }));
-    const product  = await productRepo.save(productRepo.create({
-      sku: 'WO-001', name: 'Test Product', description: 'Write-off e2e',
-      isActive: true, categoryId: category.id, measurementUnit: ProductMeasurementUnit.UNIT,
-    }));
-    const location  = await locationRepo.save(locationRepo.create({
-      name: 'Depósito Test', type: StockLocationType.WAREHOUSE,
-    }));
-    const stockItem = await stockRepo.save(stockRepo.create({
-      productId: product.id, locationId: location.id,
-      quantityCurrent: 50, quantityReserved: 0,
-    }));
+    const category = await categoryRepo.save(
+      categoryRepo.create({ name: 'Test Category' }),
+    );
+    const product = await productRepo.save(
+      productRepo.create({
+        sku: 'WO-001',
+        name: 'Test Product',
+        description: 'Write-off e2e',
+        isActive: true,
+        categoryId: category.id,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      }),
+    );
+    const location = await locationRepo.save(
+      locationRepo.create({
+        name: 'Depósito Test',
+        type: StockLocationType.WAREHOUSE,
+      }),
+    );
+    const stockItem = await stockRepo.save(
+      stockRepo.create({
+        productId: product.id,
+        locationId: location.id,
+        quantityCurrent: 50,
+        quantityReserved: 0,
+      }),
+    );
     stockItemId = stockItem.id;
 
     // Movimiento asociado a la baja (DAMAGE/OUTBOUND)
-    const movement = await movementRepo.save(movementRepo.create({
-      stockItemId: stockItem.id,
-      operationType: StockOperationType.DAMAGE,
-      stockFlow:     StockFlow.OUTBOUND,
-      quantity:      3,
-      referenceType: StockReferenceType.DAMAGE_REPORT,
-      referenceId:   null,
-    }));
+    const movement = await movementRepo.save(
+      movementRepo.create({
+        stockItemId: stockItem.id,
+        operationType: StockOperationType.DAMAGE,
+        stockFlow: StockFlow.OUTBOUND,
+        quantity: 3,
+        referenceType: StockReferenceType.DAMAGE_REPORT,
+        referenceId: null,
+      }),
+    );
 
-    const writeOff = await writeOffRepo.save(writeOffRepo.create({
-      stockItemId: stockItem.id,
-      movementId:  movement.id,
-      quantity:    3,
-      reason:      StockWriteOffReason.DAMAGED,
-      description: 'Cajas rotas en tránsito',
-      reportedBy:  1,
-    }));
+    const writeOff = await writeOffRepo.save(
+      writeOffRepo.create({
+        stockItemId: stockItem.id,
+        movementId: movement.id,
+        quantity: 3,
+        reason: StockWriteOffReason.DAMAGED,
+        description: 'Cajas rotas en tránsito',
+        reportedBy: 1,
+      }),
+    );
     writeOffId = writeOff.id;
   }, 30000);
 
@@ -234,7 +263,10 @@ describe('StockWriteOff (e2e)', () => {
     it('200 — actualiza reason y description', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/stock-write-offs/${writeOffId}`)
-        .send({ reason: StockWriteOffReason.EXPIRED, description: 'Producto vencido' })
+        .send({
+          reason: StockWriteOffReason.EXPIRED,
+          description: 'Producto vencido',
+        })
         .expect(200);
 
       expect(res.body.id).toBe(writeOffId);
@@ -248,7 +280,9 @@ describe('StockWriteOff (e2e)', () => {
         .send({ attachments: ['https://cdn.ejemplo.com/foto.jpg'] })
         .expect(200);
 
-      expect(res.body.attachments).toEqual(['https://cdn.ejemplo.com/foto.jpg']);
+      expect(res.body.attachments).toEqual([
+        'https://cdn.ejemplo.com/foto.jpg',
+      ]);
     });
 
     it('200 — body vacío no modifica nada', async () => {

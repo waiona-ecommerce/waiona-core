@@ -17,7 +17,6 @@ import { PriceBreakdownDto } from '../dto/price-breakdown.dto';
 
 @Injectable()
 export class CalculationService {
-
   constructor(
     @InjectRepository(ProductPricingEntity)
     private productPricingRepo: Repository<ProductPricingEntity>,
@@ -53,32 +52,63 @@ export class CalculationService {
     const unitPrice = dto.unitPrice;
 
     // 1. Descuento sobre unitPrice
-    const discount = this.applyValue(unitPrice, dto.discountValue, dto.discountIsPercentage);
+    const discount = this.applyValue(
+      unitPrice,
+      dto.discountValue,
+      dto.discountIsPercentage,
+    );
     const priceAfterDiscount = unitPrice - discount;
 
     // 2. Margen sobre priceAfterDiscount
-    const margin = this.applyValue(priceAfterDiscount, dto.marginValue, dto.marginIsPercentage);
+    const margin = this.applyValue(
+      priceAfterDiscount,
+      dto.marginValue,
+      dto.marginIsPercentage,
+    );
     const priceAfterMargin = priceAfterDiscount + margin;
 
     // 3. Impuestos sobre priceAfterMargin
     const taxes = (dto.taxes ?? []).reduce((acc, tax) => {
-      return acc + this.applyValue(priceAfterMargin, tax.value, tax.isPercentage);
+      return (
+        acc + this.applyValue(priceAfterMargin, tax.value, tax.isPercentage)
+      );
     }, 0);
     const finalPrice = priceAfterMargin + taxes;
 
     // 4. fullPrice — precio sin descuento (margen e impuestos recalculados sobre unitPrice)
-    const marginFull = this.applyValue(unitPrice, dto.marginValue, dto.marginIsPercentage);
+    const marginFull = this.applyValue(
+      unitPrice,
+      dto.marginValue,
+      dto.marginIsPercentage,
+    );
     const priceAfterMarginFull = unitPrice + marginFull;
     const taxesFull = (dto.taxes ?? []).reduce((acc, tax) => {
-      return acc + this.applyValue(priceAfterMarginFull, tax.value, tax.isPercentage);
+      return (
+        acc + this.applyValue(priceAfterMarginFull, tax.value, tax.isPercentage)
+      );
     }, 0);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
     // 5. Cupón sobre finalPrice (nivel orden)
-    const coupon = this.applyValue(finalPrice, dto.couponValue, dto.couponIsPercentage);
+    const coupon = this.applyValue(
+      finalPrice,
+      dto.couponValue,
+      dto.couponIsPercentage,
+    );
     const orderTotal = finalPrice - coupon;
 
-    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, coupon, orderTotal);
+    return this.buildBreakdown(
+      unitPrice,
+      discount,
+      priceAfterDiscount,
+      margin,
+      priceAfterMargin,
+      taxes,
+      finalPrice,
+      fullPrice,
+      coupon,
+      orderTotal,
+    );
   }
 
   // ==========================
@@ -107,18 +137,32 @@ export class CalculationService {
       relations: ['discount'],
     });
 
-    const activeDiscount = discountTarget?.discount && this.isActive(discountTarget.discount.startsAt, discountTarget.discount.endsAt, now)
-      ? discountTarget.discount
-      : null;
+    const activeDiscount =
+      discountTarget?.discount &&
+      this.isActive(
+        discountTarget.discount.startsAt,
+        discountTarget.discount.endsAt,
+        now,
+      )
+        ? discountTarget.discount
+        : null;
 
     const discount = activeDiscount
-      ? this.applyValue(unitPrice, activeDiscount.value, activeDiscount.isPercentage)
+      ? this.applyValue(
+          unitPrice,
+          activeDiscount.value,
+          activeDiscount.isPercentage,
+        )
       : 0;
     const priceAfterDiscount = unitPrice - discount;
 
     // 3. Margen
     const margin = pricing.margin
-      ? this.applyValue(priceAfterDiscount, Number(pricing.margin.value), pricing.margin.isPercentage)
+      ? this.applyValue(
+          priceAfterDiscount,
+          Number(pricing.margin.value),
+          pricing.margin.isPercentage,
+        )
       : 0;
     const priceAfterMargin = priceAfterDiscount + margin;
 
@@ -129,13 +173,28 @@ export class CalculationService {
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
     const marginFull = pricing.margin
-      ? this.applyValue(unitPrice, Number(pricing.margin.value), pricing.margin.isPercentage)
+      ? this.applyValue(
+          unitPrice,
+          Number(pricing.margin.value),
+          pricing.margin.isPercentage,
+        )
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
     const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
-    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, 0, finalPrice);
+    return this.buildBreakdown(
+      unitPrice,
+      discount,
+      priceAfterDiscount,
+      margin,
+      priceAfterMargin,
+      taxes,
+      finalPrice,
+      fullPrice,
+      0,
+      finalPrice,
+    );
   }
 
   // ==========================
@@ -164,18 +223,32 @@ export class CalculationService {
       relations: ['discount'],
     });
 
-    const activeDiscount = discountTarget?.discount && this.isActive(discountTarget.discount.startsAt, discountTarget.discount.endsAt, now)
-      ? discountTarget.discount
-      : null;
+    const activeDiscount =
+      discountTarget?.discount &&
+      this.isActive(
+        discountTarget.discount.startsAt,
+        discountTarget.discount.endsAt,
+        now,
+      )
+        ? discountTarget.discount
+        : null;
 
     const discount = activeDiscount
-      ? this.applyValue(unitPrice, activeDiscount.value, activeDiscount.isPercentage)
+      ? this.applyValue(
+          unitPrice,
+          activeDiscount.value,
+          activeDiscount.isPercentage,
+        )
       : 0;
     const priceAfterDiscount = unitPrice - discount;
 
     // 3. Margen
     const margin = pricing.margin
-      ? this.applyValue(priceAfterDiscount, Number(pricing.margin.value), pricing.margin.isPercentage)
+      ? this.applyValue(
+          priceAfterDiscount,
+          Number(pricing.margin.value),
+          pricing.margin.isPercentage,
+        )
       : 0;
     const priceAfterMargin = priceAfterDiscount + margin;
 
@@ -186,13 +259,28 @@ export class CalculationService {
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
     const marginFull = pricing.margin
-      ? this.applyValue(unitPrice, Number(pricing.margin.value), pricing.margin.isPercentage)
+      ? this.applyValue(
+          unitPrice,
+          Number(pricing.margin.value),
+          pricing.margin.isPercentage,
+        )
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
     const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
-    return this.buildBreakdown(unitPrice, discount, priceAfterDiscount, margin, priceAfterMargin, taxes, finalPrice, fullPrice, 0, finalPrice);
+    return this.buildBreakdown(
+      unitPrice,
+      discount,
+      priceAfterDiscount,
+      margin,
+      priceAfterMargin,
+      taxes,
+      finalPrice,
+      fullPrice,
+      0,
+      finalPrice,
+    );
   }
 
   // ==========================
@@ -203,7 +291,11 @@ export class CalculationService {
    * Aplica un valor (% o fijo) sobre un precio base.
    * Si no hay valor devuelve 0.
    */
-  private applyValue(base: number, value?: number, isPercentage?: boolean): number {
+  private applyValue(
+    base: number,
+    value?: number,
+    isPercentage?: boolean,
+  ): number {
     if (!value) return 0;
     return isPercentage ? base * (value / 100) : value;
   }
@@ -211,7 +303,11 @@ export class CalculationService {
   /**
    * Verifica si un descuento/cupón está vigente según sus fechas.
    */
-  private isActive(startsAt?: Date | null, endsAt?: Date | null, now = new Date()): boolean {
+  private isActive(
+    startsAt?: Date | null,
+    endsAt?: Date | null,
+    now = new Date(),
+  ): boolean {
     if (startsAt && now < startsAt) return false;
     if (endsAt && now > endsAt) return false;
     return true;
@@ -224,8 +320,13 @@ export class CalculationService {
     ]);
     const seen = new Set<number>();
     const allTaxes: TaxEntity[] = [];
-    for (const pt of productTaxes) { seen.add(pt.tax.id); allTaxes.push(pt.tax); }
-    for (const t of globalTaxes)   { if (!seen.has(t.id)) allTaxes.push(t); }
+    for (const pt of productTaxes) {
+      seen.add(pt.tax.id);
+      allTaxes.push(pt.tax);
+    }
+    for (const t of globalTaxes) {
+      if (!seen.has(t.id)) allTaxes.push(t);
+    }
     return allTaxes;
   }
 
@@ -236,13 +337,22 @@ export class CalculationService {
     ]);
     const seen = new Set<number>();
     const allTaxes: TaxEntity[] = [];
-    for (const ct of comboTaxes) { seen.add(ct.tax.id); allTaxes.push(ct.tax); }
-    for (const t of globalTaxes) { if (!seen.has(t.id)) allTaxes.push(t); }
+    for (const ct of comboTaxes) {
+      seen.add(ct.tax.id);
+      allTaxes.push(ct.tax);
+    }
+    for (const t of globalTaxes) {
+      if (!seen.has(t.id)) allTaxes.push(t);
+    }
     return allTaxes;
   }
 
   private sumTaxes(taxes: TaxEntity[], base: number): number {
-    return taxes.reduce((acc, tax) => acc + this.applyValue(base, Number(tax.value), tax.isPercentage), 0);
+    return taxes.reduce(
+      (acc, tax) =>
+        acc + this.applyValue(base, Number(tax.value), tax.isPercentage),
+      0,
+    );
   }
 
   /**

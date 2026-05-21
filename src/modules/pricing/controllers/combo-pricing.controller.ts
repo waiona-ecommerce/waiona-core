@@ -13,7 +13,13 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ComboPricingService } from '../services/combo-pricing.service';
 import { CreateComboPricingDto } from '../dto/create-combo-pricing.dto';
@@ -30,15 +36,19 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('combo-pricing')
 export class ComboPricingController {
-
   constructor(private readonly service: ComboPricingService) {}
 
   @Post()
   @ApiOperation({ summary: 'Crear pricing para un combo' })
   @ApiResponse({ status: 201, type: ComboPricingResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o combo ya tiene pricing' })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o combo ya tiene pricing',
+  })
   @ApiResponse({ status: 404, description: 'Margen no encontrado' })
-  async create(@Body() dto: CreateComboPricingDto): Promise<ComboPricingResponseDto> {
+  async create(
+    @Body() dto: CreateComboPricingDto,
+  ): Promise<ComboPricingResponseDto> {
     return this.service.create(dto);
   }
 
@@ -53,7 +63,10 @@ export class ComboPricingController {
   @ApiOperation({ summary: 'Obtener pricing por comboId' })
   @ApiParam({ name: 'comboId', type: Number })
   @ApiResponse({ status: 200, type: ComboPricingResponseDto })
-  @ApiResponse({ status: 404, description: 'Pricing no encontrado para ese combo' })
+  @ApiResponse({
+    status: 404,
+    description: 'Pricing no encontrado para ese combo',
+  })
   async findByCombo(
     @Param('comboId', ParseIntPipe) comboId: number,
   ): Promise<ComboPricingResponseDto> {
@@ -65,7 +78,9 @@ export class ComboPricingController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, type: ComboPricingResponseDto })
   @ApiResponse({ status: 404, description: 'Pricing no encontrado' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<ComboPricingResponseDto> {
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ComboPricingResponseDto> {
     return this.service.findOne(id);
   }
 

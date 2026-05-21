@@ -33,7 +33,7 @@ import { CouponComboTargetController } from './coupon-combo-target/controllers/c
     CouponController,
     CouponProductTargetController,
     CouponComboTargetController,
-    CouponUsageController,  // 🔥 faltaba registrar
+    CouponUsageController, // 🔥 faltaba registrar
   ],
   providers: [
     CouponService,
@@ -43,7 +43,7 @@ import { CouponComboTargetController } from './coupon-combo-target/controllers/c
   ],
   exports: [
     CouponService,
-    CouponUsageService,  // 🔥 exportado para que órdenes lo consuma
+    CouponUsageService, // 🔥 exportado para que órdenes lo consuma
   ],
 })
 export class CouponsModule {}

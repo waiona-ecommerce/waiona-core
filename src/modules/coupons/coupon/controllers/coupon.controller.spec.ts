@@ -10,14 +10,28 @@ describe('CouponController', () => {
   let controller: CouponController;
   let service: jest.Mocked<CouponService>;
 
-  const mockService    = () => ({ create: jest.fn(), findAll: jest.fn(), findOne: jest.fn(), update: jest.fn(), remove: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    create: jest.fn(),
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
   const mockResponse = (overrides = {}) => ({
-    id: 1, code: 'DESCUENTO10', value: 10, isPercentage: true, isGlobal: true,
-    usageLimit: 100, usageCount: 0, status: CouponStatus.ACTIVE,
-    createdAt: new Date(), updatedAt: new Date(), ...overrides,
+    id: 1,
+    code: 'DESCUENTO10',
+    value: 10,
+    isPercentage: true,
+    isGlobal: true,
+    usageLimit: 100,
+    usageCount: 0,
+    status: CouponStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
   });
 
   beforeEach(async () => {
@@ -28,12 +42,14 @@ describe('CouponController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<CouponController>(CouponController);
-    service    = module.get(CouponService);
+    service = module.get(CouponService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -41,9 +57,14 @@ describe('CouponController', () => {
   it('should be defined', () => expect(controller).toBeDefined());
 
   it('create should delegate to service', async () => {
-    const dto = { code: 'DESCUENTO10', value: 10, isPercentage: true, isGlobal: true };
+    const dto = {
+      code: 'DESCUENTO10',
+      value: 10,
+      isPercentage: true,
+      isGlobal: true,
+    };
     service.create.mockResolvedValue(mockResponse() as any);
-    const result = await controller.create(dto as any);
+    const result = await controller.create(dto);
     expect(service.create).toHaveBeenCalledWith(dto);
     expect(result.code).toBe('DESCUENTO10');
   });
@@ -52,7 +73,7 @@ describe('CouponController', () => {
     const paginated = { data: [mockResponse()], total: 1, page: 1, limit: 20 };
     service.findAll.mockResolvedValue(paginated as any);
 
-    const result = await controller.findAll({ page: 1, limit: 20 } as any);
+    const result = await controller.findAll({ page: 1, limit: 20 });
 
     expect(service.findAll).toHaveBeenCalledWith(1, 20);
     expect(result.data).toHaveLength(1);
@@ -67,7 +88,7 @@ describe('CouponController', () => {
 
   it('update should delegate to service', async () => {
     service.update.mockResolvedValue(mockResponse({ usageLimit: 200 }) as any);
-    const result = await controller.update(1, { usageLimit: 200 } as any);
+    const result = await controller.update(1, { usageLimit: 200 });
     expect(service.update).toHaveBeenCalledWith(1, { usageLimit: 200 });
     expect(result.usageLimit).toBe(200);
   });

@@ -1,4 +1,11 @@
-import { IsNumber, IsBoolean, IsOptional, IsArray, Min, ValidateNested } from 'class-validator';
+import {
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  IsArray,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class TaxPreviewDto {
@@ -11,7 +18,6 @@ export class TaxPreviewDto {
 }
 
 export class CalculatePreviewDto {
-
   // ==========================
   // Precio base
   // ==========================

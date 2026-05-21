@@ -9,10 +9,22 @@ describe('ProductImageController', () => {
   let controller: ProductImageController;
   let service: jest.Mocked<ProductImageService>;
 
-  const mockService = () => ({ create: jest.fn(), findByProduct: jest.fn(), findOne: jest.fn(), update: jest.fn(), remove: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    create: jest.fn(),
+    findByProduct: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
-  const mockResponse   = (overrides = {}) => ({ id: 1, productId: 1, url: 'https://img.com/1.jpg', position: 1, ...overrides });
+  const mockResponse = (overrides = {}) => ({
+    id: 1,
+    productId: 1,
+    url: 'https://img.com/1.jpg',
+    position: 1,
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,12 +34,14 @@ describe('ProductImageController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<ProductImageController>(ProductImageController);
-    service    = module.get(ProductImageService);
+    service = module.get(ProductImageService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -37,7 +51,7 @@ describe('ProductImageController', () => {
   it('create should delegate to service', async () => {
     const dto = { productId: 1, url: 'https://img.com/1.jpg', position: 1 };
     service.create.mockResolvedValue(mockResponse() as any);
-    const result = await controller.create(dto as any);
+    const result = await controller.create(dto);
     expect(service.create).toHaveBeenCalledWith(dto);
     expect(result).toBeDefined();
   });
@@ -58,7 +72,7 @@ describe('ProductImageController', () => {
 
   it('update should delegate to service', async () => {
     service.update.mockResolvedValue(mockResponse({ position: 2 }) as any);
-    const result = await controller.update(1, { position: 2 } as any);
+    const result = await controller.update(1, { position: 2 });
     expect(service.update).toHaveBeenCalledWith(1, { position: 2 });
     expect(result.position).toBe(2);
   });

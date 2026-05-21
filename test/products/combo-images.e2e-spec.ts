@@ -30,12 +30,19 @@ describe('ComboImages (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [ComboImageEntity, ComboEntity, ComboItemEntity, ProductEntity, ProductImageEntity, CategoryEntity],
+            entities: [
+              ComboImageEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ProductEntity,
+              ProductImageEntity,
+              CategoryEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
@@ -45,32 +52,46 @@ describe('ComboImages (e2e)', () => {
       controllers: [ComboImageController],
       providers: [ComboImageService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     const category = await dataSource.getRepository(CategoryEntity).save({
-      name: 'Combos', isActive: true,
+      name: 'Combos',
+      isActive: true,
     });
     const product = await dataSource.getRepository(ProductEntity).save({
-      sku: 'CIMG-PROD-001', name: 'Coca Cola', description: 'Gaseosa',
-      isActive: true, categoryId: category.id, measurementUnit: ProductMeasurementUnit.UNIT,
+      sku: 'CIMG-PROD-001',
+      name: 'Coca Cola',
+      description: 'Gaseosa',
+      isActive: true,
+      categoryId: category.id,
+      measurementUnit: ProductMeasurementUnit.UNIT,
     });
     const combo = await dataSource.getRepository(ComboEntity).save({
-      name: 'Combo Coca x3', description: 'Tres Cocas', isActive: true, categoryId: category.id,
+      name: 'Combo Coca x3',
+      description: 'Tres Cocas',
+      isActive: true,
+      categoryId: category.id,
     });
     await dataSource.getRepository(ComboItemEntity).save({
-      comboId: combo.id, productId: product.id, quantity: 3,
+      comboId: combo.id,
+      productId: product.id,
+      quantity: 3,
     });
     comboId = combo.id;
   }, 30000);
@@ -136,9 +157,7 @@ describe('ComboImages (e2e)', () => {
   });
 
   it('GET /combo-images/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/combo-images/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/combo-images/999999').expect(404);
   });
 
   // -------------------------

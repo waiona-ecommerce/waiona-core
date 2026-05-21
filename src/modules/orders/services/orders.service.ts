@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -21,6 +22,7 @@ import { UserEntity } from 'src/modules/users/entities/user.entity';
 
 import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
 import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
+import { MailService } from 'src/modules/mail/services/mail.service';
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
@@ -30,6 +32,7 @@ import { DeliveryType } from '../enums/delivery-type.enum';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
 
   constructor(
     @InjectRepository(OrderEntity)
@@ -61,6 +64,7 @@ export class OrdersService {
 
     private readonly stockItemsService: StockItemsService,
     private readonly calculationService: CalculationService,
+    private readonly mailService: MailService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -79,10 +83,14 @@ export class OrdersService {
     // 1. Validar items
     for (const item of dto.items) {
       if (!item.productId && !item.comboId) {
-        throw new BadRequestException('Each item must have a productId or comboId');
+        throw new BadRequestException(
+          'Each item must have a productId or comboId',
+        );
       }
       if (item.productId && item.comboId) {
-        throw new BadRequestException('Each item must have either productId or comboId, not both');
+        throw new BadRequestException(
+          'Each item must have either productId or comboId, not both',
+        );
       }
     }
 
@@ -93,19 +101,30 @@ export class OrdersService {
 
     // 3. Calcular precios, validar stock y cupón ANTES de la transacción
     const orderItems: OrderItemEntity[] = [];
-    const stockReservations: { productId: number; locationId: number; quantity: number }[] = [];
+    const stockReservations: {
+      productId: number;
+      locationId: number;
+      quantity: number;
+    }[] = [];
     let subtotal = 0;
-    const couponItems: Array<{ productId?: number; comboId?: number; subtotal: number }> = [];
+    const couponItems: Array<{
+      productId?: number;
+      comboId?: number;
+      subtotal: number;
+    }> = [];
 
     for (const item of dto.items) {
-
       if (item.productId) {
         const product = await this.productRepo.findOne({
           where: { id: item.productId },
         });
-        if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
+        if (!product)
+          throw new NotFoundException(`Product ${item.productId} not found`);
 
-        const stockItem = await this.findAvailableStockItem(item.productId, item.quantity);
+        const stockItem = await this.findAvailableStockItem(
+          item.productId,
+          item.quantity,
+        );
 
         const breakdown = await this.calculationService.calculateProduct({
           productId: item.productId,
@@ -115,29 +134,33 @@ export class OrdersService {
 
         const orderItem = this.orderItemRepo.create({
           product,
-          quantity:   item.quantity,
-          unitPrice:  breakdown.unitPrice,
+          quantity: item.quantity,
+          unitPrice: breakdown.unitPrice,
           finalPrice: itemSubtotal,
           locationId: stockItem.locationId,
         });
 
         orderItems.push(orderItem);
         stockReservations.push({
-          productId:  item.productId,
+          productId: item.productId,
           locationId: stockItem.locationId,
-          quantity:   item.quantity,
+          quantity: item.quantity,
         });
         subtotal += itemSubtotal;
         couponItems.push({ productId: item.productId, subtotal: itemSubtotal });
-
       } else if (item.comboId) {
         const combo = await this.comboRepo.findOne({
           where: { id: item.comboId },
           relations: ['items'],
         });
-        if (!combo) throw new NotFoundException(`Combo ${item.comboId} not found`);
+        if (!combo)
+          throw new NotFoundException(`Combo ${item.comboId} not found`);
 
-        const comboReservations: { productId: number; locationId: number; quantity: number }[] = [];
+        const comboReservations: {
+          productId: number;
+          locationId: number;
+          quantity: number;
+        }[] = [];
 
         for (const comboItem of combo.items) {
           const stockItem = await this.findAvailableStockItem(
@@ -145,9 +168,9 @@ export class OrdersService {
             item.quantity * comboItem.quantity,
           );
           const reservation = {
-            productId:  comboItem.productId,
+            productId: comboItem.productId,
             locationId: stockItem.locationId,
-            quantity:   item.quantity * comboItem.quantity,
+            quantity: item.quantity * comboItem.quantity,
           };
           comboReservations.push(reservation);
           stockReservations.push(reservation);
@@ -161,9 +184,9 @@ export class OrdersService {
 
         const orderItem = this.orderItemRepo.create({
           combo,
-          quantity:          item.quantity,
-          unitPrice:         breakdown.unitPrice,
-          finalPrice:        itemSubtotal,
+          quantity: item.quantity,
+          unitPrice: breakdown.unitPrice,
+          finalPrice: itemSubtotal,
           comboReservations,
         });
 
@@ -180,8 +203,7 @@ export class OrdersService {
     const total = Math.max(0, subtotal - couponDiscount);
 
     // 4. 🔥 Transacción — guardar orden + reservar stock + registrar cupón de forma atómica
-    const saved = await this.dataSource.transaction(async manager => {
-
+    const saved = await this.dataSource.transaction(async (manager) => {
       // pessimistic lock sobre el cupón — previene race condition (TOCTOU):
       // dos requests concurrentes con el mismo código esperan el lock en lugar de ambas pasar
       let lockedCoupon: CouponEntity | null = null;
@@ -198,30 +220,36 @@ export class OrdersService {
           throw new BadRequestException('Coupon is not active yet');
         if (lockedCoupon.endsAt && now > lockedCoupon.endsAt)
           throw new BadRequestException('Coupon has expired');
-        if (lockedCoupon.usageLimit && lockedCoupon.usageCount >= lockedCoupon.usageLimit)
+        if (
+          lockedCoupon.usageLimit &&
+          lockedCoupon.usageCount >= lockedCoupon.usageLimit
+        )
           throw new BadRequestException('Coupon has reached its usage limit');
 
         const alreadyUsed = await manager.findOne(CouponUsageEntity, {
           where: { couponId: lockedCoupon.id, userId: user.id },
         });
-        if (alreadyUsed) throw new ConflictException('Coupon already used by this user');
+        if (alreadyUsed)
+          throw new ConflictException('Coupon already used by this user');
 
         if (couponDiscount === 0) {
-          throw new BadRequestException('Coupon does not apply to any item in this order');
+          throw new BadRequestException(
+            'Coupon does not apply to any item in this order',
+          );
         }
       }
 
       // guardar orden
       const order = manager.create(OrderEntity, {
         user,
-        items:          orderItems,
-        status:         OrderStatus.PENDING,
-        deliveryType:   dto.deliveryType,
-        address:        dto.address ?? null,
-        notes:          dto.notes ?? null,
+        items: orderItems,
+        status: OrderStatus.PENDING,
+        deliveryType: dto.deliveryType,
+        address: dto.address ?? null,
+        notes: dto.notes ?? null,
         subtotal,
         couponDiscount: couponDiscount > 0 ? couponDiscount : null,
-        coupon:         lockedCoupon ?? null,
+        coupon: lockedCoupon ?? null,
         total,
       });
 
@@ -243,9 +271,9 @@ export class OrdersService {
         await manager.save(CouponEntity, lockedCoupon);
 
         const usage = manager.create(CouponUsageEntity, {
-          couponId:  lockedCoupon.id,
-          userId:    user.id,
-          orderId:   savedOrder.id,
+          couponId: lockedCoupon.id,
+          userId: user.id,
+          orderId: savedOrder.id,
           appliedAt: now,
         });
         await manager.save(CouponUsageEntity, usage);
@@ -261,14 +289,22 @@ export class OrdersService {
   // FIND ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<OrderResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<OrderResponseDto>> {
     const [orders, total] = await this.orderRepo.findAndCount({
       relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(orders.map(o => new OrderResponseDto(o)), total, page, limit);
+    return new PaginatedResponseDto(
+      orders.map((o) => new OrderResponseDto(o)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -294,15 +330,18 @@ export class OrdersService {
       relations: ['user', 'items', 'items.product', 'items.combo', 'coupon'],
       order: { createdAt: 'DESC' },
     });
-    return orders.map(o => new OrderResponseDto(o));
+    return orders.map((o) => new OrderResponseDto(o));
   }
 
   // ==========================
   // UPDATE STATUS
   // ==========================
 
-  async updateStatus(id: number, dto: UpdateOrderStatusDto): Promise<OrderResponseDto> {
-    const saved = await this.dataSource.transaction(async manager => {
+  async updateStatus(
+    id: number,
+    dto: UpdateOrderStatusDto,
+  ): Promise<OrderResponseDto> {
+    const saved = await this.dataSource.transaction(async (manager) => {
       // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
       const locked = await manager.findOne(OrderEntity, {
         where: { id },
@@ -330,6 +369,10 @@ export class OrdersService {
       return manager.save(OrderEntity, order);
     });
 
+    this.sendStatusEmail(saved, dto.status).catch((err) =>
+      this.logger.error('Failed to send order status email', err),
+    );
+
     return new OrderResponseDto(saved);
   }
 
@@ -337,13 +380,16 @@ export class OrdersService {
   // PRIVATE — validar transición
   // ==========================
 
-  private validateStatusTransition(current: OrderStatus, next: OrderStatus): void {
+  private validateStatusTransition(
+    current: OrderStatus,
+    next: OrderStatus,
+  ): void {
     const allowed: Record<OrderStatus, OrderStatus[]> = {
-      [OrderStatus.PENDING]:    [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-      [OrderStatus.CONFIRMED]:  [OrderStatus.DISPATCHED, OrderStatus.CANCELLED],
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.DISPATCHED, OrderStatus.CANCELLED],
       [OrderStatus.DISPATCHED]: [OrderStatus.DELIVERED],
-      [OrderStatus.DELIVERED]:  [],
-      [OrderStatus.CANCELLED]:  [],
+      [OrderStatus.DELIVERED]: [],
+      [OrderStatus.CANCELLED]: [],
     };
 
     if (!allowed[current].includes(next)) {
@@ -357,7 +403,10 @@ export class OrdersService {
   // RELEASE STOCK (llamado desde pagos al cancelar por webhook)
   // ==========================
 
-  async releaseStockForOrder(orderId: number, manager?: EntityManager): Promise<void> {
+  async releaseStockForOrder(
+    orderId: number,
+    manager?: EntityManager,
+  ): Promise<void> {
     const execute = async (txManager: EntityManager) => {
       // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
       const locked = await txManager.findOne(OrderEntity, {
@@ -365,7 +414,11 @@ export class OrdersService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) return;
-      if (locked.status !== OrderStatus.PENDING && locked.status !== OrderStatus.CONFIRMED) return;
+      if (
+        locked.status !== OrderStatus.PENDING &&
+        locked.status !== OrderStatus.CONFIRMED
+      )
+        return;
 
       const order = await txManager.findOne(OrderEntity, {
         where: { id: orderId },
@@ -403,7 +456,9 @@ export class OrdersService {
     );
 
     if (best.quantityAvailable < quantity) {
-      throw new BadRequestException(`Insufficient stock for product ${productId}`);
+      throw new BadRequestException(
+        `Insufficient stock for product ${productId}`,
+      );
     }
 
     return best;
@@ -419,7 +474,9 @@ export class OrdersService {
   ): Promise<number> {
     const now = new Date();
 
-    const coupon = await this.couponRepo.findOne({ where: { code: couponCode } });
+    const coupon = await this.couponRepo.findOne({
+      where: { code: couponCode },
+    });
     if (!coupon) return 0;
     if (coupon.startsAt && now < coupon.startsAt) return 0;
     if (coupon.endsAt && now > coupon.endsAt) return 0;
@@ -457,7 +514,10 @@ export class OrdersService {
   // PRIVATE — despachar
   // ==========================
 
-  private async handleDispatch(order: OrderEntity, manager: EntityManager): Promise<void> {
+  private async handleDispatch(
+    order: OrderEntity,
+    manager: EntityManager,
+  ): Promise<void> {
     for (const item of order.items) {
       if (item.product) {
         if (!item.locationId) continue;
@@ -487,7 +547,10 @@ export class OrdersService {
   // PRIVATE — cancelar
   // ==========================
 
-  private async handleCancellation(order: OrderEntity, manager: EntityManager): Promise<void> {
+  private async handleCancellation(
+    order: OrderEntity,
+    manager: EntityManager,
+  ): Promise<void> {
     for (const item of order.items) {
       if (item.product) {
         if (!item.locationId) continue;
@@ -514,10 +577,41 @@ export class OrdersService {
 
     if (order.coupon) {
       const couponRepo = manager.getRepository(CouponEntity);
-      const usageRepo  = manager.getRepository(CouponUsageEntity);
+      const usageRepo = manager.getRepository(CouponUsageEntity);
       order.coupon.usageCount = Math.max(0, order.coupon.usageCount - 1);
       await couponRepo.save(order.coupon);
-      await usageRepo.softDelete({ couponId: order.coupon.id, orderId: order.id });
+      await usageRepo.softDelete({
+        couponId: order.coupon.id,
+        orderId: order.id,
+      });
+    }
+  }
+
+  // ==========================
+  // PRIVATE — notificación por email
+  // ==========================
+
+  private async sendStatusEmail(
+    order: OrderEntity,
+    status: OrderStatus,
+  ): Promise<void> {
+    const user = order.user;
+    if (!user?.email || !user?.profile) return;
+
+    const {
+      email,
+      profile: { name },
+    } = user;
+
+    switch (status) {
+      case OrderStatus.CONFIRMED:
+        return this.mailService.sendOrderConfirmedEmail(email, name, order.id);
+      case OrderStatus.DISPATCHED:
+        return this.mailService.sendOrderDispatchedEmail(email, name, order.id);
+      case OrderStatus.CANCELLED:
+        return this.mailService.sendOrderCancelledEmail(email, name, order.id);
+      case OrderStatus.DELIVERED:
+        return this.mailService.sendOrderDeliveredEmail(email, name, order.id);
     }
   }
 }

@@ -1,18 +1,24 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Patch,
-    Delete,
-    Body,
-    Param,
-    Query,
-    ParseIntPipe,
-    UseGuards,
-    HttpCode,
-    HttpStatus,
-  } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  ParseIntPipe,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ProductService } from '../services/product.service';
 import { CreateProductDto } from '../dto/create-product.dto';
@@ -31,10 +37,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('products')
 export class ProductController {
-
-  constructor(
-    private readonly productService: ProductService,
-  ) {}
+  constructor(private readonly productService: ProductService) {}
 
   // ==========================
   // GET ALL
@@ -42,8 +45,15 @@ export class ProductController {
 
   @Get()
   @ApiOperation({ summary: 'Listar productos paginados' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de productos', type: ProductResponseDto, isArray: true })
-  async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<ProductResponseDto>> {
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de productos',
+    type: ProductResponseDto,
+    isArray: true,
+  })
+  async findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
     return this.productService.findAll(page, limit);
   }
 
@@ -54,7 +64,11 @@ export class ProductController {
   @Get(':id')
   @ApiOperation({ summary: 'Obtener producto por ID' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Producto encontrado', type: ProductResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto encontrado',
+    type: ProductResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   async findById(
     @Param('id', ParseIntPipe) id: number,
@@ -68,12 +82,17 @@ export class ProductController {
 
   @Post()
   @ApiOperation({ summary: 'Crear producto' })
-  @ApiResponse({ status: 201, description: 'Producto creado', type: ProductResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o categoría no encontrada' })
+  @ApiResponse({
+    status: 201,
+    description: 'Producto creado',
+    type: ProductResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o categoría no encontrada',
+  })
   @ApiResponse({ status: 409, description: 'SKU ya existe' })
-  async create(
-    @Body() body: CreateProductDto,
-  ): Promise<ProductResponseDto> {
+  async create(@Body() body: CreateProductDto): Promise<ProductResponseDto> {
     return this.productService.create(body);
   }
 
@@ -84,7 +103,11 @@ export class ProductController {
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar producto (parcial)' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Producto actualizado', type: ProductResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto actualizado',
+    type: ProductResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   async update(
@@ -104,9 +127,7 @@ export class ProductController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Producto eliminado' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  async delete(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  async delete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.productService.delete(id);
   }
 }

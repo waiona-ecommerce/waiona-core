@@ -32,12 +32,18 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   @ApiOperation({ summary: 'Registrar nuevo usuario' })
-  @ApiResponse({ status: 201, description: 'Usuario registrado — se envía email de activación' })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario registrado — se envía email de activación',
+  })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 409, description: 'El email ya existe' })
   async register(@Body() dto: CreateUserDto): Promise<{ message: string }> {
     await this.authService.register(dto);
-    return { message: 'Registration successful — check your email to activate your account' };
+    return {
+      message:
+        'Registration successful — check your email to activate your account',
+    };
   }
 
   // ==========================
@@ -48,7 +54,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Activar cuenta con token' })
   @ApiResponse({ status: 200, description: 'Cuenta activada correctamente' })
-  @ApiResponse({ status: 400, description: 'Token inválido, expirado o ya usado' })
+  @ApiResponse({
+    status: 400,
+    description: 'Token inválido, expirado o ya usado',
+  })
   async activate(@Query('token') token: string): Promise<{ message: string }> {
     await this.authService.activateAccount(token);
     return { message: 'Account activated successfully' };
@@ -63,8 +72,14 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login con email y contraseña' })
-  @ApiResponse({ status: 200, description: 'JWT y datos del usuario autenticado' })
-  @ApiResponse({ status: 401, description: 'Credenciales inválidas o cuenta no activada' })
+  @ApiResponse({
+    status: 200,
+    description: 'JWT y datos del usuario autenticado',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Credenciales inválidas o cuenta no activada',
+  })
   login(@Req() req: Request): { user: UserEntity; access_token: string } {
     const user = req.user as UserEntity;
     return {
@@ -81,11 +96,18 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Solicitar reset de contraseña' })
-  @ApiResponse({ status: 200, description: 'Siempre OK — sin hints sobre si el email existe' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+  @ApiResponse({
+    status: 200,
+    description: 'Siempre OK — sin hints sobre si el email existe',
+  })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
     await this.authService.forgotPassword(dto.email);
     // siempre responder OK — no dar pistas sobre si el email existe
-    return { message: 'If the email exists, you will receive a reset link shortly' };
+    return {
+      message: 'If the email exists, you will receive a reset link shortly',
+    };
   }
 
   // ==========================
@@ -96,9 +118,17 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resetear contraseña con token' })
-  @ApiResponse({ status: 200, description: 'Contraseña actualizada correctamente' })
-  @ApiResponse({ status: 400, description: 'Token inválido, expirado o ya usado' })
-  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada correctamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token inválido, expirado o ya usado',
+  })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
     await this.authService.resetPassword(dto);
     return { message: 'Password reset successfully' };
   }

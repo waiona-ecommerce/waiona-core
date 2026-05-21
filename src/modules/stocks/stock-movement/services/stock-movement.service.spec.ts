@@ -14,13 +14,14 @@ describe('StockMovementService', () => {
 
   const mockRepo = () => ({
     findAndCount: jest.fn(),
-    find:         jest.fn(),
-    findOne:      jest.fn(),
+    find: jest.fn(),
+    findOne: jest.fn(),
   });
 
   const mockMovement = (overrides = {}): StockMovementEntity =>
     ({
-      id: 1, stockItemId: 1,
+      id: 1,
+      stockItemId: 1,
       operationType: StockOperationType.ENTRY,
       stockFlow: StockFlow.INBOUND,
       quantity: 10,
@@ -34,11 +35,14 @@ describe('StockMovementService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StockMovementService,
-        { provide: getRepositoryToken(StockMovementEntity), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(StockMovementEntity),
+          useFactory: mockRepo,
+        },
       ],
     }).compile();
     service = module.get<StockMovementService>(StockMovementService);
-    repo    = module.get(getRepositoryToken(StockMovementEntity));
+    repo = module.get(getRepositoryToken(StockMovementEntity));
   });
 
   afterEach(() => jest.clearAllMocks());

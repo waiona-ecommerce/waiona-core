@@ -17,7 +17,6 @@ import { ProductPricingResponseDto } from '../dto/product-pricing-response.dto';
 
 @Injectable()
 export class ProductPricingService {
-
   constructor(
     @InjectRepository(ProductPricingEntity)
     private repo: Repository<ProductPricingEntity>,
@@ -30,8 +29,9 @@ export class ProductPricingService {
   // CREATE
   // ==========================
 
-  async create(dto: CreateProductPricingDto): Promise<ProductPricingResponseDto> {
-
+  async create(
+    dto: CreateProductPricingDto,
+  ): Promise<ProductPricingResponseDto> {
     const existing = await this.repo.findOne({
       where: { productId: dto.productId },
     });
@@ -40,9 +40,7 @@ export class ProductPricingService {
       throw new BadRequestException('Product already has pricing');
     }
 
-    const margin = dto.marginId
-      ? await this.resolveMargin(dto.marginId)
-      : null;
+    const margin = dto.marginId ? await this.resolveMargin(dto.marginId) : null;
 
     const entity = this.repo.create({
       productId: dto.productId,
@@ -55,7 +53,8 @@ export class ProductPricingService {
       const saved = await this.repo.save(entity);
       return new ProductPricingResponseDto(saved);
     } catch (err: any) {
-      if (err.code === PG_UNIQUE_VIOLATION) throw new BadRequestException('Product already has pricing');
+      if (err.code === PG_UNIQUE_VIOLATION)
+        throw new BadRequestException('Product already has pricing');
       throw err;
     }
   }
@@ -64,8 +63,10 @@ export class ProductPricingService {
   // UPDATE
   // ==========================
 
-  async update(id: number, dto: UpdateProductPricingDto): Promise<ProductPricingResponseDto> {
-
+  async update(
+    id: number,
+    dto: UpdateProductPricingDto,
+  ): Promise<ProductPricingResponseDto> {
     const entity = await this.findOneEntity(id);
 
     if (dto.marginId !== undefined) {
@@ -87,13 +88,21 @@ export class ProductPricingService {
   // FIND ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ProductPricingResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<ProductPricingResponseDto>> {
     const [entities, total] = await this.repo.findAndCount({
       relations: ['margin'],
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(entities.map((e) => new ProductPricingResponseDto(e)), total, page, limit);
+    return new PaginatedResponseDto(
+      entities.map((e) => new ProductPricingResponseDto(e)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

@@ -8,7 +8,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { StockWriteOffService } from '../services/stock-writeoff.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
@@ -26,10 +32,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('stock-write-offs')
 export class StockWriteOffController {
-
-  constructor(
-    private readonly stockWriteOffService: StockWriteOffService,
-  ) {}
+  constructor(private readonly stockWriteOffService: StockWriteOffService) {}
 
   @ApiOperation({ summary: 'List all stock write-offs (paginated)' })
   @ApiResponse({ status: 200, description: 'Paginated list of write-offs' })
@@ -59,7 +62,9 @@ export class StockWriteOffController {
     return this.stockWriteOffService.findById(id);
   }
 
-  @ApiOperation({ summary: 'Update write-off metadata (reason, description, attachments)' })
+  @ApiOperation({
+    summary: 'Update write-off metadata (reason, description, attachments)',
+  })
   @ApiResponse({ status: 200, type: StockWriteOffResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
   @ApiParam({ name: 'id', type: Number })

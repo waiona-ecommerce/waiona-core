@@ -24,7 +24,12 @@ describe('SeedService', () => {
   });
 
   const mockRole = (type: RoleType): RoleEntity =>
-    ({ id: 1, type, createdAt: new Date(), updatedAt: new Date() }) as RoleEntity;
+    ({
+      id: 1,
+      type,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }) as RoleEntity;
 
   const mockUser = (): UserEntity =>
     ({
@@ -86,8 +91,12 @@ describe('SeedService', () => {
 
       await service.onApplicationBootstrap();
 
-      expect(roleRepo.create).toHaveBeenCalledTimes(Object.values(RoleType).length);
-      expect(roleRepo.save).toHaveBeenCalledTimes(Object.values(RoleType).length);
+      expect(roleRepo.create).toHaveBeenCalledTimes(
+        Object.values(RoleType).length,
+      );
+      expect(roleRepo.save).toHaveBeenCalledTimes(
+        Object.values(RoleType).length,
+      );
     });
 
     it('should skip roles that already exist', async () => {

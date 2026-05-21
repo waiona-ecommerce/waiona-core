@@ -30,8 +30,8 @@ describe('Categories (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
@@ -45,20 +45,27 @@ describe('Categories (e2e)', () => {
       controllers: [CategoryController],
       providers: [
         CategoryService,
-        { provide: getRepositoryToken(ProductEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(ComboEntity),   useFactory: mockCountRepo },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useFactory: mockCountRepo,
+        },
+        { provide: getRepositoryToken(ComboEntity), useFactory: mockCountRepo },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -76,7 +83,11 @@ describe('Categories (e2e)', () => {
   it('POST /categories → 201 con datos válidos', async () => {
     const res = await request(app.getHttpServer())
       .post('/categories')
-      .send({ name: 'Bebidas', description: 'Bebidas en general', isActive: true })
+      .send({
+        name: 'Bebidas',
+        description: 'Bebidas en general',
+        isActive: true,
+      })
       .expect(201);
 
     expect(res.body.id).toBeDefined();
@@ -86,10 +97,7 @@ describe('Categories (e2e)', () => {
   });
 
   it('POST /categories → 400 con datos inválidos', async () => {
-    await request(app.getHttpServer())
-      .post('/categories')
-      .send({})
-      .expect(400);
+    await request(app.getHttpServer()).post('/categories').send({}).expect(400);
   });
 
   it('POST /categories → 201 con categoría padre', async () => {
@@ -151,9 +159,7 @@ describe('Categories (e2e)', () => {
   });
 
   it('GET /categories/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/categories/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/categories/999999').expect(404);
   });
 
   // -------------------------
@@ -200,8 +206,6 @@ describe('Categories (e2e)', () => {
   });
 
   it('DELETE /categories/:id → 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .delete('/categories/999999')
-      .expect(404);
+    await request(app.getHttpServer()).delete('/categories/999999').expect(404);
   });
 });

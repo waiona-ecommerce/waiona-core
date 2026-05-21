@@ -47,13 +47,14 @@ describe('TaxTypesController', () => {
 
   describe('getTaxTypes', () => {
     it('should return all tax types', async () => {
-      const mockResponse = [
-        { id: 1, code: 'IVA', name: 'Impuesto' },
-      ];
+      const mockResponse = [{ id: 1, code: 'IVA', name: 'Impuesto' }];
 
       service.findAll.mockResolvedValue(mockResponse as any);
 
-      const result = await controller.getTaxTypes({ page: 1, limit: 20 } as any);
+      const result = await controller.getTaxTypes({
+        page: 1,
+        limit: 20,
+      });
 
       expect(result).toEqual(mockResponse);
       expect(service.findAll).toHaveBeenCalledTimes(1);
@@ -85,7 +86,7 @@ describe('TaxTypesController', () => {
 
       service.create.mockResolvedValue(mockResponse as any);
 
-      const result = await controller.createTaxType(dto as any);
+      const result = await controller.createTaxType(dto);
 
       expect(result).toEqual(mockResponse);
       expect(service.create).toHaveBeenCalledWith(dto);
@@ -104,7 +105,7 @@ describe('TaxTypesController', () => {
 
       service.update.mockResolvedValue(mockResponse as any);
 
-      const result = await controller.updateTaxType(1, dto as any);
+      const result = await controller.updateTaxType(1, dto);
 
       expect(result).toEqual(mockResponse);
       expect(service.update).toHaveBeenCalledWith(1, dto);

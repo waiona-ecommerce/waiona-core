@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { UserEntity } from 'src/modules/users/entities/user.entity';
@@ -14,7 +8,6 @@ import { TokenType } from '../enum/token-type.enum';
 @Index(['token'], { unique: true })
 @Index(['userId', 'type'])
 export class TokenEntity extends BaseEntity {
-
   @Column({ type: 'varchar', length: 255, nullable: false })
   token: string;
 

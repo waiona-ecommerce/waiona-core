@@ -7,7 +7,6 @@ import { ProductEntity } from '../../../products/product/entities/product.entity
 @Index(['discountId'])
 @Index(['productId'])
 export class DiscountProductTargetEntity extends BaseEntity {
-
   // ==========================
   // FK discount
   // ==========================

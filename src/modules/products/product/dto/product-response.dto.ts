@@ -1,7 +1,6 @@
 import { ProductEntity } from '../entities/product.entity';
 
 export class ProductResponseDto {
-
   id: number;
   sku: string;
   name: string;

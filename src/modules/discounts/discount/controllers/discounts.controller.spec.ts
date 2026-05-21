@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { DiscountsController } from '../../discount/controllers/discounts.controller';
@@ -11,13 +11,26 @@ describe('DiscountsController', () => {
   let controller: DiscountsController;
   let service: jest.Mocked<DiscountsService>;
 
-  const mockService    = () => ({ create: jest.fn(), findAll: jest.fn(), findOne: jest.fn(), update: jest.fn(), remove: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    create: jest.fn(),
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
   const mockResponse = (overrides = {}) =>
-    ({ id: 1, name: 'Promo 10%', value: 10, isPercentage: true,
-       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as DiscountResponseDto;
+    ({
+      id: 1,
+      name: 'Promo 10%',
+      value: 10,
+      isPercentage: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    }) as unknown as DiscountResponseDto;
 
   const mockPaginated = (items: DiscountResponseDto[] = [mockResponse()]) =>
     new PaginatedResponseDto(items, items.length, 1, 20);
@@ -30,12 +43,14 @@ describe('DiscountsController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<DiscountsController>(DiscountsController);
-    service    = module.get(DiscountsService);
+    service = module.get(DiscountsService);
   });
 
   afterEach(() => jest.clearAllMocks());

@@ -34,15 +34,19 @@ describe('ComboPricing (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
-              ComboPricingEntity, MarginEntity,
-              ComboEntity, ComboItemEntity, ComboImageEntity,
-              ProductEntity, ProductImageEntity,
+              ComboPricingEntity,
+              MarginEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
+              ProductEntity,
+              ProductImageEntity,
               CategoryEntity,
             ],
             synchronize: true,
@@ -54,16 +58,20 @@ describe('ComboPricing (e2e)', () => {
       controllers: [ComboPricingController],
       providers: [ComboPricingService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -121,7 +129,12 @@ describe('ComboPricing (e2e)', () => {
   it('POST /combo-pricing -> 201 con margen', async () => {
     const res = await request(app.getHttpServer())
       .post('/combo-pricing')
-      .send({ comboId: combo2Id, currency: CurrencyCode.ARS, unitPrice: 1500, marginId })
+      .send({
+        comboId: combo2Id,
+        currency: CurrencyCode.ARS,
+        unitPrice: 1500,
+        marginId,
+      })
       .expect(201);
 
     expect(res.body.marginId).toBe(marginId);
@@ -155,7 +168,12 @@ describe('ComboPricing (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/combo-pricing')
-      .send({ comboId: extra.id, currency: CurrencyCode.ARS, unitPrice: 1000, marginId: 999999 })
+      .send({
+        comboId: extra.id,
+        currency: CurrencyCode.ARS,
+        unitPrice: 1000,
+        marginId: 999999,
+      })
       .expect(404);
   });
 
@@ -201,9 +219,7 @@ describe('ComboPricing (e2e)', () => {
   });
 
   it('GET /combo-pricing/:id -> 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/combo-pricing/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/combo-pricing/999999').expect(404);
   });
 
   // -------------------------
@@ -289,7 +305,11 @@ describe('ComboPricing (e2e)', () => {
 
     const createRes = await request(app.getHttpServer())
       .post('/combo-pricing')
-      .send({ comboId: toDelete.id, currency: CurrencyCode.ARS, unitPrice: 100 })
+      .send({
+        comboId: toDelete.id,
+        currency: CurrencyCode.ARS,
+        unitPrice: 100,
+      })
       .expect(201);
 
     await request(app.getHttpServer())

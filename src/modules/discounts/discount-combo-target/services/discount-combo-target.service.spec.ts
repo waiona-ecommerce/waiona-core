@@ -10,24 +10,45 @@ describe('DiscountComboTargetService', () => {
   let repo: any;
   let discountRepo: any;
 
-  const mockRepo         = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), softDelete: jest.fn() });
+  const mockRepo = () => ({
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
+  });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
   const mockDiscount = () => ({ id: 1, name: 'Promo', deletedAt: null });
-  const mockTarget   = (overrides = {}): DiscountComboTargetEntity =>
-    ({ id: 1, discountId: 1, comboId: 1, deletedAt: null,
-       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as DiscountComboTargetEntity;
+  const mockTarget = (overrides = {}): DiscountComboTargetEntity =>
+    ({
+      id: 1,
+      discountId: 1,
+      comboId: 1,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    }) as unknown as DiscountComboTargetEntity;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscountComboTargetService,
-        { provide: getRepositoryToken(DiscountComboTargetEntity), useFactory: mockRepo         },
-        { provide: getRepositoryToken(DiscountEntity),            useFactory: mockDiscountRepo },
+        {
+          provide: getRepositoryToken(DiscountComboTargetEntity),
+          useFactory: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(DiscountEntity),
+          useFactory: mockDiscountRepo,
+        },
       ],
     }).compile();
-    service      = module.get<DiscountComboTargetService>(DiscountComboTargetService);
-    repo         = module.get(getRepositoryToken(DiscountComboTargetEntity));
+    service = module.get<DiscountComboTargetService>(
+      DiscountComboTargetService,
+    );
+    repo = module.get(getRepositoryToken(DiscountComboTargetEntity));
     discountRepo = module.get(getRepositoryToken(DiscountEntity));
   });
 
@@ -38,23 +59,27 @@ describe('DiscountComboTargetService', () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne
-        .mockResolvedValueOnce(null)  // validateUniqueTarget
+        .mockResolvedValueOnce(null) // validateUniqueTarget
         .mockResolvedValueOnce(null); // validateComboHasNoActiveDiscount
       repo.create.mockReturnValue(target);
       repo.save.mockResolvedValue(target);
-      const result = await service.create(1, { comboId: 1 } as any);
+      const result = await service.create(1, { comboId: 1 });
       expect(result.comboId).toBe(1);
     });
 
     it('should throw NotFoundException if discount not found', async () => {
       discountRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(999, { comboId: 1 } as any)).rejects.toThrow(NotFoundException);
+      await expect(service.create(999, { comboId: 1 } as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException if target already exists for this discount', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValueOnce(mockTarget());
-      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException if combo already has another active discount', async () => {
@@ -62,7 +87,9 @@ describe('DiscountComboTargetService', () => {
       repo.findOne
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(mockTarget());
-      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

@@ -6,7 +6,6 @@ import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
 
 @Entity('order_items')
 export class OrderItemEntity extends BaseEntity {
-
   // ==========================
   // Orden
   // ==========================
@@ -14,7 +13,7 @@ export class OrderItemEntity extends BaseEntity {
   @Column({ name: 'order_id', type: 'int', nullable: false })
   orderId: number;
 
-  @ManyToOne(() => OrderEntity, order => order.items, { onDelete: 'CASCADE' })
+  @ManyToOne(() => OrderEntity, (order) => order.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'order_id' })
   order: OrderEntity;
 
@@ -57,8 +56,15 @@ export class OrderItemEntity extends BaseEntity {
   // para que dispatch/release usen la ubicación exacta donde se reservó
   // ==========================
 
-  @Column({ name: 'combo_reservations', type: 'jsonb', nullable: true, default: null })
-  comboReservations?: { productId: number; locationId: number; quantity: number }[] | null;
+  @Column({
+    name: 'combo_reservations',
+    type: 'jsonb',
+    nullable: true,
+    default: null,
+  })
+  comboReservations?:
+    | { productId: number; locationId: number; quantity: number }[]
+    | null;
 
   // ==========================
   // Precio snapshot al momento de la compra
@@ -68,7 +74,7 @@ export class OrderItemEntity extends BaseEntity {
     name: 'unit_price',
     precision: 12,
     scale: 2,
-    transformer: { to: v => v, from: v => Number(v) },
+    transformer: { to: (v) => v, from: (v) => Number(v) },
   })
   unitPrice: number;
 
@@ -76,7 +82,7 @@ export class OrderItemEntity extends BaseEntity {
     name: 'final_price',
     precision: 12,
     scale: 2,
-    transformer: { to: v => v, from: v => Number(v) },
+    transformer: { to: (v) => v, from: (v) => Number(v) },
   })
   finalPrice: number;
 }

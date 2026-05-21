@@ -9,11 +9,27 @@ describe('CategoryController', () => {
   let controller: CategoryController;
   let service: jest.Mocked<CategoryService>;
 
-  const mockService = () => ({ findAll: jest.fn(), findById: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), getTree: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    findAll: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    getTree: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
-  const mockResponse = (overrides = {}) => ({ id: 1, name: 'Bebidas', description: 'Bebidas', isActive: true, parentId: null, createdAt: new Date(), updatedAt: new Date(), ...overrides });
+  const mockResponse = (overrides = {}) => ({
+    id: 1,
+    name: 'Bebidas',
+    description: 'Bebidas',
+    isActive: true,
+    parentId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -23,12 +39,14 @@ describe('CategoryController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<CategoryController>(CategoryController);
-    service    = module.get(CategoryService);
+    service = module.get(CategoryService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -38,7 +56,7 @@ describe('CategoryController', () => {
   describe('findAll', () => {
     it('should return all categories', async () => {
       service.findAll.mockResolvedValue([mockResponse() as any]);
-      const result = await controller.findAll({} as any);
+      const result = await controller.findAll({});
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });
@@ -46,7 +64,9 @@ describe('CategoryController', () => {
 
   describe('getTree', () => {
     it('should return tree', async () => {
-      service.getTree.mockResolvedValue([{ id: 1, name: 'Bebidas', children: [] } as any]);
+      service.getTree.mockResolvedValue([
+        { id: 1, name: 'Bebidas', children: [] },
+      ]);
       const result = await controller.getTree();
       expect(service.getTree).toHaveBeenCalled();
       expect(result).toHaveLength(1);
@@ -55,7 +75,7 @@ describe('CategoryController', () => {
 
   describe('findById', () => {
     it('should return a category by id', async () => {
-      service.findById.mockResolvedValue(mockResponse() as any);
+      service.findById.mockResolvedValue(mockResponse());
       const result = await controller.findById(1);
       expect(service.findById).toHaveBeenCalledWith(1);
       expect(result.id).toBe(1);
@@ -65,8 +85,8 @@ describe('CategoryController', () => {
   describe('create', () => {
     it('should create a category', async () => {
       const dto = { name: 'Bebidas', isActive: true };
-      service.create.mockResolvedValue(mockResponse() as any);
-      const result = await controller.create(dto as any);
+      service.create.mockResolvedValue(mockResponse());
+      const result = await controller.create(dto);
       expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toBeDefined();
     });
@@ -75,8 +95,8 @@ describe('CategoryController', () => {
   describe('update', () => {
     it('should update a category', async () => {
       const dto = { name: 'Gaseosas' };
-      service.update.mockResolvedValue(mockResponse({ name: 'Gaseosas' }) as any);
-      const result = await controller.update(1, dto as any);
+      service.update.mockResolvedValue(mockResponse({ name: 'Gaseosas' }));
+      const result = await controller.update(1, dto);
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result.name).toBe('Gaseosas');
     });

@@ -10,7 +10,6 @@ import {
 import { Transform } from 'class-transformer';
 
 export class CreateProductImageDto {
-
   @IsNumber()
   @Min(1)
   productId: number;

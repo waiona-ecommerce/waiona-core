@@ -10,13 +10,24 @@ describe('CouponUsageController', () => {
   let controller: CouponUsageController;
   let service: jest.Mocked<CouponUsageService>;
 
-  const mockService    = () => ({ create: jest.fn(), findAll: jest.fn(), findByCoupon: jest.fn(), findByUser: jest.fn() });
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockService = () => ({
+    create: jest.fn(),
+    findAll: jest.fn(),
+    findByCoupon: jest.fn(),
+    findByUser: jest.fn(),
+  });
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
   const mockResponse = (overrides = {}) => ({
-    id: 1, couponId: 1, orderId: 1, userId: 1, appliedAt: new Date(),
-    createdAt: new Date(), updatedAt: new Date(), ...overrides,
+    id: 1,
+    couponId: 1,
+    orderId: 1,
+    userId: 1,
+    appliedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
   });
 
   const mockReq = (sub = 1, role = RoleType.ADMIN) =>
@@ -30,12 +41,14 @@ describe('CouponUsageController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue(mockAuthGuard)
-      .overrideGuard(RolesGuard).useValue(mockRolesGuard)
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue(mockAuthGuard)
+      .overrideGuard(RolesGuard)
+      .useValue(mockRolesGuard)
       .compile();
 
     controller = module.get<CouponUsageController>(CouponUsageController);
-    service    = module.get(CouponUsageService);
+    service = module.get(CouponUsageService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -44,9 +57,9 @@ describe('CouponUsageController', () => {
 
   it('create should extract userId from JWT and delegate to service', async () => {
     const dto = { code: 'DESCUENTO10', orderId: 1 };
-    service.create.mockResolvedValue(mockResponse() as any);
+    service.create.mockResolvedValue(mockResponse());
 
-    const result = await controller.create(dto as any, mockReq(1));
+    const result = await controller.create(dto, mockReq(1));
 
     expect(service.create).toHaveBeenCalledWith({ ...dto, userId: 1 });
     expect(result.couponId).toBe(1);
@@ -56,21 +69,21 @@ describe('CouponUsageController', () => {
     const paginated = { data: [mockResponse()], total: 1, page: 1, limit: 20 };
     service.findAll.mockResolvedValue(paginated as any);
 
-    const result = await controller.findAll({ page: 1, limit: 20 } as any);
+    const result = await controller.findAll({ page: 1, limit: 20 });
 
     expect(service.findAll).toHaveBeenCalledWith(1, 20);
     expect(result.data).toHaveLength(1);
   });
 
   it('findByCoupon should delegate to service', async () => {
-    service.findByCoupon.mockResolvedValue([mockResponse() as any]);
+    service.findByCoupon.mockResolvedValue([mockResponse()]);
     const result = await controller.findByCoupon(1);
     expect(service.findByCoupon).toHaveBeenCalledWith(1);
     expect(result).toHaveLength(1);
   });
 
   it('findByUser should delegate to service', async () => {
-    service.findByUser.mockResolvedValue([mockResponse() as any]);
+    service.findByUser.mockResolvedValue([mockResponse()]);
     const result = await controller.findByUser(1);
     expect(service.findByUser).toHaveBeenCalledWith(1);
     expect(result).toHaveLength(1);

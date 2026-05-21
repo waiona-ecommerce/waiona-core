@@ -14,24 +14,34 @@ import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 describe('CalculationService', () => {
   let service: CalculationService;
 
-  const mockProductPricingRepo   = () => ({ findOne: jest.fn() });
-  const mockComboPricingRepo     = () => ({ findOne: jest.fn() });
-  const mockProductTaxRepo       = () => ({ find: jest.fn() });
-  const mockComboTaxRepo         = () => ({ find: jest.fn() });
-  const mockTaxRepo              = () => ({ find: jest.fn() });
-  const mockDiscountProductRepo  = () => ({ findOne: jest.fn() });
-  const mockDiscountComboRepo    = () => ({ findOne: jest.fn() });
+  const mockProductPricingRepo = () => ({ findOne: jest.fn() });
+  const mockComboPricingRepo = () => ({ findOne: jest.fn() });
+  const mockProductTaxRepo = () => ({ find: jest.fn() });
+  const mockComboTaxRepo = () => ({ find: jest.fn() });
+  const mockTaxRepo = () => ({ find: jest.fn() });
+  const mockDiscountProductRepo = () => ({ findOne: jest.fn() });
+  const mockDiscountComboRepo = () => ({ findOne: jest.fn() });
 
   const mockMargin = { id: 1, value: 20, isPercentage: true };
 
   const mockProductPricing = (overrides = {}) => ({
-    id: 1, productId: 1, currency: CurrencyCode.ARS, unitPrice: 500,
-    margin: mockMargin, deletedAt: null, ...overrides,
+    id: 1,
+    productId: 1,
+    currency: CurrencyCode.ARS,
+    unitPrice: 500,
+    margin: mockMargin,
+    deletedAt: null,
+    ...overrides,
   });
 
   const mockComboPricing = (overrides = {}) => ({
-    id: 1, comboId: 1, currency: CurrencyCode.ARS, unitPrice: 1200,
-    margin: mockMargin, deletedAt: null, ...overrides,
+    id: 1,
+    comboId: 1,
+    currency: CurrencyCode.ARS,
+    unitPrice: 1200,
+    margin: mockMargin,
+    deletedAt: null,
+    ...overrides,
   });
 
   let productPricingRepo: any;
@@ -46,24 +56,46 @@ describe('CalculationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CalculationService,
-        { provide: getRepositoryToken(ProductPricingEntity),      useFactory: mockProductPricingRepo  },
-        { provide: getRepositoryToken(ComboPricingEntity),        useFactory: mockComboPricingRepo    },
-        { provide: getRepositoryToken(ProductTaxEntity),          useFactory: mockProductTaxRepo      },
-        { provide: getRepositoryToken(ComboTaxEntity),            useFactory: mockComboTaxRepo        },
-        { provide: getRepositoryToken(TaxEntity),                 useFactory: mockTaxRepo             },
-        { provide: getRepositoryToken(DiscountProductTargetEntity), useFactory: mockDiscountProductRepo },
-        { provide: getRepositoryToken(DiscountComboTargetEntity),   useFactory: mockDiscountComboRepo   },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useFactory: mockProductPricingRepo,
+        },
+        {
+          provide: getRepositoryToken(ComboPricingEntity),
+          useFactory: mockComboPricingRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductTaxEntity),
+          useFactory: mockProductTaxRepo,
+        },
+        {
+          provide: getRepositoryToken(ComboTaxEntity),
+          useFactory: mockComboTaxRepo,
+        },
+        { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
+        {
+          provide: getRepositoryToken(DiscountProductTargetEntity),
+          useFactory: mockDiscountProductRepo,
+        },
+        {
+          provide: getRepositoryToken(DiscountComboTargetEntity),
+          useFactory: mockDiscountComboRepo,
+        },
       ],
     }).compile();
 
-    service             = module.get<CalculationService>(CalculationService);
-    productPricingRepo  = module.get(getRepositoryToken(ProductPricingEntity));
-    comboPricingRepo    = module.get(getRepositoryToken(ComboPricingEntity));
-    productTaxRepo      = module.get(getRepositoryToken(ProductTaxEntity));
-    comboTaxRepo        = module.get(getRepositoryToken(ComboTaxEntity));
-    taxRepo             = module.get(getRepositoryToken(TaxEntity));
-    discountProductRepo = module.get(getRepositoryToken(DiscountProductTargetEntity));
-    discountComboRepo   = module.get(getRepositoryToken(DiscountComboTargetEntity));
+    service = module.get<CalculationService>(CalculationService);
+    productPricingRepo = module.get(getRepositoryToken(ProductPricingEntity));
+    comboPricingRepo = module.get(getRepositoryToken(ComboPricingEntity));
+    productTaxRepo = module.get(getRepositoryToken(ProductTaxEntity));
+    comboTaxRepo = module.get(getRepositoryToken(ComboTaxEntity));
+    taxRepo = module.get(getRepositoryToken(TaxEntity));
+    discountProductRepo = module.get(
+      getRepositoryToken(DiscountProductTargetEntity),
+    );
+    discountComboRepo = module.get(
+      getRepositoryToken(DiscountComboTargetEntity),
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -91,7 +123,9 @@ describe('CalculationService', () => {
 
     it('should throw NotFoundException if product has no pricing', async () => {
       productPricingRepo.findOne.mockResolvedValue(null);
-      await expect(service.calculateProduct({ productId: 999 })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.calculateProduct({ productId: 999 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -116,7 +150,9 @@ describe('CalculationService', () => {
 
     it('should throw NotFoundException if combo has no pricing', async () => {
       comboPricingRepo.findOne.mockResolvedValue(null);
-      await expect(service.calculateCombo({ comboId: 999 })).rejects.toThrow(NotFoundException);
+      await expect(service.calculateCombo({ comboId: 999 })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

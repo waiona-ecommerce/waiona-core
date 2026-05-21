@@ -9,7 +9,13 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { StockItemsService } from '../services/stock-item.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
@@ -37,10 +43,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('stock-items')
 export class StockItemsController {
-
-  constructor(
-    private readonly stockItemsService: StockItemsService,
-  ) {}
+  constructor(private readonly stockItemsService: StockItemsService) {}
 
   @ApiOperation({ summary: 'List all stock items (paginated)' })
   @ApiResponse({ status: 200, description: 'Paginated list of stock items' })
@@ -63,11 +66,12 @@ export class StockItemsController {
   @ApiOperation({ summary: 'Create a stock item for a product + location' })
   @ApiResponse({ status: 201, type: StockItemResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid thresholds' })
-  @ApiResponse({ status: 409, description: 'Stock item already exists for this product and location' })
+  @ApiResponse({
+    status: 409,
+    description: 'Stock item already exists for this product and location',
+  })
   @Post()
-  async create(
-    @Body() dto: CreateStockItemDto,
-  ): Promise<StockItemResponseDto> {
+  async create(@Body() dto: CreateStockItemDto): Promise<StockItemResponseDto> {
     return this.stockItemsService.create(dto);
   }
 
@@ -88,21 +92,26 @@ export class StockItemsController {
 
   @ApiOperation({ summary: 'Write off available stock (manual adjustment)' })
   @ApiResponse({ status: 201, type: StockItemWithMovementsResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid quantity or insufficient stock' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid quantity or insufficient stock',
+  })
   @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('write-off')
   async writeOff(
     @Body() dto: StockItemWriteOffDto,
   ): Promise<StockItemWithMovementsResponseDto> {
-    return this.stockItemsService.writeOff(
-      dto.stockItemId,
-      dto.quantity,
-    );
+    return this.stockItemsService.writeOff(dto.stockItemId, dto.quantity);
   }
 
-  @ApiOperation({ summary: 'Write off damaged stock and create a write-off record' })
+  @ApiOperation({
+    summary: 'Write off damaged stock and create a write-off record',
+  })
   @ApiResponse({ status: 201, type: StockItemWithMovementsResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid quantity or insufficient stock' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid quantity or insufficient stock',
+  })
   @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('write-off-damage')
   async writeOffDamage(
@@ -113,12 +122,13 @@ export class StockItemsController {
 
   @ApiOperation({ summary: 'Dispatch reserved stock for an order' })
   @ApiResponse({ status: 201, description: 'Stock dispatched' })
-  @ApiResponse({ status: 400, description: 'Insufficient reserved or current stock' })
+  @ApiResponse({
+    status: 400,
+    description: 'Insufficient reserved or current stock',
+  })
   @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('dispatch')
-  async dispatchStock(
-    @Body() dto: StockDispatchDto,
-  ): Promise<void> {
+  async dispatchStock(@Body() dto: StockDispatchDto): Promise<void> {
     return this.stockItemsService.dispatchStock(
       dto.productId,
       dto.locationId,
@@ -127,14 +137,14 @@ export class StockItemsController {
     );
   }
 
-  @ApiOperation({ summary: 'Release a stock reservation for a cancelled order' })
+  @ApiOperation({
+    summary: 'Release a stock reservation for a cancelled order',
+  })
   @ApiResponse({ status: 201, description: 'Reservation released' })
   @ApiResponse({ status: 400, description: 'Insufficient reserved stock' })
   @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('release')
-  async releaseReservation(
-    @Body() dto: StockReleaseDto,
-  ): Promise<void> {
+  async releaseReservation(@Body() dto: StockReleaseDto): Promise<void> {
     return this.stockItemsService.releaseReservation(
       dto.productId,
       dto.locationId,

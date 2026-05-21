@@ -14,18 +14,23 @@ describe('StockMovementController', () => {
   let service: jest.Mocked<StockMovementService>;
 
   const mockService = () => ({
-    findAll:          jest.fn(),
-    findById:         jest.fn(),
+    findAll: jest.fn(),
+    findById: jest.fn(),
     findByStockItemId: jest.fn(),
   });
 
   const mockPaginated = (items: any[]) => ({
-    data: items, total: items.length, page: 1, limit: 20,
-    totalPages: 1, hasNextPage: false,
+    data: items,
+    total: items.length,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
   });
 
   const mockMovementResponse = (overrides = {}) => ({
-    id: 1, stockItemId: 1,
+    id: 1,
+    stockItemId: 1,
     operationType: StockOperationType.ENTRY,
     stockFlow: StockFlow.INBOUND,
     quantity: 10,
@@ -43,12 +48,14 @@ describe('StockMovementController', () => {
         { provide: Reflector, useValue: { get: jest.fn() } },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<StockMovementController>(StockMovementController);
-    service    = module.get(StockMovementService);
+    service = module.get(StockMovementService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -56,7 +63,7 @@ describe('StockMovementController', () => {
   describe('findAll', () => {
     it('delegates to service.findAll with page and limit', async () => {
       const paginated = mockPaginated([mockMovementResponse()]);
-      service.findAll.mockResolvedValue(paginated as any);
+      service.findAll.mockResolvedValue(paginated);
       const result = await controller.findAll({ page: 1, limit: 20 });
       expect(service.findAll).toHaveBeenCalledWith(1, 20);
       expect(result).toBe(paginated);
@@ -66,7 +73,7 @@ describe('StockMovementController', () => {
   describe('findByStockItemId', () => {
     it('delegates to service.findByStockItemId', async () => {
       const movements = [mockMovementResponse()];
-      service.findByStockItemId.mockResolvedValue(movements as any);
+      service.findByStockItemId.mockResolvedValue(movements);
       const result = await controller.findByStockItemId(1);
       expect(service.findByStockItemId).toHaveBeenCalledWith(1);
       expect(result).toBe(movements);
@@ -76,7 +83,7 @@ describe('StockMovementController', () => {
   describe('findById', () => {
     it('delegates to service.findById', async () => {
       const movement = mockMovementResponse();
-      service.findById.mockResolvedValue(movement as any);
+      service.findById.mockResolvedValue(movement);
       const result = await controller.findById(1);
       expect(service.findById).toHaveBeenCalledWith(1);
       expect(result).toBe(movement);

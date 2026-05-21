@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
 import { BaseEntity } from '../../../../common/entities/base.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
@@ -13,7 +7,6 @@ import { ProductEntity } from '../../product/entities/product.entity';
 @Index(['productId'])
 @Index(['productId', 'position'], { unique: true })
 export class ProductImageEntity extends BaseEntity {
-
   @Column({ name: 'product_id' })
   productId: number;
 

@@ -15,11 +15,16 @@ export class ProfileResponseDto {
   @ApiProperty({ example: null, nullable: true })
   avatar: string | null;
 
-  constructor(profile: { id: number; name: string; lastName: string; avatar?: string | null }) {
-    this.id       = profile.id;
-    this.name     = profile.name;
+  constructor(profile: {
+    id: number;
+    name: string;
+    lastName: string;
+    avatar?: string | null;
+  }) {
+    this.id = profile.id;
+    this.name = profile.name;
     this.lastName = profile.lastName;
-    this.avatar   = profile.avatar ?? null;
+    this.avatar = profile.avatar ?? null;
   }
 }
 
@@ -46,11 +51,11 @@ export class UserResponseDto {
   updatedAt: Date;
 
   constructor(entity: UserEntity) {
-    this.id        = entity.id;
-    this.email     = entity.email;
-    this.isActive  = entity.isActive;
-    this.role      = entity.role?.type ?? null;
-    this.profile   = new ProfileResponseDto(entity.profile);
+    this.id = entity.id;
+    this.email = entity.email;
+    this.isActive = entity.isActive;
+    this.role = entity.role?.type ?? null;
+    this.profile = new ProfileResponseDto(entity.profile);
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;
   }

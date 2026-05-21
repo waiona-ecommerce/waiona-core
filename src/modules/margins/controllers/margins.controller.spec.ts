@@ -64,9 +64,9 @@ describe('MarginsController', () => {
     it('should create a margin', async () => {
       const dto = { name: 'Margen estándar', value: 20, isPercentage: true };
       const margin = mockMarginResponse();
-      service.create.mockResolvedValue(margin as any);
+      service.create.mockResolvedValue(margin);
 
-      const result = await controller.create(dto as any);
+      const result = await controller.create(dto);
 
       expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toEqual(margin);
@@ -104,7 +104,7 @@ describe('MarginsController', () => {
   describe('findOne', () => {
     it('should return a margin by id', async () => {
       const margin = mockMarginResponse();
-      service.findOne.mockResolvedValue(margin as any);
+      service.findOne.mockResolvedValue(margin);
 
       const result = await controller.findOne(1);
 
@@ -121,9 +121,9 @@ describe('MarginsController', () => {
     it('should update a margin', async () => {
       const dto = { value: 30 };
       const margin = mockMarginResponse({ value: 30 });
-      service.update.mockResolvedValue(margin as any);
+      service.update.mockResolvedValue(margin);
 
-      const result = await controller.update(1, dto as any);
+      const result = await controller.update(1, dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toEqual(margin);

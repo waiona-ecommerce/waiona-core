@@ -59,7 +59,10 @@ export class DiscountsService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<DiscountResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<DiscountResponseDto>> {
     const [discounts, total] = await this.discountRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -104,7 +107,11 @@ export class DiscountsService {
 
     this.validateDates(startsAt, endsAt);
 
-    const normalized = this.normalizeDiscount({ value, isPercentage, currency });
+    const normalized = this.normalizeDiscount({
+      value,
+      isPercentage,
+      currency,
+    });
 
     this.validateValue(
       normalized.value,
@@ -167,9 +174,7 @@ export class DiscountsService {
   ): void {
     if (isPercentage) {
       if (value > 100) {
-        throw new BadRequestException(
-          'Percentage discount cannot exceed 100',
-        );
+        throw new BadRequestException('Percentage discount cannot exceed 100');
       }
     } else {
       if (!currency) {

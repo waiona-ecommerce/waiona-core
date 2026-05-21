@@ -31,14 +31,14 @@ export class OrderItemResponseDto {
   finalPrice: number;
 
   constructor(entity: OrderItemEntity) {
-    this.id          = entity.id;
-    this.productId   = entity.product?.id   ?? null;
+    this.id = entity.id;
+    this.productId = entity.product?.id ?? null;
     this.productName = entity.product?.name ?? null;
-    this.comboId     = entity.combo?.id     ?? null;
-    this.comboName   = entity.combo?.name   ?? null;
-    this.quantity    = entity.quantity;
-    this.unitPrice   = entity.unitPrice;
-    this.finalPrice  = entity.finalPrice;
+    this.comboId = entity.combo?.id ?? null;
+    this.comboName = entity.combo?.name ?? null;
+    this.quantity = entity.quantity;
+    this.unitPrice = entity.unitPrice;
+    this.finalPrice = entity.finalPrice;
   }
 }
 
@@ -83,18 +83,18 @@ export class OrderResponseDto {
   items: OrderItemResponseDto[];
 
   constructor(entity: OrderEntity) {
-    this.id             = entity.id;
-    this.createdAt      = entity.createdAt;
-    this.updatedAt      = entity.updatedAt;
-    this.userId         = entity.user?.id ?? entity.userId;
-    this.status         = entity.status;
-    this.deliveryType   = entity.deliveryType;
-    this.address        = entity.address        ?? null;
-    this.notes          = entity.notes          ?? null;
-    this.subtotal       = entity.subtotal;
+    this.id = entity.id;
+    this.createdAt = entity.createdAt;
+    this.updatedAt = entity.updatedAt;
+    this.userId = entity.user?.id ?? entity.userId;
+    this.status = entity.status;
+    this.deliveryType = entity.deliveryType;
+    this.address = entity.address ?? null;
+    this.notes = entity.notes ?? null;
+    this.subtotal = entity.subtotal;
     this.couponDiscount = entity.couponDiscount ?? null;
-    this.couponCode     = entity.coupon?.code   ?? null;
-    this.total          = entity.total;
-    this.items          = (entity.items ?? []).map(i => new OrderItemResponseDto(i));
+    this.couponCode = entity.coupon?.code ?? null;
+    this.total = entity.total;
+    this.items = (entity.items ?? []).map((i) => new OrderItemResponseDto(i));
   }
 }

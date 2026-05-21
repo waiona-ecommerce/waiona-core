@@ -1,18 +1,24 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Patch,
-    Delete,
-    Body,
-    Param,
-    Query,
-    ParseIntPipe,
-    UseGuards,
-    HttpCode,
-    HttpStatus,
-  } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  ParseIntPipe,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ComboService } from '../services/combo.service';
 import { CreateComboDto } from '../dto/create-combo.dto';
@@ -31,10 +37,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('combos')
 export class ComboController {
-
-  constructor(
-    private readonly comboService: ComboService,
-  ) {}
+  constructor(private readonly comboService: ComboService) {}
 
   // ==========================
   // GET ALL
@@ -42,8 +45,15 @@ export class ComboController {
 
   @Get()
   @ApiOperation({ summary: 'Listar combos paginados' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de combos', type: ComboResponseDto, isArray: true })
-  async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<ComboResponseDto>> {
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de combos',
+    type: ComboResponseDto,
+    isArray: true,
+  })
+  async findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<ComboResponseDto>> {
     return this.comboService.findAll(page, limit);
   }
 
@@ -54,7 +64,11 @@ export class ComboController {
   @Get(':id')
   @ApiOperation({ summary: 'Obtener combo por ID' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Combo encontrado', type: ComboResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Combo encontrado',
+    type: ComboResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Combo no encontrado' })
   async findById(
     @Param('id', ParseIntPipe) id: number,
@@ -68,11 +82,16 @@ export class ComboController {
 
   @Post()
   @ApiOperation({ summary: 'Crear combo con items' })
-  @ApiResponse({ status: 201, description: 'Combo creado', type: ComboResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos, categoría o producto no encontrado' })
-  async create(
-    @Body() body: CreateComboDto,
-  ): Promise<ComboResponseDto> {
+  @ApiResponse({
+    status: 201,
+    description: 'Combo creado',
+    type: ComboResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos, categoría o producto no encontrado',
+  })
+  async create(@Body() body: CreateComboDto): Promise<ComboResponseDto> {
     return this.comboService.create(body);
   }
 
@@ -83,7 +102,11 @@ export class ComboController {
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar combo (parcial)' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Combo actualizado', type: ComboResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Combo actualizado',
+    type: ComboResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 404, description: 'Combo no encontrado' })
   async update(
@@ -103,9 +126,7 @@ export class ComboController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Combo eliminado' })
   @ApiResponse({ status: 404, description: 'Combo no encontrado' })
-  async delete(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  async delete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.comboService.delete(id);
   }
 }

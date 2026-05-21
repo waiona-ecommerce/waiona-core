@@ -1,9 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsEnum, IsOptional, IsString, Min, MaxLength, IsArray } from 'class-validator';
+import {
+  IsInt,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Min,
+  MaxLength,
+  IsArray,
+} from 'class-validator';
 import { StockWriteOffReason } from '../enums/stock-writeoff-reason.enum';
 
 export class CreateStockWriteOffDto {
-
   @ApiProperty({ example: 1 })
   @IsInt()
   @Min(1)
@@ -24,13 +31,19 @@ export class CreateStockWriteOffDto {
   @MaxLength(500)
   description?: string;
 
-  @ApiPropertyOptional({ type: [String], example: ['https://cdn.ejemplo.com/foto.jpg'] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['https://cdn.ejemplo.com/foto.jpg'],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   attachments?: string[];
 
-  @ApiProperty({ example: 99, description: 'ID del usuario que reporta la baja' })
+  @ApiProperty({
+    example: 99,
+    description: 'ID del usuario que reporta la baja',
+  })
   @IsInt()
   @Min(1)
   reportedBy: number;

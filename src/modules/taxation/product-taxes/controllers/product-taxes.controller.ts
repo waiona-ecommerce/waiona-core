@@ -11,7 +11,13 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ProductTaxesService } from '../services/product-taxes.service';
 import { CreateProductTaxDto } from '../dto/create-product-tax.dto';
@@ -29,10 +35,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('products/:productId/taxes')
 export class ProductTaxesController {
-
-  constructor(
-    private readonly productTaxesService: ProductTaxesService,
-  ) {}
+  constructor(private readonly productTaxesService: ProductTaxesService) {}
 
   @ApiOperation({ summary: 'List taxes for a product' })
   @ApiResponse({ status: 200, type: [ProductTaxResponseDto] })
@@ -80,9 +83,7 @@ export class ProductTaxesController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.productTaxesService.remove(id);
   }
 }

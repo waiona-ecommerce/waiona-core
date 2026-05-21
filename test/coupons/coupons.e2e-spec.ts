@@ -30,8 +30,12 @@ describe('Coupons (e2e)', () => {
 
   // ProductEntity and ComboEntity are used only for existence validation in services.
   // They are mocked to avoid pulling the full products dependency chain into the schema.
-  const mockProductRepo = { findOne: () => Promise.resolve({ id: 1, name: 'Mock Product' }) };
-  const mockComboRepo   = { findOne: () => Promise.resolve({ id: 1, name: 'Mock Combo' }) };
+  const mockProductRepo = {
+    findOne: () => Promise.resolve({ id: 1, name: 'Mock Product' }),
+  };
+  const mockComboRepo = {
+    findOne: () => Promise.resolve({ id: 1, name: 'Mock Combo' }),
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -41,37 +45,56 @@ describe('Coupons (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [CouponEntity, CouponProductTargetEntity, CouponComboTargetEntity],
+            entities: [
+              CouponEntity,
+              CouponProductTargetEntity,
+              CouponComboTargetEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([CouponEntity, CouponProductTargetEntity, CouponComboTargetEntity]),
+        TypeOrmModule.forFeature([
+          CouponEntity,
+          CouponProductTargetEntity,
+          CouponComboTargetEntity,
+        ]),
       ],
-      controllers: [CouponController, CouponProductTargetController, CouponComboTargetController],
+      controllers: [
+        CouponController,
+        CouponProductTargetController,
+        CouponComboTargetController,
+      ],
       providers: [
         CouponService,
         CouponProductTargetService,
         CouponComboTargetService,
-        { provide: getRepositoryToken(ProductEntity), useValue: mockProductRepo },
-        { provide: getRepositoryToken(ComboEntity),   useValue: mockComboRepo   },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useValue: mockProductRepo,
+        },
+        { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -79,7 +102,13 @@ describe('Coupons (e2e)', () => {
     // Seed coupons reutilizados en múltiples bloques
     const fixedRes = await request(app.getHttpServer())
       .post('/coupons')
-      .send({ code: 'FIXED100', value: 100, isPercentage: false, currency: 'ARS', isGlobal: false })
+      .send({
+        code: 'FIXED100',
+        value: 100,
+        isPercentage: false,
+        currency: 'ARS',
+        isGlobal: false,
+      })
       .expect(201);
     fixedCouponId = fixedRes.body.id;
 
@@ -103,7 +132,12 @@ describe('Coupons (e2e)', () => {
     it('201 — crea cupón con porcentaje', async () => {
       const res = await request(app.getHttpServer())
         .post('/coupons')
-        .send({ code: 'PERCENT10', value: 10, isPercentage: true, isGlobal: false })
+        .send({
+          code: 'PERCENT10',
+          value: 10,
+          isPercentage: true,
+          isGlobal: false,
+        })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
@@ -139,21 +173,37 @@ describe('Coupons (e2e)', () => {
     it('400 — porcentaje mayor a 100', async () => {
       await request(app.getHttpServer())
         .post('/coupons')
-        .send({ code: 'OVER100', value: 101, isPercentage: true, isGlobal: false })
+        .send({
+          code: 'OVER100',
+          value: 101,
+          isPercentage: true,
+          isGlobal: false,
+        })
         .expect(400);
     });
 
     it('400 — cupón fijo sin currency', async () => {
       await request(app.getHttpServer())
         .post('/coupons')
-        .send({ code: 'NOCURR', value: 50, isPercentage: false, isGlobal: false })
+        .send({
+          code: 'NOCURR',
+          value: 50,
+          isPercentage: false,
+          isGlobal: false,
+        })
         .expect(400);
     });
 
     it('400 — porcentaje con currency enviada', async () => {
       await request(app.getHttpServer())
         .post('/coupons')
-        .send({ code: 'BADPERC', value: 10, isPercentage: true, currency: 'ARS', isGlobal: false })
+        .send({
+          code: 'BADPERC',
+          value: 10,
+          isPercentage: true,
+          currency: 'ARS',
+          isGlobal: false,
+        })
         .expect(400);
     });
 
@@ -174,7 +224,13 @@ describe('Coupons (e2e)', () => {
     it('409 — código duplicado', async () => {
       await request(app.getHttpServer())
         .post('/coupons')
-        .send({ code: 'FIXED100', value: 50, isPercentage: false, currency: 'ARS', isGlobal: false })
+        .send({
+          code: 'FIXED100',
+          value: 50,
+          isPercentage: false,
+          currency: 'ARS',
+          isGlobal: false,
+        })
         .expect(409);
     });
   });
@@ -185,7 +241,9 @@ describe('Coupons (e2e)', () => {
 
   describe('GET /coupons', () => {
     it('200 — retorna lista paginada', async () => {
-      const res = await request(app.getHttpServer()).get('/coupons').expect(200);
+      const res = await request(app.getHttpServer())
+        .get('/coupons')
+        .expect(200);
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.total).toBeGreaterThanOrEqual(2);
       expect(res.body.page).toBe(1);
@@ -258,17 +316,26 @@ describe('Coupons (e2e)', () => {
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
         .post('/coupons')
-        .send({ code: 'TODELETE', value: 5, isPercentage: true, isGlobal: false })
+        .send({
+          code: 'TODELETE',
+          value: 5,
+          isPercentage: true,
+          isGlobal: false,
+        })
         .expect(201);
       deleteId = res.body.id;
     });
 
     it('204 — elimina cupón', async () => {
-      await request(app.getHttpServer()).delete(`/coupons/${deleteId}`).expect(204);
+      await request(app.getHttpServer())
+        .delete(`/coupons/${deleteId}`)
+        .expect(204);
     });
 
     it('404 — cupón ya eliminado no aparece en GET', async () => {
-      await request(app.getHttpServer()).get(`/coupons/${deleteId}`).expect(404);
+      await request(app.getHttpServer())
+        .get(`/coupons/${deleteId}`)
+        .expect(404);
     });
 
     it('404 — id inexistente', async () => {

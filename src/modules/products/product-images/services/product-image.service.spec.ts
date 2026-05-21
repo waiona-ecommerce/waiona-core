@@ -8,18 +8,40 @@ import { ProductEntity } from '../../../products/product/entities/product.entity
 describe('ProductImageService', () => {
   let service: ProductImageService;
 
-  const mockImageRepo   = { find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn(), softDelete: jest.fn() };
+  const mockImageRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    merge: jest.fn(),
+    softDelete: jest.fn(),
+  };
   const mockProductRepo = { findOne: jest.fn() };
 
   const mockImage = (overrides = {}): ProductImageEntity =>
-    ({ id: 1, productId: 1, url: 'https://img.com/1.jpg', position: 1, deletedAt: null, createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as ProductImageEntity;
+    ({
+      id: 1,
+      productId: 1,
+      url: 'https://img.com/1.jpg',
+      position: 1,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    }) as unknown as ProductImageEntity;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductImageService,
-        { provide: getRepositoryToken(ProductImageEntity), useValue: mockImageRepo   },
-        { provide: getRepositoryToken(ProductEntity),      useValue: mockProductRepo },
+        {
+          provide: getRepositoryToken(ProductImageEntity),
+          useValue: mockImageRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useValue: mockProductRepo,
+        },
       ],
     }).compile();
     service = module.get<ProductImageService>(ProductImageService);
@@ -32,13 +54,19 @@ describe('ProductImageService', () => {
       mockProductRepo.findOne.mockResolvedValue({ id: 1 });
       mockImageRepo.create.mockReturnValue(mockImage());
       mockImageRepo.save.mockResolvedValue(mockImage());
-      const result = await service.create({ productId: 1, url: 'https://img.com/1.jpg', position: 1 } as any);
+      const result = await service.create({
+        productId: 1,
+        url: 'https://img.com/1.jpg',
+        position: 1,
+      });
       expect(result.url).toBe('https://img.com/1.jpg');
     });
 
     it('should throw NotFoundException if product not found', async () => {
       mockProductRepo.findOne.mockResolvedValue(null);
-      await expect(service.create({ productId: 99 } as any)).rejects.toThrow(NotFoundException);
+      await expect(service.create({ productId: 99 } as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -65,18 +93,20 @@ describe('ProductImageService', () => {
 
   describe('update', () => {
     it('should update an image', async () => {
-      const image   = mockImage();
+      const image = mockImage();
       const updated = mockImage({ position: 2 });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockImageRepo.merge.mockReturnValue(updated);
       mockImageRepo.save.mockResolvedValue(updated);
-      const result = await service.update(1, { position: 2 } as any);
+      const result = await service.update(1, { position: 2 });
       expect(result.position).toBe(2);
     });
 
     it('should throw NotFoundException', async () => {
       mockImageRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

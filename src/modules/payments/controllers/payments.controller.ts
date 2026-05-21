@@ -15,7 +15,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { createHmac } from 'crypto';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -30,7 +36,6 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @ApiBearerAuth()
 @Controller('payments')
 export class PaymentsController {
-
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly configService: ConfigService<Env>,
@@ -42,13 +47,19 @@ export class PaymentsController {
 
   @ApiOperation({ summary: 'Create a payment for an order' })
   @ApiResponse({ status: 201, type: PaymentResponseDto })
-  @ApiResponse({ status: 400, description: 'Order not payable or already has a pending payment' })
+  @ApiResponse({
+    status: 400,
+    description: 'Order not payable or already has a pending payment',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   @UseGuards(AuthGuard('jwt'))
   @Post()
-  create(@Req() req: Request, @Body() dto: CreatePaymentDto): Promise<PaymentResponseDto> {
+  create(
+    @Req() req: Request,
+    @Body() dto: CreatePaymentDto,
+  ): Promise<PaymentResponseDto> {
     const payload = req.user as { sub: number; role: RoleType };
     return this.paymentsService.create(payload.sub, payload.role, dto);
   }
@@ -129,29 +140,31 @@ export class PaymentsController {
     const secret = this.configService.get('MP_WEBHOOK_SECRET', { infer: true });
     if (!secret) return; // skip en dev — el skill dice: skip only if empty
 
-    const xSignature  = headers['x-signature'];
-    const xRequestId  = headers['x-request-id'];
+    const xSignature = headers['x-signature'];
+    const xRequestId = headers['x-request-id'];
 
     if (!xSignature || !xRequestId) {
       throw new UnauthorizedException('Missing MercadoPago signature headers');
     }
 
     // x-signature tiene formato: ts=<timestamp>,v1=<hash>
-    const parts     = xSignature.split(',');
-    const tsPart    = parts.find(p => p.startsWith('ts='));
-    const v1Part    = parts.find(p => p.startsWith('v1='));
+    const parts = xSignature.split(',');
+    const tsPart = parts.find((p) => p.startsWith('ts='));
+    const v1Part = parts.find((p) => p.startsWith('v1='));
 
     if (!tsPart || !v1Part) {
       throw new UnauthorizedException('Invalid MercadoPago signature format');
     }
 
-    const ts   = tsPart.split('=')[1];
-    const v1   = v1Part.split('=')[1];
+    const ts = tsPart.split('=')[1];
+    const v1 = v1Part.split('=')[1];
     const dataId = query['data.id'] ?? query['id'] ?? '';
 
     // manifest a firmar: id:<dataId>;request-id:<xRequestId>;ts:<ts>;
     const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-    const expected = createHmac('sha256', secret).update(manifest).digest('hex');
+    const expected = createHmac('sha256', secret)
+      .update(manifest)
+      .digest('hex');
 
     if (expected !== v1) {
       throw new UnauthorizedException('Invalid MercadoPago signature');

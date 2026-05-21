@@ -23,32 +23,36 @@ describe('StockLocations (e2e)', () => {
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
-            type:     'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            type: 'postgres',
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [StockLocationEntity],
             synchronize: true,
-            dropSchema:  true,
+            dropSchema: true,
           }),
         }),
         TypeOrmModule.forFeature([StockLocationEntity]),
       ],
       controllers: [StockLocationsController],
-      providers:   [StockLocationsService],
+      providers: [StockLocationsService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist:           true,
-      forbidNonWhitelisted: true,
-      transform:           true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -78,7 +82,11 @@ describe('StockLocations (e2e)', () => {
   it('POST /stock-locations -> 201 creates a store location with address', async () => {
     const res = await request(app.getHttpServer())
       .post('/stock-locations')
-      .send({ name: 'Sucursal Palermo', type: StockLocationType.STORE, address: 'Av. Santa Fe 1234' })
+      .send({
+        name: 'Sucursal Palermo',
+        type: StockLocationType.STORE,
+        address: 'Av. Santa Fe 1234',
+      })
       .expect(201);
 
     expect(res.body.address).toBe('Av. Santa Fe 1234');
@@ -161,7 +169,11 @@ describe('StockLocations (e2e)', () => {
   it('PATCH /stock-locations/:id -> 200 clears address with null', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/stock-locations')
-      .send({ name: 'Con Dirección', type: StockLocationType.STORE, address: 'Calle 123' });
+      .send({
+        name: 'Con Dirección',
+        type: StockLocationType.STORE,
+        address: 'Calle 123',
+      });
 
     const res = await request(app.getHttpServer())
       .patch(`/stock-locations/${createRes.body.id}`)

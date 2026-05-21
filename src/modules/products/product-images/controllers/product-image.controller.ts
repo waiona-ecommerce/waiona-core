@@ -1,17 +1,23 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Body,
-    Patch,
-    Param,
-    Delete,
-    ParseIntPipe,
-    UseGuards,
-    HttpCode,
-    HttpStatus,
-  } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ProductImageService } from '../services/product-image.service';
 import { CreateProductImageDto } from '../dto/create-product-image.dto';
@@ -28,9 +34,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('product-images')
 export class ProductImageController {
-  constructor(
-    private readonly productImageService: ProductImageService,
-  ) {}
+  constructor(private readonly productImageService: ProductImageService) {}
 
   // ==========================
   // CREATE
@@ -38,12 +42,14 @@ export class ProductImageController {
 
   @Post()
   @ApiOperation({ summary: 'Agregar imagen a un producto' })
-  @ApiResponse({ status: 201, description: 'Imagen creada', type: ProductImageResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Imagen creada',
+    type: ProductImageResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
-  create(
-    @Body() dto: CreateProductImageDto,
-  ): Promise<ProductImageResponseDto> {
+  create(@Body() dto: CreateProductImageDto): Promise<ProductImageResponseDto> {
     return this.productImageService.create(dto);
   }
 
@@ -54,7 +60,12 @@ export class ProductImageController {
   @Get('product/:productId')
   @ApiOperation({ summary: 'Listar imágenes de un producto' })
   @ApiParam({ name: 'productId', type: Number })
-  @ApiResponse({ status: 200, description: 'Imágenes del producto', type: ProductImageResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Imágenes del producto',
+    type: ProductImageResponseDto,
+    isArray: true,
+  })
   findByProduct(
     @Param('productId', ParseIntPipe) productId: number,
   ): Promise<ProductImageResponseDto[]> {
@@ -68,7 +79,11 @@ export class ProductImageController {
   @Get(':id')
   @ApiOperation({ summary: 'Obtener imagen por ID' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Imagen encontrada', type: ProductImageResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Imagen encontrada',
+    type: ProductImageResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Imagen no encontrada' })
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -83,7 +98,11 @@ export class ProductImageController {
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar imagen (parcial)' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Imagen actualizada', type: ProductImageResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Imagen actualizada',
+    type: ProductImageResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Imagen no encontrada' })
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -102,9 +121,7 @@ export class ProductImageController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Imagen eliminada' })
   @ApiResponse({ status: 404, description: 'Imagen no encontrada' })
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.productImageService.remove(id);
   }
 }

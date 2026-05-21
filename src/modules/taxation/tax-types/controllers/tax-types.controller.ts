@@ -12,7 +12,12 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 
 import { TaxTypesService } from '../services/tax-types.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
@@ -51,11 +56,12 @@ export class TaxTypesController {
 
   @ApiOperation({ summary: 'Create a tax type' })
   @ApiResponse({ status: 201, type: TaxTypeResponseDto })
-  @ApiResponse({ status: 400, description: 'Duplicate code or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Duplicate code or validation error',
+  })
   @Post()
-  createTaxType(
-    @Body() body: CreateTaxTypeDto,
-  ): Promise<TaxTypeResponseDto> {
+  createTaxType(@Body() body: CreateTaxTypeDto): Promise<TaxTypeResponseDto> {
     return this.taxTypesService.create(body);
   }
 
@@ -75,9 +81,7 @@ export class TaxTypesController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteTaxType(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  deleteTaxType(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.taxTypesService.delete(id);
   }
 }

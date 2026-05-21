@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -11,7 +15,6 @@ import { ComboTaxResponseDto } from '../dto/combo-taxes-response.dto';
 
 @Injectable()
 export class ComboTaxesService {
-
   constructor(
     @InjectRepository(ComboTaxEntity)
     private readonly comboTaxRepository: Repository<ComboTaxEntity>,
@@ -24,8 +27,9 @@ export class ComboTaxesService {
   // CREATE
   // ==========================
 
-  async create(dto: CreateComboTaxDto & { comboId: number }): Promise<ComboTaxResponseDto> {
-
+  async create(
+    dto: CreateComboTaxDto & { comboId: number },
+  ): Promise<ComboTaxResponseDto> {
     const tax = await this.taxRepository.findOne({
       where: { id: dto.taxId },
     });
@@ -35,7 +39,9 @@ export class ComboTaxesService {
     }
 
     if (tax.isGlobal) {
-      throw new BadRequestException('A global tax cannot be assigned to a specific combo');
+      throw new BadRequestException(
+        'A global tax cannot be assigned to a specific combo',
+      );
     }
 
     const comboTax = this.comboTaxRepository.create({
@@ -57,7 +63,7 @@ export class ComboTaxesService {
       order: { createdAt: 'DESC' },
     });
 
-    return comboTaxes.map(ct => new ComboTaxResponseDto(ct));
+    return comboTaxes.map((ct) => new ComboTaxResponseDto(ct));
   }
 
   // ==========================
@@ -72,7 +78,10 @@ export class ComboTaxesService {
   // UPDATE
   // ==========================
 
-  async update(id: number, dto: UpdateComboTaxDto): Promise<ComboTaxResponseDto> {
+  async update(
+    id: number,
+    dto: UpdateComboTaxDto,
+  ): Promise<ComboTaxResponseDto> {
     const comboTax = await this.findEntity(id);
     const merged = this.comboTaxRepository.merge(comboTax, dto);
     const updated = await this.comboTaxRepository.save(merged);
@@ -94,7 +103,8 @@ export class ComboTaxesService {
 
   private async findEntity(id: number): Promise<ComboTaxEntity> {
     const entity = await this.comboTaxRepository.findOne({ where: { id } });
-    if (!entity) throw new NotFoundException(`ComboTax with id ${id} not found`);
+    if (!entity)
+      throw new NotFoundException(`ComboTax with id ${id} not found`);
     return entity;
   }
 }

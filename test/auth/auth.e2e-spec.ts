@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  ClassSerializerInterceptor,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -25,7 +29,7 @@ describe('Auth (e2e)', () => {
   let dataSource: DataSource;
 
   const mockMailService = {
-    sendActivationEmail:    jest.fn().mockResolvedValue(undefined),
+    sendActivationEmail: jest.fn().mockResolvedValue(undefined),
     sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -36,18 +40,23 @@ describe('Auth (e2e)', () => {
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
-            type:     'postgres',
-            host:     config.get('POSTGRES_HOST') ?? 'localhost',
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') ?? '5433'),
+            type: 'postgres',
+            host: config.get('POSTGRES_HOST') ?? 'localhost',
+            port: parseInt(config.get('POSTGRES_TEST_PORT') ?? '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB') ?? 'waiona_test',
-            entities:    [UserEntity, ProfileEntity, RoleEntity, TokenEntity],
+            entities: [UserEntity, ProfileEntity, RoleEntity, TokenEntity],
             synchronize: true,
-            dropSchema:  true,
+            dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([UserEntity, ProfileEntity, RoleEntity, TokenEntity]),
+        TypeOrmModule.forFeature([
+          UserEntity,
+          ProfileEntity,
+          RoleEntity,
+          TokenEntity,
+        ]),
         PassportModule,
         JwtModule.registerAsync({
           inject: [ConfigService],
@@ -59,14 +68,25 @@ describe('Auth (e2e)', () => {
       ],
       controllers: [AuthController],
       providers: [
-        AuthService, UsersService, LocalStrategy, JwtStrategy,
+        AuthService,
+        UsersService,
+        LocalStrategy,
+        JwtStrategy,
         { provide: MailService, useValue: mockMailService },
       ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    app.useGlobalInterceptors(
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
@@ -74,80 +94,120 @@ describe('Auth (e2e)', () => {
     await roleRepo.save(roleRepo.create({ type: RoleType.CLIENT }));
   }, 30000);
 
-  afterAll(async () => { await dataSource.destroy(); await app.close(); });
+  afterAll(async () => {
+    await dataSource.destroy();
+    await app.close();
+  });
 
-  const testUser = { email: 'test@waiona.com', password: 'Test1234!', name: 'Test', lastName: 'User' };
+  const testUser = {
+    email: 'test@waiona.com',
+    password: 'Test1234!',
+    name: 'Test',
+    lastName: 'User',
+  };
   let activationToken: string;
 
   describe('POST /auth/register', () => {
     it('should register and return 201', async () => {
-      await request(app.getHttpServer()).post('/auth/register').send(testUser).expect(201);
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send(testUser)
+        .expect(201);
       activationToken = mockMailService.sendActivationEmail.mock.calls[0][2];
     });
 
     it('should return 409 if email exists', () =>
-      request(app.getHttpServer()).post('/auth/register').send(testUser).expect(409));
+      request(app.getHttpServer())
+        .post('/auth/register')
+        .send(testUser)
+        .expect(409));
 
     it('should return 400 with invalid body', () =>
-      request(app.getHttpServer()).post('/auth/register').send({ email: 'not-email' }).expect(400));
+      request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: 'not-email' })
+        .expect(400));
   });
 
   describe('POST /auth/login — inactive', () => {
     it('should return 401 if not activated', () =>
-      request(app.getHttpServer()).post('/auth/login')
-        .send({ email: testUser.email, password: testUser.password }).expect(401));
+      request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email, password: testUser.password })
+        .expect(401));
   });
 
   describe('GET /auth/activate', () => {
     it('should activate account', () =>
-      request(app.getHttpServer()).get(`/auth/activate?token=${activationToken}`).expect(200));
+      request(app.getHttpServer())
+        .get(`/auth/activate?token=${activationToken}`)
+        .expect(200));
 
     it('should return 400 if token already used', () =>
-      request(app.getHttpServer()).get(`/auth/activate?token=${activationToken}`).expect(400));
+      request(app.getHttpServer())
+        .get(`/auth/activate?token=${activationToken}`)
+        .expect(400));
 
     it('should return 400 if token invalid', () =>
-      request(app.getHttpServer()).get('/auth/activate?token=invalid').expect(400));
+      request(app.getHttpServer())
+        .get('/auth/activate?token=invalid')
+        .expect(400));
   });
 
   describe('POST /auth/login', () => {
     it('should login and return 200 with token and no password', async () => {
       const res = await request(app.getHttpServer())
-        .post('/auth/login').send({ email: testUser.email, password: testUser.password }).expect(200);
+        .post('/auth/login')
+        .send({ email: testUser.email, password: testUser.password })
+        .expect(200);
       expect(res.body.access_token).toBeDefined();
       expect(res.body.user.password).toBeUndefined();
       expect(res.body.user.role.type).toBe(RoleType.CLIENT);
     });
 
     it('should return 401 with wrong password', () =>
-      request(app.getHttpServer()).post('/auth/login')
-        .send({ email: testUser.email, password: 'wrong' }).expect(401));
+      request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email, password: 'wrong' })
+        .expect(401));
   });
 
   describe('POST /auth/forgot-password', () => {
     it('should return 200 even for unknown email — no hints', async () => {
-      await request(app.getHttpServer()).post('/auth/forgot-password')
-        .send({ email: 'noexiste@test.com' }).expect(200);
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: 'noexiste@test.com' })
+        .expect(200);
       expect(mockMailService.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
     it('should send reset email', async () => {
-      await request(app.getHttpServer()).post('/auth/forgot-password')
-        .send({ email: testUser.email }).expect(200);
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: testUser.email })
+        .expect(200);
       expect(mockMailService.sendPasswordResetEmail).toHaveBeenCalled();
     });
   });
 
   describe('POST /auth/reset-password', () => {
     it('should reset password and allow login with new password', async () => {
-      const resetToken = mockMailService.sendPasswordResetEmail.mock.calls[0][2];
-      await request(app.getHttpServer()).post('/auth/reset-password')
-        .send({ token: resetToken, password: 'NewPass1234!' }).expect(200);
-      await request(app.getHttpServer()).post('/auth/login')
-        .send({ email: testUser.email, password: 'NewPass1234!' }).expect(200);
+      const resetToken =
+        mockMailService.sendPasswordResetEmail.mock.calls[0][2];
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: resetToken, password: 'NewPass1234!' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email, password: 'NewPass1234!' })
+        .expect(200);
     });
 
     it('should return 400 with invalid token', () =>
-      request(app.getHttpServer()).post('/auth/reset-password')
-        .send({ token: 'invalid', password: 'NewPass1234!' }).expect(400));
+      request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: 'invalid', password: 'NewPass1234!' })
+        .expect(400));
   });
 });

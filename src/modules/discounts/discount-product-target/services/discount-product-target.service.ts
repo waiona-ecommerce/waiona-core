@@ -13,7 +13,6 @@ import { DiscountProductTargetResponseDto } from '../dto/discount-target-respons
 
 @Injectable()
 export class DiscountProductTargetService {
-
   constructor(
     @InjectRepository(DiscountProductTargetEntity)
     private readonly repo: Repository<DiscountProductTargetEntity>,
@@ -49,7 +48,9 @@ export class DiscountProductTargetService {
   // GET ALL BY DISCOUNT
   // ==========================
 
-  async findAll(discountId: number): Promise<DiscountProductTargetResponseDto[]> {
+  async findAll(
+    discountId: number,
+  ): Promise<DiscountProductTargetResponseDto[]> {
     await this.findDiscount(discountId);
 
     const targets = await this.repo.find({
@@ -111,7 +112,9 @@ export class DiscountProductTargetService {
   }
 
   // 🔥 chequea que el producto no esté asociado a NINGÚN descuento activo
-  private async validateProductHasNoActiveDiscount(productId: number): Promise<void> {
+  private async validateProductHasNoActiveDiscount(
+    productId: number,
+  ): Promise<void> {
     const existing = await this.repo.findOne({
       where: { productId },
     });

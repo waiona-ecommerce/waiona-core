@@ -17,7 +17,6 @@ import { ComboPricingResponseDto } from '../dto/combo-pricing-response.dto';
 
 @Injectable()
 export class ComboPricingService {
-
   constructor(
     @InjectRepository(ComboPricingEntity)
     private repo: Repository<ComboPricingEntity>,
@@ -31,7 +30,6 @@ export class ComboPricingService {
   // ==========================
 
   async create(dto: CreateComboPricingDto): Promise<ComboPricingResponseDto> {
-
     const existing = await this.repo.findOne({
       where: { comboId: dto.comboId },
     });
@@ -40,9 +38,7 @@ export class ComboPricingService {
       throw new BadRequestException('Combo already has pricing');
     }
 
-    const margin = dto.marginId
-      ? await this.resolveMargin(dto.marginId)
-      : null;
+    const margin = dto.marginId ? await this.resolveMargin(dto.marginId) : null;
 
     const entity = this.repo.create({
       comboId: dto.comboId,
@@ -55,7 +51,8 @@ export class ComboPricingService {
       const saved = await this.repo.save(entity);
       return new ComboPricingResponseDto(saved);
     } catch (err: any) {
-      if (err.code === PG_UNIQUE_VIOLATION) throw new BadRequestException('Combo already has pricing');
+      if (err.code === PG_UNIQUE_VIOLATION)
+        throw new BadRequestException('Combo already has pricing');
       throw err;
     }
   }
@@ -64,8 +61,10 @@ export class ComboPricingService {
   // UPDATE
   // ==========================
 
-  async update(id: number, dto: UpdateComboPricingDto): Promise<ComboPricingResponseDto> {
-
+  async update(
+    id: number,
+    dto: UpdateComboPricingDto,
+  ): Promise<ComboPricingResponseDto> {
     const entity = await this.findOneEntity(id);
 
     if (dto.marginId !== undefined) {
@@ -87,13 +86,21 @@ export class ComboPricingService {
   // FIND ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<ComboPricingResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<ComboPricingResponseDto>> {
     const [entities, total] = await this.repo.findAndCount({
       relations: ['margin'],
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(entities.map((e) => new ComboPricingResponseDto(e)), total, page, limit);
+    return new PaginatedResponseDto(
+      entities.map((e) => new ComboPricingResponseDto(e)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

@@ -32,7 +32,9 @@ describe('DiscountProductTargetController', () => {
       .useValue(mockRolesGuard)
       .compile();
 
-    controller = module.get<DiscountProductTargetController>(DiscountProductTargetController);
+    controller = module.get<DiscountProductTargetController>(
+      DiscountProductTargetController,
+    );
     service = module.get(DiscountProductTargetService);
   });
 
@@ -61,9 +63,9 @@ describe('DiscountProductTargetController', () => {
     it('should create a product target', async () => {
       const dto = { productId: 1 };
       const target = mockTargetResponse();
-      service.create.mockResolvedValue(target as any);
+      service.create.mockResolvedValue(target);
 
-      const result = await controller.create(1, dto as any);
+      const result = await controller.create(1, dto);
 
       expect(service.create).toHaveBeenCalledWith(1, dto);
       expect(result).toEqual(target);
@@ -77,7 +79,7 @@ describe('DiscountProductTargetController', () => {
   describe('findAll', () => {
     it('should return all targets for a discount', async () => {
       const targets = [mockTargetResponse()];
-      service.findAll.mockResolvedValue(targets as any);
+      service.findAll.mockResolvedValue(targets);
 
       const result = await controller.findAll(1);
 

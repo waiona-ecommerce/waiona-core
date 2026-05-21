@@ -19,7 +19,6 @@ import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
 @Index(['sku'], { unique: true })
 @Index(['categoryId'])
 export class ProductEntity extends BaseEntity {
-
   // ==========================
   // Identificación
   // ==========================
@@ -99,15 +98,9 @@ export class ProductEntity extends BaseEntity {
   // Relaciones
   // ==========================
 
-  @OneToMany(
-    () => ProductImageEntity,
-    (image) => image.product,
-  )
+  @OneToMany(() => ProductImageEntity, (image) => image.product)
   images: ProductImageEntity[];
 
-  @OneToMany(
-    () => ComboItemEntity,
-    (item) => item.product,
-  )
+  @OneToMany(() => ComboItemEntity, (item) => item.product)
   comboItems: ComboItemEntity[];
 }

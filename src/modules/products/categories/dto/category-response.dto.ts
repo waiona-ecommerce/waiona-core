@@ -1,7 +1,6 @@
 import { CategoryEntity } from '../entities/category.entity';
 
 export class CategoryResponseDto {
-
   id: number;
   name: string;
   description?: string;

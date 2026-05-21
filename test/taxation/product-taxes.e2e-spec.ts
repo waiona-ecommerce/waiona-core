@@ -35,15 +35,20 @@ describe('ProductTaxes (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
-              ProductTaxEntity, TaxEntity, TaxTypeEntity,
-              ProductEntity, ProductImageEntity,
-              ComboEntity, ComboItemEntity, ComboImageEntity,
+              ProductTaxEntity,
+              TaxEntity,
+              TaxTypeEntity,
+              ProductEntity,
+              ProductImageEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
               CategoryEntity,
             ],
             synchronize: true,
@@ -55,16 +60,20 @@ describe('ProductTaxes (e2e)', () => {
       controllers: [ProductTaxesController],
       providers: [ProductTaxesService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);

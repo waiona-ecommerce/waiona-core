@@ -3,7 +3,6 @@ import { StockLocationEntity } from '../entities/stock-locations.entity';
 import { StockLocationType } from '../enums/stock-location-type.enum';
 
 export class StockLocationResponseDto {
-
   @ApiProperty({ example: 1 })
   id: number;
 
@@ -23,9 +22,9 @@ export class StockLocationResponseDto {
   updatedAt: Date;
 
   constructor(entity: StockLocationEntity) {
-    this.id      = entity.id;
-    this.name    = entity.name;
-    this.type    = entity.type;
+    this.id = entity.id;
+    this.name = entity.name;
+    this.type = entity.type;
     this.address = entity.address ?? undefined;
 
     this.createdAt = entity.createdAt;

@@ -17,8 +17,8 @@ describe('MailService', () => {
     get: jest.fn((key: string) => {
       const config: Record<string, string> = {
         RESEND_API_KEY: 're_test_key',
-        MAIL_FROM:      'Waiona <onboarding@resend.dev>',
-        FRONTEND_URL:   'http://localhost:4200',
+        MAIL_FROM: 'Waiona <onboarding@resend.dev>',
+        FRONTEND_URL: 'http://localhost:4200',
       };
       return config[key];
     }),
@@ -51,8 +51,8 @@ describe('MailService', () => {
 
       expect(mockResendSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          from:    'Waiona <onboarding@resend.dev>',
-          to:      'user@test.com',
+          from: 'Waiona <onboarding@resend.dev>',
+          to: 'user@test.com',
           subject: 'Activá tu cuenta en Waiona',
         }),
       );
@@ -64,7 +64,9 @@ describe('MailService', () => {
       await service.sendActivationEmail('user@test.com', 'Juan', 'token_abc');
 
       const call = mockResendSend.mock.calls[0][0];
-      expect(call.html).toContain('http://localhost:4200/auth/activate?token=token_abc');
+      expect(call.html).toContain(
+        'http://localhost:4200/auth/activate?token=token_abc',
+      );
     });
 
     it('should include the user name in the html', async () => {
@@ -93,12 +95,16 @@ describe('MailService', () => {
     it('should send a reset email with correct params', async () => {
       mockResendSend.mockResolvedValue({ id: 'email_456' });
 
-      await service.sendPasswordResetEmail('user@test.com', 'Juan', 'reset_token');
+      await service.sendPasswordResetEmail(
+        'user@test.com',
+        'Juan',
+        'reset_token',
+      );
 
       expect(mockResendSend).toHaveBeenCalledWith(
         expect.objectContaining({
-          from:    'Waiona <onboarding@resend.dev>',
-          to:      'user@test.com',
+          from: 'Waiona <onboarding@resend.dev>',
+          to: 'user@test.com',
           subject: 'Recuperá tu contraseña en Waiona',
         }),
       );
@@ -107,16 +113,26 @@ describe('MailService', () => {
     it('should include the reset URL in the html', async () => {
       mockResendSend.mockResolvedValue({ id: 'email_456' });
 
-      await service.sendPasswordResetEmail('user@test.com', 'Juan', 'reset_token');
+      await service.sendPasswordResetEmail(
+        'user@test.com',
+        'Juan',
+        'reset_token',
+      );
 
       const call = mockResendSend.mock.calls[0][0];
-      expect(call.html).toContain('http://localhost:4200/auth/reset-password?token=reset_token');
+      expect(call.html).toContain(
+        'http://localhost:4200/auth/reset-password?token=reset_token',
+      );
     });
 
     it('should include the user name in the html', async () => {
       mockResendSend.mockResolvedValue({ id: 'email_456' });
 
-      await service.sendPasswordResetEmail('user@test.com', 'Juan', 'reset_token');
+      await service.sendPasswordResetEmail(
+        'user@test.com',
+        'Juan',
+        'reset_token',
+      );
 
       const call = mockResendSend.mock.calls[0][0];
       expect(call.html).toContain('Juan');

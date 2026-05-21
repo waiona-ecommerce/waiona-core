@@ -11,7 +11,6 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
-
   // ==========================
   // Auth
   // ==========================
@@ -25,7 +24,8 @@ export class CreateUserDto {
   @MinLength(8)
   @MaxLength(255)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    message:
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number',
   })
   password: string;
 

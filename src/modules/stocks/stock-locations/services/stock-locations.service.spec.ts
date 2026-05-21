@@ -12,29 +12,35 @@ describe('StockLocationsService', () => {
 
   const mockRepo = () => ({
     findAndCount: jest.fn(),
-    findOne:      jest.fn(),
-    create:       jest.fn(),
-    save:         jest.fn(),
-    softDelete:   jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
   });
 
-  const mockLocation = (overrides = {}): StockLocationEntity =>
-    ({
-      id: 1, name: 'Depósito Central', type: StockLocationType.WAREHOUSE,
-      address: null, deletedAt: null,
-      createdAt: new Date(), updatedAt: new Date(),
-      ...overrides,
-    }) as unknown as StockLocationEntity;
+  const mockLocation = (overrides = {}): StockLocationEntity => ({
+    id: 1,
+    name: 'Depósito Central',
+    type: StockLocationType.WAREHOUSE,
+    address: null,
+    deletedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StockLocationsService,
-        { provide: getRepositoryToken(StockLocationEntity), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(StockLocationEntity),
+          useFactory: mockRepo,
+        },
       ],
     }).compile();
     service = module.get<StockLocationsService>(StockLocationsService);
-    repo    = module.get(getRepositoryToken(StockLocationEntity));
+    repo = module.get(getRepositoryToken(StockLocationEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -48,7 +54,10 @@ describe('StockLocationsService', () => {
       const loc = mockLocation();
       repo.create.mockReturnValue(loc);
       repo.save.mockResolvedValue(loc);
-      const result = await service.create({ name: 'Depósito Central', type: StockLocationType.WAREHOUSE });
+      const result = await service.create({
+        name: 'Depósito Central',
+        type: StockLocationType.WAREHOUSE,
+      });
       expect(result.name).toBe('Depósito Central');
     });
   });

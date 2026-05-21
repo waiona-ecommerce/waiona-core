@@ -8,7 +8,6 @@ import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class StockMovementService {
-
   constructor(
     @InjectRepository(StockMovementEntity)
     private readonly stockMovementRepository: Repository<StockMovementEntity>,
@@ -18,13 +17,21 @@ export class StockMovementService {
   // GET ALL
   // ==========================
 
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<StockMovementResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<StockMovementResponseDto>> {
     const [movements, total] = await this.stockMovementRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return new PaginatedResponseDto(movements.map((m) => new StockMovementResponseDto(m)), total, page, limit);
+    return new PaginatedResponseDto(
+      movements.map((m) => new StockMovementResponseDto(m)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================
@@ -47,7 +54,9 @@ export class StockMovementService {
   // GET BY STOCK ITEM
   // ==========================
 
-  async findByStockItemId(stockItemId: number): Promise<StockMovementResponseDto[]> {
+  async findByStockItemId(
+    stockItemId: number,
+  ): Promise<StockMovementResponseDto[]> {
     const movements = await this.stockMovementRepository.find({
       where: { stockItemId },
       order: { createdAt: 'DESC' },

@@ -1,10 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
 import { BaseEntity } from '../../../../common/entities/base.entity';
 import { ComboEntity } from './combo.entity';
@@ -13,10 +7,7 @@ import { ProductEntity } from '../../product/entities/product.entity';
 @Entity('combo_items')
 @Index(['comboId'])
 @Index(['productId'])
-
-
 export class ComboItemEntity extends BaseEntity {
-
   // ==========================
   // Foreign Keys
   // ==========================

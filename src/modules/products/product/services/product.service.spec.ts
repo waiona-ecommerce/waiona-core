@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 
 import { ProductService } from './product.service';
 import { ProductEntity } from '../entities/product.entity';
@@ -10,16 +14,16 @@ import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
 
 describe('ProductService', () => {
   let service: ProductService;
-  let productRepository:  jest.Mocked<Repository<ProductEntity>>;
+  let productRepository: jest.Mocked<Repository<ProductEntity>>;
   let categoryRepository: jest.Mocked<Repository<CategoryEntity>>;
 
-  const mockProductRepository  = () => ({
+  const mockProductRepository = () => ({
     findAndCount: jest.fn(),
-    findOne:      jest.fn(),
-    create:       jest.fn(),
-    save:         jest.fn(),
-    merge:        jest.fn(),
-    softDelete:   jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    merge: jest.fn(),
+    softDelete: jest.fn(),
   });
 
   const mockCategoryRepository = () => ({ findOne: jest.fn() });
@@ -28,13 +32,19 @@ describe('ProductService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
-        { provide: getRepositoryToken(ProductEntity),  useFactory: mockProductRepository  },
-        { provide: getRepositoryToken(CategoryEntity), useFactory: mockCategoryRepository },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useFactory: mockProductRepository,
+        },
+        {
+          provide: getRepositoryToken(CategoryEntity),
+          useFactory: mockCategoryRepository,
+        },
       ],
     }).compile();
 
-    service            = module.get<ProductService>(ProductService);
-    productRepository  = module.get(getRepositoryToken(ProductEntity));
+    service = module.get<ProductService>(ProductService);
+    productRepository = module.get(getRepositoryToken(ProductEntity));
     categoryRepository = module.get(getRepositoryToken(CategoryEntity));
   });
 
@@ -46,20 +56,20 @@ describe('ProductService', () => {
 
   const mockProduct = (overrides = {}): ProductEntity =>
     ({
-      id:               1,
-      sku:              'COCA-500',
-      name:             'Coca Cola 500ml',
-      description:      'Gaseosa negra 500ml',
-      isActive:         true,
-      deletedAt:        null,
-      categoryId:       1,
-      category:         mockCategory,
-      measurementUnit:  ProductMeasurementUnit.UNIT,
+      id: 1,
+      sku: 'COCA-500',
+      name: 'Coca Cola 500ml',
+      description: 'Gaseosa negra 500ml',
+      isActive: true,
+      deletedAt: null,
+      categoryId: 1,
+      category: mockCategory,
+      measurementUnit: ProductMeasurementUnit.UNIT,
       measurementValue: 500,
-      images:           [],
-      comboItems:       [],
-      createdAt:        new Date(),
-      updatedAt:        new Date(),
+      images: [],
+      comboItems: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
       ...overrides,
     }) as unknown as ProductEntity;
 
@@ -75,9 +85,9 @@ describe('ProductService', () => {
 
       expect(productRepository.findAndCount).toHaveBeenCalledWith({
         relations: ['category'],
-        order:     { name: 'ASC' },
-        skip:      0,
-        take:      20,
+        order: { name: 'ASC' },
+        skip: 0,
+        take: 20,
       });
       expect(result.data).toHaveLength(1);
       expect(result.data[0].name).toBe('Coca Cola 500ml');
@@ -106,7 +116,7 @@ describe('ProductService', () => {
       const result = await service.findById(1);
 
       expect(productRepository.findOne).toHaveBeenCalledWith({
-        where:     { id: 1 },
+        where: { id: 1 },
         relations: ['category'],
       });
       expect(result.id).toBe(1);
@@ -126,30 +136,34 @@ describe('ProductService', () => {
 
   describe('create', () => {
     const createDto = {
-      sku:             'sprite-500',
-      name:            'Sprite 500ml',
-      description:     'Gaseosa lima limón 500ml',
-      categoryId:      1,
+      sku: 'sprite-500',
+      name: 'Sprite 500ml',
+      description: 'Gaseosa lima limón 500ml',
+      categoryId: 1,
       measurementUnit: ProductMeasurementUnit.UNIT,
     };
 
     it('should create a product and return it with category', async () => {
-      const savedProduct = mockProduct({ id: 2, sku: 'SPRITE-500', name: 'Sprite 500ml' });
+      const savedProduct = mockProduct({
+        id: 2,
+        sku: 'SPRITE-500',
+        name: 'Sprite 500ml',
+      });
 
       categoryRepository.findOne.mockResolvedValue({ id: 1 } as any);
 
       productRepository.findOne
-        .mockResolvedValueOnce(null)           // SKU check — no existe
-        .mockResolvedValueOnce(savedProduct);  // recarga con relación
+        .mockResolvedValueOnce(null) // SKU check — no existe
+        .mockResolvedValueOnce(savedProduct); // recarga con relación
 
       productRepository.create.mockReturnValue(savedProduct);
       productRepository.save.mockResolvedValue(savedProduct);
 
-      const result = await service.create(createDto as any);
+      const result = await service.create(createDto);
 
       expect(productRepository.create).toHaveBeenCalledWith({
         ...createDto,
-        sku:      'SPRITE-500',
+        sku: 'SPRITE-500',
         isActive: true,
       });
       expect(result.sku).toBe('SPRITE-500');
@@ -160,7 +174,9 @@ describe('ProductService', () => {
       categoryRepository.findOne.mockResolvedValue({ id: 1 } as any);
       productRepository.findOne.mockResolvedValue(mockProduct());
 
-      await expect(service.create(createDto as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(createDto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -171,28 +187,30 @@ describe('ProductService', () => {
   describe('update', () => {
     it('should update a product', async () => {
       const original = mockProduct();
-      const updated  = mockProduct({ name: 'Coca Cola 1L' });
+      const updated = mockProduct({ name: 'Coca Cola 1L' });
 
       productRepository.findOne
-        .mockResolvedValueOnce(original)  // findOne inicial
-        .mockResolvedValueOnce(updated);  // recarga post-save
+        .mockResolvedValueOnce(original) // findOne inicial
+        .mockResolvedValueOnce(updated); // recarga post-save
 
       productRepository.merge.mockReturnValue(updated);
       productRepository.save.mockResolvedValue(updated);
 
-      const result = await service.update(1, { name: 'Coca Cola 1L' } as any);
+      const result = await service.update(1, { name: 'Coca Cola 1L' });
 
-      expect(productRepository.merge).toHaveBeenCalledWith(original, { name: 'Coca Cola 1L' });
+      expect(productRepository.merge).toHaveBeenCalledWith(original, {
+        name: 'Coca Cola 1L',
+      });
       expect(result.name).toBe('Coca Cola 1L');
     });
 
     it('should throw BadRequestException if new SKU already exists', async () => {
-      const original    = mockProduct({ sku: 'COCA-500' });
+      const original = mockProduct({ sku: 'COCA-500' });
       const existingSku = mockProduct({ id: 2, sku: 'SPRITE-500' });
 
       productRepository.findOne
-        .mockResolvedValueOnce(original)      // findOne inicial
-        .mockResolvedValueOnce(existingSku);  // SKU check
+        .mockResolvedValueOnce(original) // findOne inicial
+        .mockResolvedValueOnce(existingSku); // SKU check
 
       await expect(
         service.update(1, { sku: 'sprite-500' } as any),

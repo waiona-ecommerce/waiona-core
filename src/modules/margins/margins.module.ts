@@ -8,7 +8,11 @@ import { ProductPricingEntity } from 'src/modules/pricing/entities/product-prici
 import { ComboPricingEntity } from 'src/modules/pricing/entities/combo-pricing.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MarginEntity, ProductPricingEntity, ComboPricingEntity]),
+    TypeOrmModule.forFeature([
+      MarginEntity,
+      ProductPricingEntity,
+      ComboPricingEntity,
+    ]),
   ],
   controllers: [MarginsController],
   providers: [MarginsService],

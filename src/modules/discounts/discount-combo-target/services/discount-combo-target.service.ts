@@ -13,7 +13,6 @@ import { DiscountComboTargetResponseDto } from '../dto/discount-combo-target.dto
 
 @Injectable()
 export class DiscountComboTargetService {
-
   constructor(
     @InjectRepository(DiscountComboTargetEntity)
     private readonly repo: Repository<DiscountComboTargetEntity>,
@@ -111,7 +110,9 @@ export class DiscountComboTargetService {
   }
 
   // 🔥 chequea que el combo no esté asociado a NINGÚN descuento activo
-  private async validateComboHasNoActiveDiscount(comboId: number): Promise<void> {
+  private async validateComboHasNoActiveDiscount(
+    comboId: number,
+  ): Promise<void> {
     const existing = await this.repo.findOne({
       where: { comboId },
     });

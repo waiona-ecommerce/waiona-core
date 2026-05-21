@@ -22,20 +22,40 @@ import { ProductMeasurementUnit } from '../../src/modules/products/product/enums
 // cubiertos por los unit tests del ShopService.
 const mockCalculation = {
   calculateProduct: jest.fn().mockResolvedValue({
-    unitPrice: 500, discount: 50, priceAfterDiscount: 450,
-    margin: 90, priceAfterMargin: 540, taxes: 113.4,
-    finalPrice: 653.4, fullPrice: 726, coupon: 0, orderTotal: 653.4,
+    unitPrice: 500,
+    discount: 50,
+    priceAfterDiscount: 450,
+    margin: 90,
+    priceAfterMargin: 540,
+    taxes: 113.4,
+    finalPrice: 653.4,
+    fullPrice: 726,
+    coupon: 0,
+    orderTotal: 653.4,
   }),
   calculateCombo: jest.fn().mockResolvedValue({
-    unitPrice: 1200, discount: 0, priceAfterDiscount: 1200,
-    margin: 240, priceAfterMargin: 1440, taxes: 302.4,
-    finalPrice: 1742.4, fullPrice: 1742.4, coupon: 0, orderTotal: 1742.4,
+    unitPrice: 1200,
+    discount: 0,
+    priceAfterDiscount: 1200,
+    margin: 240,
+    priceAfterMargin: 1440,
+    taxes: 302.4,
+    finalPrice: 1742.4,
+    fullPrice: 1742.4,
+    coupon: 0,
+    orderTotal: 1742.4,
   }),
 };
 
 const mockStock = {
-  findByProduct: jest.fn().mockResolvedValue({ quantityAvailable: 10, stockMin: 5, stockCritical: 2 }),
-  findByCombo:   jest.fn().mockResolvedValue({ quantityAvailable: 5, inStock: true }),
+  findByProduct: jest.fn().mockResolvedValue({
+    quantityAvailable: 10,
+    stockMin: 5,
+    stockCritical: 2,
+  }),
+  findByCombo: jest
+    .fn()
+    .mockResolvedValue({ quantityAvailable: 5, inStock: true }),
 };
 
 describe('Shop (e2e)', () => {
@@ -52,12 +72,19 @@ describe('Shop (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [ProductEntity, ProductImageEntity, ComboEntity, ComboItemEntity, ComboImageEntity, CategoryEntity],
+            entities: [
+              ProductEntity,
+              ProductImageEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
+              CategoryEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
@@ -67,36 +94,47 @@ describe('Shop (e2e)', () => {
       controllers: [ShopController],
       providers: [
         ShopService,
-        { provide: CalculationService,  useValue: mockCalculation },
-        { provide: StockItemsService,   useValue: mockStock       },
+        { provide: CalculationService, useValue: mockCalculation },
+        { provide: StockItemsService, useValue: mockStock },
       ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     const category = await dataSource.getRepository(CategoryEntity).save({
-      name: 'Bebidas', isActive: true,
+      name: 'Bebidas',
+      isActive: true,
     });
     const product = await dataSource.getRepository(ProductEntity).save({
-      sku: 'SHOP-001', name: 'Coca Cola 500ml', description: 'Gaseosa negra',
-      isActive: true, categoryId: category.id, measurementUnit: ProductMeasurementUnit.UNIT,
+      sku: 'SHOP-001',
+      name: 'Coca Cola 500ml',
+      description: 'Gaseosa negra',
+      isActive: true,
+      categoryId: category.id,
+      measurementUnit: ProductMeasurementUnit.UNIT,
     });
     productId = product.id;
 
     const combo = await dataSource.getRepository(ComboEntity).save({
-      name: 'Combo Coca x3', description: 'Tres Cocas 500ml',
-      isActive: true, categoryId: category.id,
+      name: 'Combo Coca x3',
+      description: 'Tres Cocas 500ml',
+      isActive: true,
+      categoryId: category.id,
     });
     await dataSource.getRepository(ComboItemEntity).save({
-      comboId: combo.id, productId: product.id, quantity: 3,
+      comboId: combo.id,
+      productId: product.id,
+      quantity: 3,
     });
     comboId = combo.id;
   }, 30000);

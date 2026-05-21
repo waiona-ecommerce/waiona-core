@@ -9,28 +9,41 @@ describe('ShopController', () => {
   const mockService = () => ({ search: jest.fn(), findById: jest.fn() });
 
   const mockPaginatedResponse = (overrides = {}) => ({
-    total: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false,
-    data: [{ id: 1, name: 'Coca Cola 500ml', type: 'product', finalPrice: 653.4 }],
+    total: 1,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
+    data: [
+      { id: 1, name: 'Coca Cola 500ml', type: 'product', finalPrice: 653.4 },
+    ],
     ...overrides,
   });
 
   const mockDetailResponse = (overrides = {}) => ({
-    id: 1, name: 'Coca Cola 500ml', description: 'Gaseosa', type: 'product',
-    originalPrice: 726, finalPrice: 653.4, discountAmount: 50, hasDiscount: true,
-    inStock: true, quantityAvailable: 10, stockStatus: 'available', images: [],
+    id: 1,
+    name: 'Coca Cola 500ml',
+    description: 'Gaseosa',
+    type: 'product',
+    originalPrice: 726,
+    finalPrice: 653.4,
+    discountAmount: 50,
+    hasDiscount: true,
+    inStock: true,
+    quantityAvailable: 10,
+    stockStatus: 'available',
+    images: [],
     ...overrides,
   });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ShopController],
-      providers: [
-        { provide: ShopService, useFactory: mockService },
-      ],
+      providers: [{ provide: ShopService, useFactory: mockService }],
     }).compile();
 
     controller = module.get<ShopController>(ShopController);
-    service    = module.get(ShopService);
+    service = module.get(ShopService);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -45,7 +58,7 @@ describe('ShopController', () => {
     it('should return paginated results', async () => {
       service.search.mockResolvedValue(mockPaginatedResponse() as any);
 
-      const result = await controller.search({} as any);
+      const result = await controller.search({});
 
       expect(service.search).toHaveBeenCalledWith({});
       expect(result.total).toBe(1);
@@ -53,7 +66,13 @@ describe('ShopController', () => {
     });
 
     it('should pass query params to service', async () => {
-      const query = { type: 'product', search: 'coca', categoryId: 1, page: 2, limit: 10 };
+      const query = {
+        type: 'product',
+        search: 'coca',
+        categoryId: 1,
+        page: 2,
+        limit: 10,
+      };
       service.search.mockResolvedValue(mockPaginatedResponse() as any);
 
       await controller.search(query as any);
@@ -62,9 +81,11 @@ describe('ShopController', () => {
     });
 
     it('should return empty data if no results', async () => {
-      service.search.mockResolvedValue(mockPaginatedResponse({ total: 0, data: [] }) as any);
+      service.search.mockResolvedValue(
+        mockPaginatedResponse({ total: 0, data: [] }) as any,
+      );
 
-      const result = await controller.search({} as any);
+      const result = await controller.search({});
 
       expect(result.data).toHaveLength(0);
     });
@@ -86,7 +107,10 @@ describe('ShopController', () => {
     });
 
     it('should return combo detail', async () => {
-      const comboDetail = mockDetailResponse({ type: 'combo', items: [{ productId: 1, productName: 'Coca Cola', quantity: 3 }] });
+      const comboDetail = mockDetailResponse({
+        type: 'combo',
+        items: [{ productId: 1, productName: 'Coca Cola', quantity: 3 }],
+      });
       service.findById.mockResolvedValue(comboDetail as any);
 
       const result = await controller.findById(1, 'combo');

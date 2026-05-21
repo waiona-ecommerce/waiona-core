@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 
 import { CategoryService } from '../../../products/categories/services/category.service';
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
@@ -11,49 +15,54 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 describe('CategoryService', () => {
   let service: CategoryService;
   let categoryRepository: jest.Mocked<Repository<CategoryEntity>>;
-  let productRepository:  jest.Mocked<Repository<ProductEntity>>;
-  let comboRepository:    jest.Mocked<Repository<ComboEntity>>;
+  let productRepository: jest.Mocked<Repository<ProductEntity>>;
+  let comboRepository: jest.Mocked<Repository<ComboEntity>>;
 
   const mockCategoryRepo = () => ({
     findAndCount: jest.fn(),
-    find:         jest.fn(),
-    findOne:      jest.fn(),
-    create:       jest.fn(),
-    save:         jest.fn(),
-    merge:        jest.fn(),
-    softDelete:   jest.fn(),
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    merge: jest.fn(),
+    softDelete: jest.fn(),
   });
 
   const mockCountRepo = () => ({ count: jest.fn() });
 
-  const mockCategory = (overrides = {}): CategoryEntity =>
-    ({
-      id:          1,
-      name:        'Bebidas',
-      description: 'Bebidas en general',
-      isActive:    true,
-      deletedAt:   null,
-      parentId:    null,
-      children:    [],
-      createdAt:   new Date(),
-      updatedAt:   new Date(),
-      ...overrides,
-    }) as unknown as CategoryEntity;
+  const mockCategory = (overrides = {}): CategoryEntity => ({
+    id: 1,
+    name: 'Bebidas',
+    description: 'Bebidas en general',
+    isActive: true,
+    deletedAt: null,
+    parentId: null,
+    children: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CategoryService,
-        { provide: getRepositoryToken(CategoryEntity), useFactory: mockCategoryRepo },
-        { provide: getRepositoryToken(ProductEntity),  useFactory: mockCountRepo     },
-        { provide: getRepositoryToken(ComboEntity),    useFactory: mockCountRepo     },
+        {
+          provide: getRepositoryToken(CategoryEntity),
+          useFactory: mockCategoryRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useFactory: mockCountRepo,
+        },
+        { provide: getRepositoryToken(ComboEntity), useFactory: mockCountRepo },
       ],
     }).compile();
 
-    service            = module.get<CategoryService>(CategoryService);
+    service = module.get<CategoryService>(CategoryService);
     categoryRepository = module.get(getRepositoryToken(CategoryEntity));
-    productRepository  = module.get(getRepositoryToken(ProductEntity));
-    comboRepository    = module.get(getRepositoryToken(ComboEntity));
+    productRepository = module.get(getRepositoryToken(ProductEntity));
+    comboRepository = module.get(getRepositoryToken(ComboEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -114,7 +123,10 @@ describe('CategoryService', () => {
       categoryRepository.create.mockReturnValue(entity);
       categoryRepository.save.mockResolvedValue(entity);
 
-      const result = await service.create({ name: 'Bebidas', isActive: true } as any);
+      const result = await service.create({
+        name: 'Bebidas',
+        isActive: true,
+      });
 
       expect(result.name).toBe('Bebidas');
     });
@@ -134,14 +146,14 @@ describe('CategoryService', () => {
 
   describe('update', () => {
     it('should update a category', async () => {
-      const entity  = mockCategory();
+      const entity = mockCategory();
       const updated = mockCategory({ name: 'Gaseosas' });
 
       categoryRepository.findOne.mockResolvedValue(entity);
       categoryRepository.merge.mockReturnValue(updated);
       categoryRepository.save.mockResolvedValue(updated);
 
-      const result = await service.update(1, { name: 'Gaseosas' } as any);
+      const result = await service.update(1, { name: 'Gaseosas' });
 
       expect(result.name).toBe('Gaseosas');
     });
@@ -149,15 +161,17 @@ describe('CategoryService', () => {
     it('should throw BadRequestException if category is its own parent', async () => {
       categoryRepository.findOne.mockResolvedValue(mockCategory());
 
-      await expect(
-        service.update(1, { parentId: 1 } as any),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.update(1, { parentId: 1 } as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException if not found', async () => {
       categoryRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -205,7 +219,7 @@ describe('CategoryService', () => {
 
   describe('getTree', () => {
     it('should return tree with nested children', async () => {
-      const root  = mockCategory({ id: 1, parentId: null });
+      const root = mockCategory({ id: 1, parentId: null });
       const child = mockCategory({ id: 2, name: 'Gaseosas', parentId: 1 });
 
       categoryRepository.find.mockResolvedValue([root, child]);

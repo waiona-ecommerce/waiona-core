@@ -1,5 +1,11 @@
 import { Controller, Get, Query, Param, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 
 import { ShopService } from '../services/shop.service';
 import { SearchShopDto } from '../dto/search-shop.dto';
@@ -9,10 +15,7 @@ import { ShopDetailResponseDto } from '../dto/shop-detail-response.dto';
 @ApiTags('Shop')
 @Controller('shop')
 export class ShopController {
-
-  constructor(
-    private readonly shopService: ShopService,
-  ) {}
+  constructor(private readonly shopService: ShopService) {}
 
   // ==========================
   // GET /shop/items
@@ -20,7 +23,11 @@ export class ShopController {
 
   @Get('items')
   @ApiOperation({ summary: 'Buscar productos y combos del catálogo público' })
-  @ApiResponse({ status: 200, description: 'Resultados paginados del catálogo', type: ShopPaginatedResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultados paginados del catálogo',
+    type: ShopPaginatedResponseDto,
+  })
   async search(
     @Query() query: SearchShopDto,
   ): Promise<ShopPaginatedResponseDto> {
@@ -35,9 +42,19 @@ export class ShopController {
   @ApiOperation({ summary: 'Obtener detalle de un producto o combo' })
   @ApiParam({ name: 'id', type: Number })
   @ApiQuery({ name: 'type', enum: ['product', 'combo'], required: true })
-  @ApiResponse({ status: 200, description: 'Detalle del ítem con precio y stock', type: ShopDetailResponseDto })
-  @ApiResponse({ status: 400, description: 'Parámetro type requerido (product | combo)' })
-  @ApiResponse({ status: 404, description: 'Ítem no encontrado o sin precio configurado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalle del ítem con precio y stock',
+    type: ShopDetailResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parámetro type requerido (product | combo)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Ítem no encontrado o sin precio configurado',
+  })
   async findById(
     @Param('id', ParseIntPipe) id: number,
     @Query('type') type: 'product' | 'combo',

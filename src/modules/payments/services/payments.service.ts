@@ -23,7 +23,6 @@ import { OrdersService } from 'src/modules/orders/services/orders.service';
 
 @Injectable()
 export class PaymentsService {
-
   constructor(
     @InjectRepository(PaymentEntity)
     private readonly paymentRepo: Repository<PaymentEntity>,
@@ -40,8 +39,12 @@ export class PaymentsService {
   // CREATE PAYMENT
   // ==========================
 
-  async create(userId: number, role: RoleType, dto: CreatePaymentDto): Promise<PaymentResponseDto> {
-    return this.dataSource.transaction(async manager => {
+  async create(
+    userId: number,
+    role: RoleType,
+    dto: CreatePaymentDto,
+  ): Promise<PaymentResponseDto> {
+    return this.dataSource.transaction(async (manager) => {
       // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
       // el segundo request concurrente espera el commit del primero y verá el pago pendiente ya existente
       const locked = await manager.findOne(OrderEntity, {
@@ -77,7 +80,8 @@ export class PaymentsService {
       let checkoutUrl: string | null = null;
 
       if (dto.provider === PaymentProvider.MERCADOPAGO) {
-        const preference = await this.mercadoPagoProvider.createPreference(order);
+        const preference =
+          await this.mercadoPagoProvider.createPreference(order);
         externalId = preference.id;
         checkoutUrl = preference.checkoutUrl;
       }
@@ -101,9 +105,8 @@ export class PaymentsService {
   // ==========================
 
   async handleMercadoPagoWebhook(body: any, query: any): Promise<void> {
-
     const topic = query.topic ?? body.type;
-    const id    = query.id ?? body.data?.id;
+    const id = query.id ?? body.data?.id;
 
     if (!id) return;
     if (topic !== 'payment' && topic !== 'merchant_order') return;
@@ -120,13 +123,19 @@ export class PaymentsService {
         // mapear status de Payment al mismo vocabulario que MerchantOrder
         const s = paymentData.status;
         if (s === 'approved') mpStatus = 'paid';
-        else if (s === 'refunded' || s === 'charged_back') mpStatus = 'reverted';
-        else if (s === 'in_process' || s === 'pending') mpStatus = 'payment_in_process';
+        else if (s === 'refunded' || s === 'charged_back')
+          mpStatus = 'reverted';
+        else if (s === 'in_process' || s === 'pending')
+          mpStatus = 'payment_in_process';
         else mpStatus = 'expired';
       } else {
         // topic=merchant_order → usar MerchantOrder API
-        const merchantOrder = new MerchantOrder(this.mercadoPagoProvider.getClient());
-        const mpOrder = await merchantOrder.get({ merchantOrderId: Number(id) });
+        const merchantOrder = new MerchantOrder(
+          this.mercadoPagoProvider.getClient(),
+        );
+        const mpOrder = await merchantOrder.get({
+          merchantOrderId: Number(id),
+        });
         externalReference = mpOrder.external_reference;
         mpStatus = mpOrder.order_status;
       }
@@ -135,7 +144,7 @@ export class PaymentsService {
 
       // 🔥 toda la lógica de DB dentro de la transacción con locks de fila —
       // evita race condition entre dos notificaciones simultáneas del mismo pago
-      await this.dataSource.transaction(async manager => {
+      await this.dataSource.transaction(async (manager) => {
         const payment = await manager.findOne(PaymentEntity, {
           where: { orderId: Number(externalReference) },
           lock: { mode: 'pessimistic_write' },
@@ -151,8 +160,10 @@ export class PaymentsService {
         if (!order) return;
 
         const orderStatus = order.status;
-        const cancellable = orderStatus === OrderStatus.PENDING || orderStatus === OrderStatus.CONFIRMED;
-        let orderChanged  = false;
+        const cancellable =
+          orderStatus === OrderStatus.PENDING ||
+          orderStatus === OrderStatus.CONFIRMED;
+        let orderChanged = false;
 
         if (mpStatus === 'paid') {
           payment.status = PaymentStatus.APPROVED;
@@ -166,7 +177,10 @@ export class PaymentsService {
             order.status = OrderStatus.CANCELLED;
             orderChanged = true;
           }
-        } else if (mpStatus === 'payment_required' || mpStatus === 'payment_in_process') {
+        } else if (
+          mpStatus === 'payment_required' ||
+          mpStatus === 'payment_in_process'
+        ) {
           payment.status = PaymentStatus.PENDING;
         } else {
           payment.status = PaymentStatus.REJECTED;
@@ -179,12 +193,14 @@ export class PaymentsService {
         payment.metadata = { body, query };
 
         if (orderChanged) {
-          await this.ordersService.releaseStockForOrder(payment.orderId, manager);
+          await this.ordersService.releaseStockForOrder(
+            payment.orderId,
+            manager,
+          );
           await manager.save(order);
         }
         await manager.save(payment);
       });
-
     } catch {
       // swallow — MP requiere siempre 200
     }
@@ -194,25 +210,34 @@ export class PaymentsService {
   // FIND BY ORDER
   // ==========================
 
-  async findByOrder(orderId: number, userId: number, role: RoleType): Promise<PaymentResponseDto[]> {
+  async findByOrder(
+    orderId: number,
+    userId: number,
+    role: RoleType,
+  ): Promise<PaymentResponseDto[]> {
     if (role === RoleType.CLIENT) {
       const order = await this.orderRepo.findOne({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Order not found');
-      if (order.userId !== userId) throw new ForbiddenException('Access denied');
+      if (order.userId !== userId)
+        throw new ForbiddenException('Access denied');
     }
 
     const payments = await this.paymentRepo.find({
       where: { orderId },
       order: { createdAt: 'DESC' },
     });
-    return payments.map(p => new PaymentResponseDto(p));
+    return payments.map((p) => new PaymentResponseDto(p));
   }
 
   // ==========================
   // FIND ONE
   // ==========================
 
-  async findOne(id: number, userId: number, role: RoleType): Promise<PaymentResponseDto> {
+  async findOne(
+    id: number,
+    userId: number,
+    role: RoleType,
+  ): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepo.findOne({
       where: { id },
       relations: role === RoleType.CLIENT ? ['order'] : [],

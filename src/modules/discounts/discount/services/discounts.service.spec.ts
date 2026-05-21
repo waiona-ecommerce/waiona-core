@@ -11,16 +11,26 @@ describe('DiscountsService', () => {
 
   const mockRepo = () => ({
     findAndCount: jest.fn(),
-    findOne:      jest.fn(),
-    create:       jest.fn(),
-    save:         jest.fn(),
-    softDelete:   jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
   });
 
-  const mockDiscount = (overrides = {}): DiscountEntity =>
-    ({ id: 1, name: 'Promo 10%', description: 'Descuento de prueba', value: 10, isPercentage: true,
-       currency: null, startsAt: null, endsAt: null, deletedAt: null,
-       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as DiscountEntity;
+  const mockDiscount = (overrides = {}): DiscountEntity => ({
+    id: 1,
+    name: 'Promo 10%',
+    description: 'Descuento de prueba',
+    value: 10,
+    isPercentage: true,
+    currency: null,
+    startsAt: null,
+    endsAt: null,
+    deletedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -30,7 +40,7 @@ describe('DiscountsService', () => {
       ],
     }).compile();
     service = module.get<DiscountsService>(DiscountsService);
-    repo    = module.get(getRepositoryToken(DiscountEntity));
+    repo = module.get(getRepositoryToken(DiscountEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -40,30 +50,55 @@ describe('DiscountsService', () => {
       const entity = mockDiscount();
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      const result = await service.create({ name: 'Promo', value: 10, isPercentage: true } as any);
+      const result = await service.create({
+        name: 'Promo',
+        value: 10,
+        isPercentage: true,
+      });
       expect(result.value).toBe(10);
     });
 
     it('should throw BadRequestException if percentage > 100', async () => {
-      await expect(service.create({ name: 'X', value: 110, isPercentage: true } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ name: 'X', value: 110, isPercentage: true } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if fixed discount has no currency', async () => {
-      await expect(service.create({ name: 'X', value: 500, isPercentage: false } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ name: 'X', value: 500, isPercentage: false } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should create fixed discount with currency', async () => {
-      const entity = mockDiscount({ isPercentage: false, currency: CurrencyCode.ARS, value: 500 });
+      const entity = mockDiscount({
+        isPercentage: false,
+        currency: CurrencyCode.ARS,
+        value: 500,
+      });
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      const result = await service.create({ name: 'X', value: 500, isPercentage: false, currency: CurrencyCode.ARS } as any);
+      const result = await service.create({
+        name: 'X',
+        value: 500,
+        isPercentage: false,
+        currency: CurrencyCode.ARS,
+      });
       expect(result.isPercentage).toBe(false);
     });
 
     it('should throw BadRequestException if startsAt >= endsAt', async () => {
-      const now  = new Date();
+      const now = new Date();
       const past = new Date(now.getTime() - 1000);
-      await expect(service.create({ name: 'X', value: 10, isPercentage: true, startsAt: now, endsAt: past } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({
+          name: 'X',
+          value: 10,
+          isPercentage: true,
+          startsAt: now,
+          endsAt: past,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -97,16 +132,20 @@ describe('DiscountsService', () => {
 
   describe('update', () => {
     it('should update a discount', async () => {
-      const entity  = mockDiscount();
+      const entity = mockDiscount();
       const updated = mockDiscount({ name: 'Promo Actualizada' });
       repo.findOne.mockResolvedValue(entity);
       repo.save.mockResolvedValue(updated);
-      expect((await service.update(1, { name: 'Promo Actualizada' } as any)).name).toBe('Promo Actualizada');
+      expect(
+        (await service.update(1, { name: 'Promo Actualizada' } as any)).name,
+      ).toBe('Promo Actualizada');
     });
 
     it('should throw NotFoundException', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

@@ -13,7 +13,13 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ProductPricingService } from '../services/product-pricing.service';
 import { CreateProductPricingDto } from '../dto/create-product-pricing.dto';
@@ -30,15 +36,19 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('product-pricing')
 export class ProductPricingController {
-
   constructor(private readonly service: ProductPricingService) {}
 
   @Post()
   @ApiOperation({ summary: 'Crear pricing para un producto' })
   @ApiResponse({ status: 201, type: ProductPricingResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o producto ya tiene pricing' })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o producto ya tiene pricing',
+  })
   @ApiResponse({ status: 404, description: 'Margen no encontrado' })
-  async create(@Body() dto: CreateProductPricingDto): Promise<ProductPricingResponseDto> {
+  async create(
+    @Body() dto: CreateProductPricingDto,
+  ): Promise<ProductPricingResponseDto> {
     return this.service.create(dto);
   }
 
@@ -53,7 +63,10 @@ export class ProductPricingController {
   @ApiOperation({ summary: 'Obtener pricing por productId' })
   @ApiParam({ name: 'productId', type: Number })
   @ApiResponse({ status: 200, type: ProductPricingResponseDto })
-  @ApiResponse({ status: 404, description: 'Pricing no encontrado para ese producto' })
+  @ApiResponse({
+    status: 404,
+    description: 'Pricing no encontrado para ese producto',
+  })
   async findByProduct(
     @Param('productId', ParseIntPipe) productId: number,
   ): Promise<ProductPricingResponseDto> {
@@ -65,7 +78,9 @@ export class ProductPricingController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, type: ProductPricingResponseDto })
   @ApiResponse({ status: 404, description: 'Pricing no encontrado' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<ProductPricingResponseDto> {
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ProductPricingResponseDto> {
     return this.service.findOne(id);
   }
 

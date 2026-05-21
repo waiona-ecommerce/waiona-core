@@ -11,7 +11,13 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ComboTaxesService } from '../services/combo-taxes.service';
 import { CreateComboTaxDto } from '../dto/create-combo-taxes.dto';
@@ -29,10 +35,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('combos/:comboId/taxes')
 export class ComboTaxesController {
-
-  constructor(
-    private readonly comboTaxesService: ComboTaxesService,
-  ) {}
+  constructor(private readonly comboTaxesService: ComboTaxesService) {}
 
   @ApiOperation({ summary: 'List taxes for a combo' })
   @ApiResponse({ status: 200, type: [ComboTaxResponseDto] })
@@ -47,9 +50,7 @@ export class ComboTaxesController {
   @ApiResponse({ status: 200, type: ComboTaxResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
   @Get(':id')
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ComboTaxResponseDto> {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<ComboTaxResponseDto> {
     return this.comboTaxesService.findOne(id);
   }
 
@@ -80,9 +81,7 @@ export class ComboTaxesController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.comboTaxesService.remove(id);
   }
 }

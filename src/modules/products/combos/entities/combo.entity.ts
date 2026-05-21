@@ -17,7 +17,6 @@ import { CategoryEntity } from '../../categories/entities/category.entity';
 @Index(['isActive'])
 @Index(['categoryId'])
 export class ComboEntity extends BaseEntity {
-
   // ==========================
   // Información básica
   // ==========================
@@ -65,15 +64,9 @@ export class ComboEntity extends BaseEntity {
   // Relaciones
   // ==========================
 
-  @OneToMany(
-    () => ComboItemEntity,
-    (item) => item.combo,
-  )
+  @OneToMany(() => ComboItemEntity, (item) => item.combo)
   items: ComboItemEntity[];
 
-  @OneToMany(
-    () => ComboImageEntity,
-    (image) => image.combo,
-  )
+  @OneToMany(() => ComboImageEntity, (image) => image.combo)
   images: ComboImageEntity[];
 }

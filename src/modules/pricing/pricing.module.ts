@@ -20,12 +20,12 @@ import { CalculationModule } from './calculation/calculation.module';
     ]),
     CalculationModule,
   ],
-  providers:   [ProductPricingService, ComboPricingService],
+  providers: [ProductPricingService, ComboPricingService],
   controllers: [ComboPricingController, ProductPricingController],
   exports: [
     ProductPricingService,
     ComboPricingService,
-    CalculationModule,    // 🔥 exporta CalculationModule para que otros módulos puedan usar CalculationService
+    CalculationModule, // 🔥 exporta CalculationModule para que otros módulos puedan usar CalculationService
   ],
 })
 export class PricingModule {}

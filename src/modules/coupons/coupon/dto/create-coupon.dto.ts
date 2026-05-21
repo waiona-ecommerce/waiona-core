@@ -17,7 +17,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class CreateCouponDto {
-
   @ApiProperty({ example: 'PROMO10' })
   @IsString()
   @MinLength(3)
@@ -35,7 +34,12 @@ export class CreateCouponDto {
   @IsBoolean()
   isPercentage: boolean;
 
-  @ApiProperty({ enum: CurrencyCode, required: false, nullable: true, example: 'ARS' })
+  @ApiProperty({
+    enum: CurrencyCode,
+    required: false,
+    nullable: true,
+    example: 'ARS',
+  })
   @IsOptional()
   @IsEnum(CurrencyCode)
   currency?: CurrencyCode;

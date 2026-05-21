@@ -4,7 +4,6 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 
 @Entity('roles')
 export class RoleEntity extends BaseEntity {
-
   @Column({
     type: 'enum',
     enum: RoleType,

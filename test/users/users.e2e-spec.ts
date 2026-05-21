@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, ExecutionContext } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  ExecutionContext,
+} from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -23,8 +27,10 @@ describe('Users (e2e)', () => {
   let userId: number;
 
   const testUser = {
-    email: 'test@waiona.com', password: 'Test1234!',
-    name: 'Test', lastName: 'User',
+    email: 'test@waiona.com',
+    password: 'Test1234!',
+    name: 'Test',
+    lastName: 'User',
   };
 
   beforeAll(async () => {
@@ -35,8 +41,8 @@ describe('Users (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
@@ -50,28 +56,32 @@ describe('Users (e2e)', () => {
       controllers: [UsersController],
       providers: [UsersService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({
         canActivate: (ctx: ExecutionContext) => {
           ctx.switchToHttp().getRequest().user = { sub: mockSub };
           return true;
         },
       })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
-    dataSource   = moduleFixture.get(DataSource);
+    dataSource = moduleFixture.get(DataSource);
     usersService = moduleFixture.get(UsersService);
 
-    const created = await usersService.create(testUser as any);
-    userId  = created.id;
+    const created = await usersService.create(testUser);
+    userId = created.id;
     mockSub = userId;
   }, 30000);
 
@@ -85,9 +95,7 @@ describe('Users (e2e)', () => {
   // -------------------------
 
   it('GET /users -> 200 retorna paginado', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/users')
-      .expect(200);
+    const res = await request(app.getHttpServer()).get('/users').expect(200);
 
     expect(res.body.data).toBeDefined();
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -95,9 +103,9 @@ describe('Users (e2e)', () => {
     expect(res.body.page).toBe(1);
   });
 
-  it('GET /users?email=test -> filtra por email', async () => {
+  it('GET /users?email=test@waiona.com -> filtra por email', async () => {
     const res = await request(app.getHttpServer())
-      .get('/users?email=test')
+      .get('/users?email=test@waiona.com')
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
@@ -129,16 +137,14 @@ describe('Users (e2e)', () => {
 
   it('GET /users/:id -> 403 si accede a otro usuario', async () => {
     mockSub = userId + 999;
-    await request(app.getHttpServer())
-      .get(`/users/${userId}`)
-      .expect(403);
+    await request(app.getHttpServer()).get(`/users/${userId}`).expect(403);
     mockSub = userId;
   });
 
   it('GET /users/999999 -> 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .get('/users/999999')
-      .expect(404);
+    mockSub = 999999;
+    await request(app.getHttpServer()).get('/users/999999').expect(404);
+    mockSub = userId;
   });
 
   // -------------------------
@@ -181,10 +187,12 @@ describe('Users (e2e)', () => {
   });
 
   it('PATCH /users/999999 -> 404 si no existe', async () => {
+    mockSub = 999999;
     await request(app.getHttpServer())
       .patch('/users/999999')
       .send({ name: 'Ghost' })
       .expect(404);
+    mockSub = userId;
   });
 
   // -------------------------
@@ -193,25 +201,19 @@ describe('Users (e2e)', () => {
 
   it('DELETE /users/:id -> 403 si elimina otro usuario', async () => {
     mockSub = userId + 999;
-    await request(app.getHttpServer())
-      .delete(`/users/${userId}`)
-      .expect(403);
+    await request(app.getHttpServer()).delete(`/users/${userId}`).expect(403);
     mockSub = userId;
   });
 
   it('DELETE /users/999999 -> 404 si no existe', async () => {
-    await request(app.getHttpServer())
-      .delete('/users/999999')
-      .expect(404);
+    mockSub = 999999;
+    await request(app.getHttpServer()).delete('/users/999999').expect(404);
+    mockSub = userId;
   });
 
   it('DELETE /users/:id -> 204 y luego GET devuelve 404', async () => {
-    await request(app.getHttpServer())
-      .delete(`/users/${userId}`)
-      .expect(204);
+    await request(app.getHttpServer()).delete(`/users/${userId}`).expect(204);
 
-    await request(app.getHttpServer())
-      .get(`/users/${userId}`)
-      .expect(404);
+    await request(app.getHttpServer()).get(`/users/${userId}`).expect(404);
   });
 });

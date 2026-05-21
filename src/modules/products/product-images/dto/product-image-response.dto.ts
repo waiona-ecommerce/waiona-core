@@ -1,7 +1,6 @@
 import { ProductImageEntity } from '../entities/product-image.entity';
 
 export class ProductImageResponseDto {
-
   id: number;
   productId: number;
   url: string;

@@ -6,7 +6,6 @@ import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 @Index(['startsAt'])
 @Index(['endsAt'])
 export class CouponEntity extends BaseEntity {
-
   @Column({
     type: 'varchar',
     length: 100,

@@ -1,13 +1,12 @@
-import { BaseEntity } from "src/common/entities/base.entity";
-import { CurrencyCode } from "src/common/enums/currency-code.enum";
-import { ProductEntity } from "src/modules/products/product/entities/product.entity";
-import { MarginEntity } from "src/modules/margins/entities/margin.entity";
-import { Column, Entity, Index, JoinColumn, ManyToOne } from "typeorm";
+import { BaseEntity } from 'src/common/entities/base.entity';
+import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
+import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 @Entity('product_pricing')
 @Index(['productId'], { unique: true })
 export class ProductPricingEntity extends BaseEntity {
-
   @Column({ name: 'product_id', type: 'int' })
   productId: number;
 

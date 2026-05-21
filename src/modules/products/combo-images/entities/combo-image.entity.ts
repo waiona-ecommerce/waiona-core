@@ -1,39 +1,32 @@
-import {
-    Entity,
-    Column,
-    ManyToOne,
-    JoinColumn,
-    Index,
-  } from 'typeorm';
-  
-  import { BaseEntity } from '../../../../common/entities/base.entity';
-  import { ComboEntity } from '../../combos/entities/combo.entity';
-  
-  @Entity('combo_images')
-  @Index(['comboId'])
-  @Index(['comboId', 'position'], { unique: true })
-  export class ComboImageEntity extends BaseEntity {
-  
-    @Column({ name: 'combo_id' })
-    comboId: number;
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
-    @ManyToOne(() => ComboEntity, {
-      nullable: false,
-      onDelete: 'RESTRICT',
-    })
-    @JoinColumn({ name: 'combo_id' })
-    combo: ComboEntity;
-  
-    @Column({
-      type: 'varchar',
-      length: 255,
-      nullable: false,
-    })
-    url: string;
-  
-    @Column({
-      type: 'int',
-      nullable: false,
-    })
-    position: number;
-  }
+import { BaseEntity } from '../../../../common/entities/base.entity';
+import { ComboEntity } from '../../combos/entities/combo.entity';
+
+@Entity('combo_images')
+@Index(['comboId'])
+@Index(['comboId', 'position'], { unique: true })
+export class ComboImageEntity extends BaseEntity {
+  @Column({ name: 'combo_id' })
+  comboId: number;
+
+  @ManyToOne(() => ComboEntity, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'combo_id' })
+  combo: ComboEntity;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: false,
+  })
+  url: string;
+
+  @Column({
+    type: 'int',
+    nullable: false,
+  })
+  position: number;
+}

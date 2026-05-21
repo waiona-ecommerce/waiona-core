@@ -3,7 +3,6 @@ import { BaseEntity } from 'src/common/entities/base.entity';
 
 @Entity('profiles')
 export class ProfileEntity extends BaseEntity {
-
   @Column({ type: 'varchar', length: 255 })
   name: string;
 

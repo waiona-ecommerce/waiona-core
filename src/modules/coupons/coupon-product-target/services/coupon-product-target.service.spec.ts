@@ -9,31 +9,67 @@ import { ProductEntity } from '../../../products/product/entities/product.entity
 describe('CouponProductTargetService', () => {
   let service: CouponProductTargetService;
 
-  const mockTargetRepo  = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), softDelete: jest.fn() });
-  const mockCouponRepo  = () => ({ findOne: jest.fn() });
+  const mockTargetRepo = () => ({
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
+  });
+  const mockCouponRepo = () => ({ findOne: jest.fn() });
   const mockProductRepo = () => ({ findOne: jest.fn() });
 
-  const mockCoupon  = (overrides = {}) => ({ id: 1, code: 'FIJO500', isGlobal: false, isDeleted: false, ...overrides });
-  const mockTarget  = (overrides = {}) => ({ id: 1, couponId: 1, productId: 1, isDeleted: false, createdAt: new Date(), updatedAt: new Date(), ...overrides });
-  const mockProduct = (overrides = {}) => ({ id: 1, name: 'Producto A', isActive: true, ...overrides });
+  const mockCoupon = (overrides = {}) => ({
+    id: 1,
+    code: 'FIJO500',
+    isGlobal: false,
+    isDeleted: false,
+    ...overrides,
+  });
+  const mockTarget = (overrides = {}) => ({
+    id: 1,
+    couponId: 1,
+    productId: 1,
+    isDeleted: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
+  const mockProduct = (overrides = {}) => ({
+    id: 1,
+    name: 'Producto A',
+    isActive: true,
+    ...overrides,
+  });
 
-  let targetRepo:  any;
-  let couponRepo:  any;
+  let targetRepo: any;
+  let couponRepo: any;
   let productRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CouponProductTargetService,
-        { provide: getRepositoryToken(CouponProductTargetEntity), useFactory: mockTargetRepo  },
-        { provide: getRepositoryToken(CouponEntity),              useFactory: mockCouponRepo  },
-        { provide: getRepositoryToken(ProductEntity),             useFactory: mockProductRepo },
+        {
+          provide: getRepositoryToken(CouponProductTargetEntity),
+          useFactory: mockTargetRepo,
+        },
+        {
+          provide: getRepositoryToken(CouponEntity),
+          useFactory: mockCouponRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useFactory: mockProductRepo,
+        },
       ],
     }).compile();
 
-    service     = module.get<CouponProductTargetService>(CouponProductTargetService);
-    targetRepo  = module.get(getRepositoryToken(CouponProductTargetEntity));
-    couponRepo  = module.get(getRepositoryToken(CouponEntity));
+    service = module.get<CouponProductTargetService>(
+      CouponProductTargetService,
+    );
+    targetRepo = module.get(getRepositoryToken(CouponProductTargetEntity));
+    couponRepo = module.get(getRepositoryToken(CouponEntity));
     productRepo = module.get(getRepositoryToken(ProductEntity));
   });
 
@@ -48,31 +84,39 @@ describe('CouponProductTargetService', () => {
       targetRepo.create.mockReturnValue(target);
       targetRepo.save.mockResolvedValue(target);
 
-      const result = await service.create(1, { productId: 1 } as any);
+      const result = await service.create(1, { productId: 1 });
       expect(result.productId).toBe(1);
     });
 
     it('should throw NotFoundException if coupon not found', async () => {
       couponRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(999, { productId: 1 } as any)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.create(999, { productId: 1 } as any),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if coupon is global', async () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon({ isGlobal: true }));
-      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw NotFoundException if product not found', async () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
       productRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(1, { productId: 999 } as any)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.create(1, { productId: 999 } as any),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if target already exists', async () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
       productRepo.findOne.mockResolvedValue(mockProduct());
       targetRepo.findOne.mockResolvedValue(mockTarget());
-      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

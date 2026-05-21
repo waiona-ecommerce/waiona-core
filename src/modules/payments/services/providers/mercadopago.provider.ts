@@ -6,7 +6,6 @@ import { OrderEntity } from 'src/modules/orders/entities/order.entity';
 
 @Injectable()
 export class MercadoPagoProvider {
-
   private readonly client: MercadoPagoConfig;
   private readonly preference: Preference;
 
@@ -23,11 +22,16 @@ export class MercadoPagoProvider {
     return this.client;
   }
 
-  async createPreference(order: OrderEntity): Promise<{ id: string; checkoutUrl: string }> {
-
+  async createPreference(
+    order: OrderEntity,
+  ): Promise<{ id: string; checkoutUrl: string }> {
     // 🔥 URLs desde variables de entorno — nunca hardcodeadas
-    const frontendUrl     = this.configService.get('FRONTEND_URL', { infer: true })!;
-    const notificationUrl = this.configService.get('MP_NOTIFICATION_URL', { infer: true })!;
+    const frontendUrl = this.configService.get('FRONTEND_URL', {
+      infer: true,
+    })!;
+    const notificationUrl = this.configService.get('MP_NOTIFICATION_URL', {
+      infer: true,
+    })!;
 
     const response = await this.preference.create({
       body: {

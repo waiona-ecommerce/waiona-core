@@ -65,7 +65,7 @@ describe('TaxesController', () => {
   describe('findAll', () => {
     it('should return all taxes for a taxTypeId', async () => {
       const taxes = [mockTaxResponse()];
-      service.findAll.mockResolvedValue(taxes as any);
+      service.findAll.mockResolvedValue(taxes);
 
       const result = await controller.findAll(1);
 
@@ -89,7 +89,7 @@ describe('TaxesController', () => {
   describe('findOne', () => {
     it('should return a tax by id', async () => {
       const tax = mockTaxResponse();
-      service.findById.mockResolvedValue(tax as any);
+      service.findById.mockResolvedValue(tax);
 
       const result = await controller.findOne(1);
 
@@ -106,9 +106,9 @@ describe('TaxesController', () => {
     it('should create a tax', async () => {
       const dto = { value: 21, isPercentage: true };
       const tax = mockTaxResponse();
-      service.create.mockResolvedValue(tax as any);
+      service.create.mockResolvedValue(tax);
 
-      const result = await controller.create(1, dto as any);
+      const result = await controller.create(1, dto);
 
       expect(service.create).toHaveBeenCalledWith(1, dto);
       expect(result).toEqual(tax);
@@ -123,9 +123,9 @@ describe('TaxesController', () => {
     it('should update a tax', async () => {
       const dto = { value: 15 };
       const tax = mockTaxResponse({ value: 15 });
-      service.update.mockResolvedValue(tax as any);
+      service.update.mockResolvedValue(tax);
 
-      const result = await controller.update(1, dto as any);
+      const result = await controller.update(1, dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toEqual(tax);

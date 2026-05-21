@@ -2,7 +2,6 @@ import { ComboEntity } from '../entities/combo.entity';
 import { ComboItemEntity } from '../entities/combo-item.entity';
 
 class ComboItemResponseDto {
-
   productId: number;
   productName: string;
   quantity: number;
@@ -15,14 +14,13 @@ class ComboItemResponseDto {
 }
 
 export class ComboResponseDto {
-
   id: number;
   name: string;
   description: string;
   isActive: boolean;
 
   categoryId: number;
-  categoryName: string;        // útil para el front sin join extra
+  categoryName: string; // útil para el front sin join extra
 
   items: ComboItemResponseDto[];
   createdAt: Date;
@@ -41,7 +39,7 @@ export class ComboResponseDto {
     this.updatedAt = entity.updatedAt;
 
     this.items = entity.items
-      ? entity.items.map(item => new ComboItemResponseDto(item))
+      ? entity.items.map((item) => new ComboItemResponseDto(item))
       : [];
   }
 }

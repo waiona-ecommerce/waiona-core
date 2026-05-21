@@ -33,13 +33,15 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('coupon-usage')
 export class CouponUsageController {
-
   constructor(private readonly couponUsageService: CouponUsageService) {}
 
   @Post()
   @ApiOperation({ summary: 'Registrar uso de cupón en una orden' })
   @ApiResponse({ status: 201, type: CouponUsageResponseDto })
-  @ApiResponse({ status: 400, description: 'Cupón inactivo, expirado o agotado' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cupón inactivo, expirado o agotado',
+  })
   @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
   @ApiResponse({ status: 409, description: 'El usuario ya usó este cupón' })
   create(
@@ -53,7 +55,9 @@ export class CouponUsageController {
   @Get()
   @ApiOperation({ summary: 'Listar todos los usos de cupones paginado' })
   @ApiResponse({ status: 200, type: CouponUsageResponseDto, isArray: true })
-  findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<CouponUsageResponseDto>> {
+  findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CouponUsageResponseDto>> {
     return this.couponUsageService.findAll(page, limit);
   }
 

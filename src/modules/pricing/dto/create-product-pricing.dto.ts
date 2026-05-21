@@ -3,7 +3,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class CreateProductPricingDto {
-
   @ApiProperty({ example: 1 })
   @IsInt()
   @Min(1)

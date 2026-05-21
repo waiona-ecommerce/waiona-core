@@ -13,10 +13,7 @@ import { PaymentsController } from './controllers/payments.controller';
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([
-      PaymentEntity,
-      OrderEntity,
-    ]),
+    TypeOrmModule.forFeature([PaymentEntity, OrderEntity]),
     OrdersModule,
   ],
   controllers: [PaymentsController],

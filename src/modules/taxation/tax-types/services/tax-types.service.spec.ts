@@ -8,11 +8,24 @@ describe('TaxTypesService', () => {
   let service: TaxTypesService;
   let repo: any;
 
-  const mockRepo = () => ({ findAndCount: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), merge: jest.fn(), softDelete: jest.fn() });
+  const mockRepo = () => ({
+    findAndCount: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    merge: jest.fn(),
+    softDelete: jest.fn(),
+  });
 
-  const mockTaxType = (overrides = {}): TaxTypeEntity =>
-    ({ id: 1, code: 'IVA', name: 'IVA', deletedAt: null,
-       createdAt: new Date(), updatedAt: new Date(), ...overrides }) as unknown as TaxTypeEntity;
+  const mockTaxType = (overrides = {}): TaxTypeEntity => ({
+    id: 1,
+    code: 'IVA',
+    name: 'IVA',
+    deletedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -23,7 +36,7 @@ describe('TaxTypesService', () => {
     }).compile();
 
     service = module.get<TaxTypesService>(TaxTypesService);
-    repo    = module.get(getRepositoryToken(TaxTypeEntity));
+    repo = module.get(getRepositoryToken(TaxTypeEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -61,36 +74,44 @@ describe('TaxTypesService', () => {
       repo.findOne.mockResolvedValue(null); // código único
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
-      const result = await service.create({ code: 'IVA', name: 'IVA' } as any);
+      const result = await service.create({ code: 'IVA', name: 'IVA' });
       expect(result.code).toBe('IVA');
     });
 
     it('should throw BadRequestException if code already exists', async () => {
       repo.findOne.mockResolvedValue(mockTaxType());
-      await expect(service.create({ code: 'IVA', name: 'IVA' } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ code: 'IVA', name: 'IVA' } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('update', () => {
     it('should update a tax type', async () => {
-      const entity  = mockTaxType();
+      const entity = mockTaxType();
       const updated = mockTaxType({ name: 'IVA Actualizado' });
       repo.findOne.mockResolvedValue(entity);
       repo.merge.mockReturnValue(updated);
       repo.save.mockResolvedValue(updated);
-      expect((await service.update(1, { name: 'IVA Actualizado' } as any)).name).toBe('IVA Actualizado');
+      expect(
+        (await service.update(1, { name: 'IVA Actualizado' } as any)).name,
+      ).toBe('IVA Actualizado');
     });
 
     it('should throw BadRequestException if new code already exists', async () => {
       repo.findOne
-        .mockResolvedValueOnce(mockTaxType({ code: 'IVA' }))    // findOne inicial
-        .mockResolvedValueOnce(mockTaxType({ code: 'IIBB' }));  // ensureCodeIsUnique
-      await expect(service.update(1, { code: 'IIBB' } as any)).rejects.toThrow(BadRequestException);
+        .mockResolvedValueOnce(mockTaxType({ code: 'IVA' })) // findOne inicial
+        .mockResolvedValueOnce(mockTaxType({ code: 'IIBB' })); // ensureCodeIsUnique
+      await expect(service.update(1, { code: 'IIBB' } as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

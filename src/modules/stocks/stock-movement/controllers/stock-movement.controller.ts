@@ -1,5 +1,18 @@
-import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { StockMovementService } from '../services/stock-movement.service';
 import { StockMovementResponseDto } from '../dto/stock-movement-respose.dto';
@@ -16,13 +29,13 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('stock-movements')
 export class StockMovementController {
-
-  constructor(
-    private readonly stockMovementService: StockMovementService,
-  ) {}
+  constructor(private readonly stockMovementService: StockMovementService) {}
 
   @ApiOperation({ summary: 'List all stock movements (paginated)' })
-  @ApiResponse({ status: 200, description: 'Paginated list of stock movements' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of stock movements',
+  })
   @Get()
   async findAll(@Query() { page, limit }: PaginationQueryDto) {
     return this.stockMovementService.findAll(page, limit);

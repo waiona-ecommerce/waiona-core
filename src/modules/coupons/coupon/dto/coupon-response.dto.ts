@@ -20,7 +20,12 @@ export class CouponResponseDto {
   @ApiProperty({ example: true })
   isPercentage: boolean;
 
-  @ApiProperty({ enum: CurrencyCode, required: false, nullable: true, example: 'ARS' })
+  @ApiProperty({
+    enum: CurrencyCode,
+    required: false,
+    nullable: true,
+    example: 'ARS',
+  })
   currency?: CurrencyCode;
 
   @ApiProperty({ example: false })
@@ -74,7 +79,11 @@ export class CouponResponseDto {
       return CouponStatus.EXPIRED;
     }
 
-    if (usageLimit !== null && usageLimit !== undefined && usageCount >= usageLimit) {
+    if (
+      usageLimit !== null &&
+      usageLimit !== undefined &&
+      usageCount >= usageLimit
+    ) {
       return CouponStatus.EXHAUSTED;
     }
 

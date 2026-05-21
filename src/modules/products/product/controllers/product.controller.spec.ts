@@ -12,14 +12,14 @@ describe('ProductController', () => {
   let service: jest.Mocked<ProductService>;
 
   const mockService = () => ({
-    findAll:  jest.fn(),
+    findAll: jest.fn(),
     findById: jest.fn(),
-    create:   jest.fn(),
-    update:   jest.fn(),
-    delete:   jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   });
 
-  const mockAuthGuard  = { canActivate: jest.fn(() => true) };
+  const mockAuthGuard = { canActivate: jest.fn(() => true) };
   const mockRolesGuard = { canActivate: jest.fn(() => true) };
 
   beforeEach(async () => {
@@ -37,7 +37,7 @@ describe('ProductController', () => {
       .compile();
 
     controller = module.get<ProductController>(ProductController);
-    service    = module.get(ProductService);
+    service = module.get(ProductService);
   });
 
   afterEach(() => {
@@ -45,17 +45,17 @@ describe('ProductController', () => {
   });
 
   const mockProductResponse = (overrides = {}) => ({
-    id:               1,
-    sku:              'COCA-500',
-    name:             'Coca Cola 500ml',
-    description:      'Gaseosa negra 500ml',
-    isActive:         true,
-    categoryId:       1,
-    categoryName:     'Bebidas',
-    measurementUnit:  ProductMeasurementUnit.UNIT,
+    id: 1,
+    sku: 'COCA-500',
+    name: 'Coca Cola 500ml',
+    description: 'Gaseosa negra 500ml',
+    isActive: true,
+    categoryId: 1,
+    categoryName: 'Bebidas',
+    measurementUnit: ProductMeasurementUnit.UNIT,
     measurementValue: 500,
-    createdAt:        new Date(),
-    updatedAt:        new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   });
 
@@ -72,7 +72,7 @@ describe('ProductController', () => {
       const products = [mockProductResponse()];
       service.findAll.mockResolvedValue(products as any);
 
-      const result = await controller.findAll({} as any);
+      const result = await controller.findAll({});
 
       expect(service.findAll).toHaveBeenCalled();
       expect(result).toEqual(products);
@@ -81,7 +81,7 @@ describe('ProductController', () => {
     it('should return empty array if no products', async () => {
       service.findAll.mockResolvedValue([]);
 
-      const result = await controller.findAll({} as any);
+      const result = await controller.findAll({});
 
       expect(result).toEqual([]);
     });
@@ -94,7 +94,7 @@ describe('ProductController', () => {
   describe('findById', () => {
     it('should return a product by id', async () => {
       const product = mockProductResponse();
-      service.findById.mockResolvedValue(product as any);
+      service.findById.mockResolvedValue(product);
 
       const result = await controller.findById(1);
 
@@ -109,9 +109,9 @@ describe('ProductController', () => {
 
   describe('create', () => {
     it('should create a product', async () => {
-      const dto     = { sku: 'COCA-500', name: 'Coca Cola 500ml', categoryId: 1 };
+      const dto = { sku: 'COCA-500', name: 'Coca Cola 500ml', categoryId: 1 };
       const product = mockProductResponse();
-      service.create.mockResolvedValue(product as any);
+      service.create.mockResolvedValue(product);
 
       const result = await controller.create(dto as any);
 
@@ -126,11 +126,11 @@ describe('ProductController', () => {
 
   describe('update', () => {
     it('should update a product', async () => {
-      const dto     = { name: 'Coca Cola 1L' };
+      const dto = { name: 'Coca Cola 1L' };
       const product = mockProductResponse({ name: 'Coca Cola 1L' });
-      service.update.mockResolvedValue(product as any);
+      service.update.mockResolvedValue(product);
 
-      const result = await controller.update(1, dto as any);
+      const result = await controller.update(1, dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toEqual(product);

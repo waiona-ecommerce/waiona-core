@@ -6,7 +6,6 @@ import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 @Entity('taxes')
 @Index(['taxTypeId'])
 export class TaxEntity extends BaseEntity {
-
   @Column({ name: 'tax_type_id' })
   taxTypeId: number;
 

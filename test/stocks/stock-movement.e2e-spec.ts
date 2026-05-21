@@ -41,81 +41,111 @@ describe('StockMovement (e2e)', () => {
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
-            type:     'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            type: 'postgres',
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
-              StockMovementEntity, StockItemEntity, StockLocationEntity, StockWriteOffEntity,
-              ProductEntity, ProductImageEntity, CategoryEntity,
-              ComboEntity, ComboItemEntity, ComboImageEntity,
+              StockMovementEntity,
+              StockItemEntity,
+              StockLocationEntity,
+              StockWriteOffEntity,
+              ProductEntity,
+              ProductImageEntity,
+              CategoryEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
             ],
             synchronize: true,
-            dropSchema:  true,
+            dropSchema: true,
           }),
         }),
         TypeOrmModule.forFeature([StockMovementEntity]),
       ],
       controllers: [StockMovementController],
-      providers:   [StockMovementService],
+      providers: [StockMovementService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist:            true,
-      forbidNonWhitelisted: true,
-      transform:            true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     // Seed: category → product → location → stockItem → movement
     const categoryRepo = dataSource.getRepository(CategoryEntity);
-    const productRepo  = dataSource.getRepository(ProductEntity);
+    const productRepo = dataSource.getRepository(ProductEntity);
     const locationRepo = dataSource.getRepository(StockLocationEntity);
-    const stockRepo    = dataSource.getRepository(StockItemEntity);
+    const stockRepo = dataSource.getRepository(StockItemEntity);
     const movementRepo = dataSource.getRepository(StockMovementEntity);
 
-    const category = await categoryRepo.save(categoryRepo.create({ name: 'Test Category' }));
-    const product  = await productRepo.save(productRepo.create({
-      sku: 'SM-001', name: 'Test Product', description: 'Stock movement e2e',
-      isActive: true, categoryId: category.id, measurementUnit: ProductMeasurementUnit.UNIT,
-    }));
-    const location  = await locationRepo.save(locationRepo.create({
-      name: 'Depósito Test', type: StockLocationType.WAREHOUSE,
-    }));
-    const stockItem = await stockRepo.save(stockRepo.create({
-      productId: product.id, locationId: location.id,
-      quantityCurrent: 50, quantityReserved: 0,
-    }));
+    const category = await categoryRepo.save(
+      categoryRepo.create({ name: 'Test Category' }),
+    );
+    const product = await productRepo.save(
+      productRepo.create({
+        sku: 'SM-001',
+        name: 'Test Product',
+        description: 'Stock movement e2e',
+        isActive: true,
+        categoryId: category.id,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      }),
+    );
+    const location = await locationRepo.save(
+      locationRepo.create({
+        name: 'Depósito Test',
+        type: StockLocationType.WAREHOUSE,
+      }),
+    );
+    const stockItem = await stockRepo.save(
+      stockRepo.create({
+        productId: product.id,
+        locationId: location.id,
+        quantityCurrent: 50,
+        quantityReserved: 0,
+      }),
+    );
     stockItemId = stockItem.id;
 
     // Movimientos seeded directamente — el service los crea internamente, no hay POST endpoint
-    const movement = await movementRepo.save(movementRepo.create({
-      stockItemId: stockItem.id,
-      operationType: StockOperationType.ENTRY,
-      stockFlow:     StockFlow.INBOUND,
-      quantity:      50,
-      referenceType: StockReferenceType.MANUAL,
-      referenceId:   null,
-    }));
+    const movement = await movementRepo.save(
+      movementRepo.create({
+        stockItemId: stockItem.id,
+        operationType: StockOperationType.ENTRY,
+        stockFlow: StockFlow.INBOUND,
+        quantity: 50,
+        referenceType: StockReferenceType.MANUAL,
+        referenceId: null,
+      }),
+    );
     movementId = movement.id;
 
     // Segundo movimiento para verificar orden DESC y listado
-    await movementRepo.save(movementRepo.create({
-      stockItemId: stockItem.id,
-      operationType: StockOperationType.EXIT,
-      stockFlow:     StockFlow.OUTBOUND,
-      quantity:      5,
-      referenceType: StockReferenceType.ORDER,
-      referenceId:   42,
-    }));
+    await movementRepo.save(
+      movementRepo.create({
+        stockItemId: stockItem.id,
+        operationType: StockOperationType.EXIT,
+        stockFlow: StockFlow.OUTBOUND,
+        quantity: 5,
+        referenceType: StockReferenceType.ORDER,
+        referenceId: 42,
+      }),
+    );
   }, 30000);
 
   afterAll(async () => {

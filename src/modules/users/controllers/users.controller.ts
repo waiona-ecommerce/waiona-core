@@ -14,7 +14,13 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { UsersService } from '../services/users.service';
@@ -55,10 +61,7 @@ export class UsersController {
   @ApiResponse({ status: 200, type: UserResponseDto })
   @ApiResponse({ status: 403, description: 'Acceso denegado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request,
-  ) {
+  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     const payload = req.user as { sub: number };
     if (payload.sub !== id) throw new ForbiddenException('Access denied');
     return this.usersService.findOne(id);
@@ -97,10 +100,7 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'Eliminado' })
   @ApiResponse({ status: 403, description: 'Acceso denegado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request,
-  ) {
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     const payload = req.user as { sub: number };
     if (payload.sub !== id) throw new ForbiddenException('Access denied');
     return this.usersService.remove(id);

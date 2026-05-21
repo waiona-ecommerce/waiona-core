@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { CouponService } from '../../../coupons/coupon/services/coupon.service';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
 import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
@@ -8,13 +12,30 @@ import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
 describe('CouponService', () => {
   let service: CouponService;
 
-  const mockRepo = () => ({ find: jest.fn(), findOne: jest.fn(), findAndCount: jest.fn(), create: jest.fn(), save: jest.fn(), softDelete: jest.fn() });
+  const mockRepo = () => ({
+    find: jest.fn(),
+    findOne: jest.fn(),
+    findAndCount: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
+  });
 
   const mockCoupon = (overrides = {}): CouponEntity =>
     ({
-      id: 1, code: 'DESCUENTO10', value: 10, isPercentage: true, currency: null,
-      isGlobal: true, usageLimit: 100, usageCount: 0, isDeleted: false,
-      startsAt: null, endsAt: null, createdAt: new Date(), updatedAt: new Date(),
+      id: 1,
+      code: 'DESCUENTO10',
+      value: 10,
+      isPercentage: true,
+      currency: null,
+      isGlobal: true,
+      usageLimit: 100,
+      usageCount: 0,
+      isDeleted: false,
+      startsAt: null,
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       ...overrides,
     }) as unknown as CouponEntity;
 
@@ -34,7 +55,13 @@ describe('CouponService', () => {
   const repo = () => (service as any).couponRepository;
 
   describe('create', () => {
-    const dto = { code: 'DESCUENTO10', value: 10, isPercentage: true, isGlobal: true, usageLimit: 100 };
+    const dto = {
+      code: 'DESCUENTO10',
+      value: 10,
+      isPercentage: true,
+      isGlobal: true,
+      usageLimit: 100,
+    };
 
     it('should create a coupon', async () => {
       const coupon = mockCoupon();
@@ -42,7 +69,7 @@ describe('CouponService', () => {
       repo().create.mockReturnValue(coupon);
       repo().save.mockResolvedValue(coupon);
 
-      const result = await service.create(dto as any);
+      const result = await service.create(dto);
 
       expect(result.code).toBe('DESCUENTO10');
       expect(result.status).toBe(CouponStatus.ACTIVE);
@@ -50,29 +77,39 @@ describe('CouponService', () => {
 
     it('should throw ConflictException if code already exists', async () => {
       repo().findOne.mockResolvedValue(mockCoupon());
-      await expect(service.create(dto as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw BadRequestException if percentage > 100', async () => {
       repo().findOne.mockResolvedValue(null);
-      await expect(service.create({ ...dto, value: 110 } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ ...dto, value: 110 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if percentage coupon has currency', async () => {
       repo().findOne.mockResolvedValue(null);
-      await expect(service.create({ ...dto, currency: 'ARS' } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ ...dto, currency: 'ARS' } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if fixed coupon has no currency', async () => {
       repo().findOne.mockResolvedValue(null);
-      await expect(service.create({ ...dto, isPercentage: false } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ ...dto, isPercentage: false } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if startsAt >= endsAt', async () => {
       repo().findOne.mockResolvedValue(null);
       const now = new Date();
       const past = new Date(now.getTime() - 1000);
-      await expect(service.create({ ...dto, startsAt: now, endsAt: past } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ ...dto, startsAt: now, endsAt: past } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -106,25 +143,29 @@ describe('CouponService', () => {
 
   describe('update', () => {
     it('should update a coupon', async () => {
-      const coupon  = mockCoupon();
+      const coupon = mockCoupon();
       const updated = mockCoupon({ usageLimit: 200 });
       repo().findOne.mockResolvedValue(coupon);
       repo().save.mockResolvedValue(updated);
 
-      const result = await service.update(1, { usageLimit: 200 } as any);
+      const result = await service.update(1, { usageLimit: 200 });
       expect(result.usageLimit).toBe(200);
     });
 
     it('should throw ConflictException if new code already exists', async () => {
-      repo().findOne
-        .mockResolvedValueOnce(mockCoupon({ code: 'OLD' }))   // findEntity
+      repo()
+        .findOne.mockResolvedValueOnce(mockCoupon({ code: 'OLD' })) // findEntity
         .mockResolvedValueOnce(mockCoupon({ code: 'TAKEN' })); // validateUniqueCode
-      await expect(service.update(1, { code: 'TAKEN' } as any)).rejects.toThrow(ConflictException);
+      await expect(service.update(1, { code: 'TAKEN' } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw NotFoundException', async () => {
       repo().findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -145,7 +186,9 @@ describe('CouponService', () => {
 
   describe('CouponResponseDto status calculation', () => {
     it('should return EXHAUSTED when usageCount >= usageLimit', async () => {
-      repo().findOne.mockResolvedValue(mockCoupon({ usageLimit: 5, usageCount: 5 }));
+      repo().findOne.mockResolvedValue(
+        mockCoupon({ usageLimit: 5, usageCount: 5 }),
+      );
       const result = await service.findOne(1);
       expect(result.status).toBe(CouponStatus.EXHAUSTED);
     });

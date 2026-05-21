@@ -8,7 +8,11 @@ export class CreateTaxTypeDto {
   @Length(2, 20)
   code: string;
 
-  @ApiProperty({ example: 'Impuesto al Valor Agregado', minLength: 3, maxLength: 150 })
+  @ApiProperty({
+    example: 'Impuesto al Valor Agregado',
+    minLength: 3,
+    maxLength: 150,
+  })
   @IsString()
   @IsNotEmpty()
   @Length(3, 150)

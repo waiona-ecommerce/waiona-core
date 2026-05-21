@@ -9,7 +9,6 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {

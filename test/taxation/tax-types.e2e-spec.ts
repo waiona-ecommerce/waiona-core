@@ -23,8 +23,8 @@ describe('TaxTypes (e2e)', () => {
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             type: 'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
@@ -38,16 +38,20 @@ describe('TaxTypes (e2e)', () => {
       controllers: [TaxTypesController],
       providers: [TaxTypesService],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
@@ -84,15 +88,9 @@ describe('TaxTypes (e2e)', () => {
   it('POST /tax-types -> should fail duplicate code', async () => {
     const dto = { code: 'DUP', name: 'Test' };
 
-    await request(app.getHttpServer())
-      .post('/tax-types')
-      .send(dto)
-      .expect(201);
+    await request(app.getHttpServer()).post('/tax-types').send(dto).expect(201);
 
-    await request(app.getHttpServer())
-      .post('/tax-types')
-      .send(dto)
-      .expect(400);
+    await request(app.getHttpServer()).post('/tax-types').send(dto).expect(400);
   });
 
   // -------------------------
@@ -136,9 +134,7 @@ describe('TaxTypes (e2e)', () => {
   });
 
   it('GET /tax-types/:id -> should return 404', async () => {
-    await request(app.getHttpServer())
-      .get('/tax-types/999999')
-      .expect(404);
+    await request(app.getHttpServer()).get('/tax-types/999999').expect(404);
   });
 
   // -------------------------
@@ -184,8 +180,6 @@ describe('TaxTypes (e2e)', () => {
   });
 
   it('DELETE /tax-types/:id -> should return 404 if not found', async () => {
-    await request(app.getHttpServer())
-      .delete('/tax-types/999999')
-      .expect(404);
+    await request(app.getHttpServer()).delete('/tax-types/999999').expect(404);
   });
 });

@@ -1,6 +1,22 @@
+import { createHmac } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, ExecutionContext } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  ExecutionContext,
+} from '@nestjs/common';
 import request from 'supertest';
+
+function mpSignatureHeaders(queryParams: Record<string, string> = {}) {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) return {};
+  const ts = '1234567890';
+  const xRequestId = 'test-request-id';
+  const dataId = queryParams['data.id'] ?? queryParams['id'] ?? '';
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const v1 = createHmac('sha256', secret).update(manifest).digest('hex');
+  return { 'x-signature': `ts=${ts},v1=${v1}`, 'x-request-id': xRequestId };
+}
 import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -52,7 +68,10 @@ describe('Payments (e2e)', () => {
   let getTestOrderId: number;
   let getTestPaymentId: number;
 
-  const mockUser: { sub: number; role: string } = { sub: 0, role: RoleType.ADMIN };
+  const mockUser: { sub: number; role: string } = {
+    sub: 0,
+    role: RoleType.ADMIN,
+  };
 
   const mockMpProvider = {
     createPreference: jest.fn().mockResolvedValue({
@@ -73,23 +92,36 @@ describe('Payments (e2e)', () => {
         TypeOrmModule.forRootAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
-            type:     'postgres',
-            host:     config.get('POSTGRES_HOST'),
-            port:     parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
+            type: 'postgres',
+            host: config.get('POSTGRES_HOST'),
+            port: parseInt(config.get('POSTGRES_TEST_PORT') || '5433'),
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
               PaymentEntity,
-              OrderEntity, OrderItemEntity,
-              UserEntity, ProfileEntity, RoleEntity,
-              ProductEntity, CategoryEntity, ProductImageEntity,
-              ComboEntity, ComboItemEntity, ComboImageEntity,
-              StockItemEntity, StockLocationEntity, StockMovementEntity, StockWriteOffEntity,
-              CouponEntity, CouponProductTargetEntity, CouponComboTargetEntity, CouponUsageEntity,
+              OrderEntity,
+              OrderItemEntity,
+              UserEntity,
+              ProfileEntity,
+              RoleEntity,
+              ProductEntity,
+              CategoryEntity,
+              ProductImageEntity,
+              ComboEntity,
+              ComboItemEntity,
+              ComboImageEntity,
+              StockItemEntity,
+              StockLocationEntity,
+              StockMovementEntity,
+              StockWriteOffEntity,
+              CouponEntity,
+              CouponProductTargetEntity,
+              CouponComboTargetEntity,
+              CouponUsageEntity,
             ],
             synchronize: true,
-            dropSchema:  true,
+            dropSchema: true,
           }),
         }),
         TypeOrmModule.forFeature([PaymentEntity, OrderEntity]),
@@ -97,11 +129,12 @@ describe('Payments (e2e)', () => {
       controllers: [PaymentsController],
       providers: [
         PaymentsService,
-        { provide: MercadoPagoProvider, useValue: mockMpProvider     },
-        { provide: OrdersService,       useValue: mockOrdersService   },
+        { provide: MercadoPagoProvider, useValue: mockMpProvider },
+        { provide: OrdersService, useValue: mockOrdersService },
       ],
     })
-      .overrideGuard(AuthGuard('jwt')).useValue({
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({
         canActivate: (context: ExecutionContext) => {
           const req = context.switchToHttp().getRequest();
           req.user = { ...mockUser };
@@ -111,57 +144,83 @@ describe('Payments (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist:            true,
-      forbidNonWhitelisted: true,
-      transform:            true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
 
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
     // Seed: profile → usuario
     const profileRepo = dataSource.getRepository(ProfileEntity);
-    const userRepo    = dataSource.getRepository(UserEntity);
-    const orderRepo   = dataSource.getRepository(OrderEntity);
+    const userRepo = dataSource.getRepository(UserEntity);
+    const orderRepo = dataSource.getRepository(OrderEntity);
     const paymentRepo = dataSource.getRepository(PaymentEntity);
 
-    const profile = await profileRepo.save(profileRepo.create({ name: 'Test', lastName: 'User' }));
-    const user    = await userRepo.save(userRepo.create({
-      email: 'test@payments.com', password: 'password', isActive: true, profileId: profile.id,
-    }));
-    userId        = user.id;
-    mockUser.sub  = userId;
+    const profile = await profileRepo.save(
+      profileRepo.create({ name: 'Test', lastName: 'User' }),
+    );
+    const user = await userRepo.save(
+      userRepo.create({
+        email: 'test@payments.com',
+        password: 'password',
+        isActive: true,
+        profileId: profile.id,
+      }),
+    );
+    userId = user.id;
+    mockUser.sub = userId;
 
     // Orden PENDING — para tests de POST /payments
-    const pendingOrder = await orderRepo.save(orderRepo.create({
-      userId, status: OrderStatus.PENDING, deliveryType: DeliveryType.PICKUP,
-      subtotal: 1000, total: 1000,
-    }));
+    const pendingOrder = await orderRepo.save(
+      orderRepo.create({
+        userId,
+        status: OrderStatus.PENDING,
+        deliveryType: DeliveryType.PICKUP,
+        subtotal: 1000,
+        total: 1000,
+      }),
+    );
     pendingOrderId = pendingOrder.id;
 
     // Orden CONFIRMED — para test "400 orden no pagable"
-    const confirmedOrder = await orderRepo.save(orderRepo.create({
-      userId, status: OrderStatus.CONFIRMED, deliveryType: DeliveryType.PICKUP,
-      subtotal: 1000, total: 1000,
-    }));
+    const confirmedOrder = await orderRepo.save(
+      orderRepo.create({
+        userId,
+        status: OrderStatus.CONFIRMED,
+        deliveryType: DeliveryType.PICKUP,
+        subtotal: 1000,
+        total: 1000,
+      }),
+    );
     confirmedOrderId = confirmedOrder.id;
 
     // Orden + pago ya existente — para tests de GET
-    const getTestOrder = await orderRepo.save(orderRepo.create({
-      userId, status: OrderStatus.PENDING, deliveryType: DeliveryType.PICKUP,
-      subtotal: 2000, total: 2000,
-    }));
+    const getTestOrder = await orderRepo.save(
+      orderRepo.create({
+        userId,
+        status: OrderStatus.PENDING,
+        deliveryType: DeliveryType.PICKUP,
+        subtotal: 2000,
+        total: 2000,
+      }),
+    );
     getTestOrderId = getTestOrder.id;
 
-    const getTestPayment = await paymentRepo.save(paymentRepo.create({
-      orderId:     getTestOrderId,
-      provider:    PaymentProvider.MERCADOPAGO,
-      status:      PaymentStatus.PENDING,
-      externalId:  'pref_seed_123',
-      checkoutUrl: 'https://mp.com/checkout/seed',
-      amount:      2000,
-    }));
+    const getTestPayment = await paymentRepo.save(
+      paymentRepo.create({
+        orderId: getTestOrderId,
+        provider: PaymentProvider.MERCADOPAGO,
+        status: PaymentStatus.PENDING,
+        externalId: 'pref_seed_123',
+        checkoutUrl: 'https://mp.com/checkout/seed',
+        amount: 2000,
+      }),
+    );
     getTestPaymentId = getTestPayment.id;
   }, 30000);
 
@@ -178,7 +237,10 @@ describe('Payments (e2e)', () => {
     it('201 — crea pago con MercadoPago para orden pendiente', async () => {
       const res = await request(app.getHttpServer())
         .post('/payments')
-        .send({ orderId: pendingOrderId, provider: PaymentProvider.MERCADOPAGO })
+        .send({
+          orderId: pendingOrderId,
+          provider: PaymentProvider.MERCADOPAGO,
+        })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
@@ -193,26 +255,35 @@ describe('Payments (e2e)', () => {
       // pendingOrderId ya tiene el pago del test anterior
       await request(app.getHttpServer())
         .post('/payments')
-        .send({ orderId: pendingOrderId, provider: PaymentProvider.MERCADOPAGO })
+        .send({
+          orderId: pendingOrderId,
+          provider: PaymentProvider.MERCADOPAGO,
+        })
         .expect(400);
     });
 
     it('400 — orden no está en estado PENDING', async () => {
       await request(app.getHttpServer())
         .post('/payments')
-        .send({ orderId: confirmedOrderId, provider: PaymentProvider.MERCADOPAGO })
+        .send({
+          orderId: confirmedOrderId,
+          provider: PaymentProvider.MERCADOPAGO,
+        })
         .expect(400);
     });
 
     it('403 — cliente intenta pagar orden de otro usuario', async () => {
       mockUser.role = RoleType.CLIENT;
-      mockUser.sub  = 999999;
+      mockUser.sub = 999999;
       await request(app.getHttpServer())
         .post('/payments')
-        .send({ orderId: pendingOrderId, provider: PaymentProvider.MERCADOPAGO })
+        .send({
+          orderId: pendingOrderId,
+          provider: PaymentProvider.MERCADOPAGO,
+        })
         .expect(403);
       mockUser.role = RoleType.ADMIN;
-      mockUser.sub  = userId;
+      mockUser.sub = userId;
     });
 
     it('404 — orden no encontrada', async () => {
@@ -238,33 +309,40 @@ describe('Payments (e2e)', () => {
     it('200 — siempre retorna 200 (sin id en query)', async () => {
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
+        .set(mpSignatureHeaders())
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
     });
 
     it('200 — siempre retorna 200 (topic desconocido)', async () => {
+      const query = { id: '1', topic: 'other' };
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
-        .query({ id: '1', topic: 'other' })
+        .query(query)
+        .set(mpSignatureHeaders(query))
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
     });
 
     it('200 — swallow error cuando topic=merchant_order y MP API falla', async () => {
+      const query = { id: '1', topic: 'merchant_order' };
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
-        .query({ id: '1', topic: 'merchant_order' })
+        .query(query)
+        .set(mpSignatureHeaders(query))
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
     });
 
     it('200 — swallow error cuando topic=payment y MP API falla', async () => {
+      const query = { id: '1', topic: 'payment' };
       const res = await request(app.getHttpServer())
         .post('/payments/webhook/mercadopago')
-        .query({ id: '1', topic: 'payment' })
+        .query(query)
+        .set(mpSignatureHeaders(query))
         .send({})
         .expect(200);
       expect(res.body.received).toBe(true);
@@ -297,12 +375,12 @@ describe('Payments (e2e)', () => {
 
     it('403 — cliente accede a pagos de orden de otro usuario', async () => {
       mockUser.role = RoleType.CLIENT;
-      mockUser.sub  = 999999;
+      mockUser.sub = 999999;
       await request(app.getHttpServer())
         .get(`/payments/order/${getTestOrderId}`)
         .expect(403);
       mockUser.role = RoleType.ADMIN;
-      mockUser.sub  = userId;
+      mockUser.sub = userId;
     });
 
     it('200 — admin accede a orderId inexistente → array vacío (sin 404)', async () => {
@@ -346,18 +424,16 @@ describe('Payments (e2e)', () => {
 
     it('403 — cliente accede a pago de otro usuario', async () => {
       mockUser.role = RoleType.CLIENT;
-      mockUser.sub  = 999999;
+      mockUser.sub = 999999;
       await request(app.getHttpServer())
         .get(`/payments/${getTestPaymentId}`)
         .expect(403);
       mockUser.role = RoleType.ADMIN;
-      mockUser.sub  = userId;
+      mockUser.sub = userId;
     });
 
     it('404 — pago no encontrado', async () => {
-      await request(app.getHttpServer())
-        .get('/payments/999999')
-        .expect(404);
+      await request(app.getHttpServer()).get('/payments/999999').expect(404);
     });
   });
 });

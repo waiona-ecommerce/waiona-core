@@ -13,7 +13,6 @@ import {
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
 
 export class CreateProductDto {
-
   // ==========================
   // Identificación
   // ==========================

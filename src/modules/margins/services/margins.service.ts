@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -35,7 +40,10 @@ export class MarginsService {
   }
 
   // GET ALL (no eliminados)
-  async findAll(page = 1, limit = 20): Promise<PaginatedResponseDto<MarginResponseDto>> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<MarginResponseDto>> {
     const [margins, total] = await this.marginRepository.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -57,10 +65,7 @@ export class MarginsService {
   }
 
   // UPDATE (parcial, sin romper tipos)
-  async update(
-    id: number,
-    dto: UpdateMarginDto,
-  ): Promise<MarginResponseDto> {
+  async update(id: number, dto: UpdateMarginDto): Promise<MarginResponseDto> {
     const margin = await this.findEntity(id);
 
     if (dto.name && dto.name !== margin.name) {
@@ -87,7 +92,9 @@ export class MarginsService {
     ]);
 
     if (productUsage || comboUsage) {
-      throw new ConflictException('Margin is in use by one or more pricings and cannot be deleted');
+      throw new ConflictException(
+        'Margin is in use by one or more pricings and cannot be deleted',
+      );
     }
 
     await this.marginRepository.softDelete(margin.id);

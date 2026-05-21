@@ -12,7 +12,13 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { StockLocationsService } from '../services/stock-locations.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
@@ -31,9 +37,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('stock-locations')
 export class StockLocationsController {
-  constructor(
-    private readonly stockLocationsService: StockLocationsService,
-  ) {}
+  constructor(private readonly stockLocationsService: StockLocationsService) {}
 
   @ApiOperation({ summary: 'Create a stock location (warehouse, store, etc.)' })
   @ApiResponse({ status: 201, type: StockLocationResponseDto })
@@ -46,7 +50,10 @@ export class StockLocationsController {
   }
 
   @ApiOperation({ summary: 'List all stock locations (paginated)' })
-  @ApiResponse({ status: 200, description: 'Paginated list of stock locations' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of stock locations',
+  })
   @Get()
   async findAll(@Query() { page, limit }: PaginationQueryDto) {
     return this.stockLocationsService.findAll(page, limit);
@@ -81,9 +88,7 @@ export class StockLocationsController {
   @ApiParam({ name: 'id', type: Number })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.stockLocationsService.remove(id);
   }
 }

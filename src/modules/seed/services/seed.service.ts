@@ -56,7 +56,9 @@ export class SeedService implements OnApplicationBootstrap {
     const profile = { name: 'Super', lastName: 'Admin' };
 
     const email = this.configService.get('SUPERADMIN_EMAIL', { infer: true })!;
-    const password = this.configService.get('SUPERADMIN_PASSWORD', { infer: true })!;
+    const password = this.configService.get('SUPERADMIN_PASSWORD', {
+      infer: true,
+    })!;
 
     const user = this.userRepo.create({
       email,

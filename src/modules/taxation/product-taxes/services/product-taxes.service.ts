@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -11,7 +15,6 @@ import { ProductTaxResponseDto } from '../dto/product-tax-response.dto';
 
 @Injectable()
 export class ProductTaxesService {
-
   constructor(
     @InjectRepository(ProductTaxEntity)
     private readonly productTaxRepository: Repository<ProductTaxEntity>,
@@ -24,8 +27,9 @@ export class ProductTaxesService {
   // CREATE
   // ==========================
 
-  async create(dto: CreateProductTaxDto & { productId: number }): Promise<ProductTaxResponseDto> {
-
+  async create(
+    dto: CreateProductTaxDto & { productId: number },
+  ): Promise<ProductTaxResponseDto> {
     const tax = await this.taxRepository.findOne({
       where: { id: dto.taxId },
     });
@@ -35,7 +39,9 @@ export class ProductTaxesService {
     }
 
     if (tax.isGlobal) {
-      throw new BadRequestException('A global tax cannot be assigned to a specific product');
+      throw new BadRequestException(
+        'A global tax cannot be assigned to a specific product',
+      );
     }
 
     const productTax = this.productTaxRepository.create({
@@ -57,7 +63,7 @@ export class ProductTaxesService {
       order: { createdAt: 'DESC' },
     });
 
-    return productTaxes.map(pt => new ProductTaxResponseDto(pt));
+    return productTaxes.map((pt) => new ProductTaxResponseDto(pt));
   }
 
   // ==========================
@@ -72,7 +78,10 @@ export class ProductTaxesService {
   // UPDATE
   // ==========================
 
-  async update(id: number, dto: UpdateProductTaxDto): Promise<ProductTaxResponseDto> {
+  async update(
+    id: number,
+    dto: UpdateProductTaxDto,
+  ): Promise<ProductTaxResponseDto> {
     const productTax = await this.findEntity(id);
     const merged = this.productTaxRepository.merge(productTax, dto);
     const updated = await this.productTaxRepository.save(merged);
@@ -94,7 +103,8 @@ export class ProductTaxesService {
 
   private async findEntity(id: number): Promise<ProductTaxEntity> {
     const entity = await this.productTaxRepository.findOne({ where: { id } });
-    if (!entity) throw new NotFoundException(`ProductTax with id ${id} not found`);
+    if (!entity)
+      throw new NotFoundException(`ProductTax with id ${id} not found`);
     return entity;
   }
 }

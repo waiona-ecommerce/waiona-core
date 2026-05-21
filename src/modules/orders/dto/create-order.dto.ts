@@ -17,15 +17,14 @@ import { ApiProperty } from '@nestjs/swagger';
 import { DeliveryType } from '../enums/delivery-type.enum';
 
 export class CreateOrderItemDto {
-
   @ApiProperty({ example: 1, required: false })
-  @ValidateIf(o => !o.comboId)
+  @ValidateIf((o) => !o.comboId)
   @IsInt()
   @Min(1)
   productId?: number;
 
   @ApiProperty({ example: null, required: false })
-  @ValidateIf(o => !o.productId)
+  @ValidateIf((o) => !o.productId)
   @IsInt()
   @Min(1)
   comboId?: number;
@@ -38,7 +37,6 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
-
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
@@ -50,8 +48,12 @@ export class CreateOrderDto {
   @IsEnum(DeliveryType)
   deliveryType: DeliveryType;
 
-  @ApiProperty({ example: 'Av. Corrientes 1234', required: false, nullable: true })
-  @ValidateIf(o => o.deliveryType === DeliveryType.DELIVERY)
+  @ApiProperty({
+    example: 'Av. Corrientes 1234',
+    required: false,
+    nullable: true,
+  })
+  @ValidateIf((o) => o.deliveryType === DeliveryType.DELIVERY)
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)

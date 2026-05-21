@@ -37,9 +37,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('discounts')
 export class DiscountsController {
-  constructor(
-    private readonly discountsService: DiscountsService,
-  ) {}
+  constructor(private readonly discountsService: DiscountsService) {}
 
   // ==========================
   // CREATE
@@ -49,9 +47,7 @@ export class DiscountsController {
   @ApiOperation({ summary: 'Crear un descuento' })
   @ApiResponse({ status: 201, type: DiscountResponseDto })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  async create(
-    @Body() dto: CreateDiscountDto,
-  ): Promise<DiscountResponseDto> {
+  async create(@Body() dto: CreateDiscountDto): Promise<DiscountResponseDto> {
     return this.discountsService.create(dto);
   }
 
@@ -62,7 +58,9 @@ export class DiscountsController {
   @Get()
   @ApiOperation({ summary: 'Listar descuentos paginados' })
   @ApiResponse({ status: 200, type: DiscountResponseDto, isArray: true })
-  async findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<DiscountResponseDto>> {
+  async findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<DiscountResponseDto>> {
     return this.discountsService.findAll(page, limit);
   }
 
@@ -108,9 +106,7 @@ export class DiscountsController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Eliminado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.discountsService.remove(id);
   }
 }

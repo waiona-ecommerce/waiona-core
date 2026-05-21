@@ -14,7 +14,6 @@ import { CouponComboTargetResponseDto } from '../dto/coupon-combo-target-respons
 
 @Injectable()
 export class CouponComboTargetService {
-
   constructor(
     @InjectRepository(CouponComboTargetEntity)
     private readonly repo: Repository<CouponComboTargetEntity>,
@@ -109,9 +108,7 @@ export class CouponComboTargetService {
 
   private validateCouponNotGlobal(coupon: CouponEntity): void {
     if (coupon.isGlobal) {
-      throw new ConflictException(
-        'Cannot assign targets to a global coupon',
-      );
+      throw new ConflictException('Cannot assign targets to a global coupon');
     }
   }
 

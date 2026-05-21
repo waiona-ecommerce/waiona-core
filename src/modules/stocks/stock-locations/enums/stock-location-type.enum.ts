@@ -1,5 +1,5 @@
 export enum StockLocationType {
-    WAREHOUSE = 'WAREHOUSE',
-    STORE = 'STORE',
-    VIRTUAL = 'VIRTUAL',
-  }
+  WAREHOUSE = 'WAREHOUSE',
+  STORE = 'STORE',
+  VIRTUAL = 'VIRTUAL',
+}

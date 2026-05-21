@@ -1,18 +1,24 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Patch,
-    Delete,
-    Body,
-    Param,
-    ParseIntPipe,
-    Query,
-    UseGuards,
-    HttpCode,
-    HttpStatus,
-  } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { CategoryService } from '../services/category.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
@@ -31,10 +37,7 @@ import { RoleType } from 'src/common/enums/role-type.enum';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('categories')
 export class CategoryController {
-
-  constructor(
-    private readonly categoryService: CategoryService,
-  ) {}
+  constructor(private readonly categoryService: CategoryService) {}
 
   // ==========================
   // GET ALL (plano)
@@ -42,7 +45,12 @@ export class CategoryController {
 
   @Get()
   @ApiOperation({ summary: 'Listar categorías paginadas' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de categorías', type: CategoryResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de categorías',
+    type: CategoryResponseDto,
+    isArray: true,
+  })
   async findAll(@Query() { page, limit }: PaginationQueryDto) {
     return this.categoryService.findAll(page, limit);
   }
@@ -53,7 +61,12 @@ export class CategoryController {
 
   @Get('tree')
   @ApiOperation({ summary: 'Obtener árbol de categorías (jerarquía completa)' })
-  @ApiResponse({ status: 200, description: 'Árbol de categorías', type: CategoryTreeResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Árbol de categorías',
+    type: CategoryTreeResponseDto,
+    isArray: true,
+  })
   async getTree(): Promise<CategoryTreeResponseDto[]> {
     return this.categoryService.getTree();
   }
@@ -65,7 +78,11 @@ export class CategoryController {
   @Get(':id')
   @ApiOperation({ summary: 'Obtener categoría por ID' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Categoría encontrada', type: CategoryResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Categoría encontrada',
+    type: CategoryResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
   async findById(
     @Param('id', ParseIntPipe) id: number,
@@ -79,11 +96,16 @@ export class CategoryController {
 
   @Post()
   @ApiOperation({ summary: 'Crear categoría' })
-  @ApiResponse({ status: 201, description: 'Categoría creada', type: CategoryResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o categoría padre no encontrada' })
-  async create(
-    @Body() body: CreateCategoryDto,
-  ): Promise<CategoryResponseDto> {
+  @ApiResponse({
+    status: 201,
+    description: 'Categoría creada',
+    type: CategoryResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o categoría padre no encontrada',
+  })
+  async create(@Body() body: CreateCategoryDto): Promise<CategoryResponseDto> {
     return this.categoryService.create(body);
   }
 
@@ -94,8 +116,15 @@ export class CategoryController {
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar categoría (parcial)' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Categoría actualizada', type: CategoryResponseDto })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o jerarquía circular detectada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Categoría actualizada',
+    type: CategoryResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o jerarquía circular detectada',
+  })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -114,10 +143,11 @@ export class CategoryController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Categoría eliminada' })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
-  @ApiResponse({ status: 409, description: 'Categoría tiene productos o combos activos asignados' })
-  async delete(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  @ApiResponse({
+    status: 409,
+    description: 'Categoría tiene productos o combos activos asignados',
+  })
+  async delete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.categoryService.delete(id);
   }
 }

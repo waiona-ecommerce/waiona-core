@@ -1,8 +1,14 @@
-import { IsInt, IsNotEmpty, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateComboImageDto {
-
   @IsInt()
   @Min(1)
   comboId: number;

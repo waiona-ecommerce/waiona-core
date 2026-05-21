@@ -1,9 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MinLength, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 import { StockLocationType } from '../enums/stock-location-type.enum';
 
 export class CreateStockLocationDto {
-
   @ApiProperty({ example: 'Depósito Central', minLength: 3, maxLength: 120 })
   @IsString()
   @MinLength(3)

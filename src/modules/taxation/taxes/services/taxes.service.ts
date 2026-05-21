@@ -35,7 +35,7 @@ export class TaxesService {
       order: { createdAt: 'DESC' },
     });
 
-    return entities.map(entity => new TaxResponseDto(entity));
+    return entities.map((entity) => new TaxResponseDto(entity));
   }
 
   // ==========================
@@ -52,7 +52,6 @@ export class TaxesService {
   // ==========================
 
   async create(taxTypeId: number, dto: CreateTaxDto): Promise<TaxResponseDto> {
-
     const taxType = await this.taxTypeRepository.findOne({
       where: { id: taxTypeId },
     });
@@ -66,7 +65,9 @@ export class TaxesService {
     }
 
     if (dto.isPercentage && dto.currency) {
-      throw new BadRequestException('Percentage taxes should not have currency');
+      throw new BadRequestException(
+        'Percentage taxes should not have currency',
+      );
     }
 
     const newEntity = this.taxRepository.create({
@@ -86,18 +87,20 @@ export class TaxesService {
   // ==========================
 
   async update(id: number, changes: UpdateTaxDto): Promise<TaxResponseDto> {
-
     const entity = await this.findEntity(id);
 
     const isPercentage = changes.isPercentage ?? entity.isPercentage;
-    const currency = changes.currency !== undefined ? changes.currency : entity.currency;
+    const currency =
+      changes.currency !== undefined ? changes.currency : entity.currency;
 
     if (!isPercentage && !currency) {
       throw new BadRequestException('Currency is required for fixed taxes');
     }
 
     if (isPercentage && currency) {
-      throw new BadRequestException('Percentage taxes should not have currency');
+      throw new BadRequestException(
+        'Percentage taxes should not have currency',
+      );
     }
 
     const merged = this.taxRepository.merge(entity, changes);

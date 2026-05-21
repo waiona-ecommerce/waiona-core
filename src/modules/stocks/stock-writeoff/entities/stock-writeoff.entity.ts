@@ -10,7 +10,6 @@ import { StockWriteOffReason } from '../enums/stock-writeoff-reason.enum';
 @Index(['stockItemId'])
 @Index(['movementId'])
 export class StockWriteOffEntity extends BaseEntity {
-
   @Column({
     name: 'stock_item_id',
     type: 'int',

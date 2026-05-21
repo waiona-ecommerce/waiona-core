@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, Min } from 'class-validator';
 
 export class CreateStockItemDto {
-
   @ApiProperty({ example: 1 })
   @IsInt()
   @Min(1)
@@ -18,12 +17,20 @@ export class CreateStockItemDto {
   @Min(0)
   stockMin: number;
 
-  @ApiProperty({ example: 2, minimum: 0, description: 'Debe ser menor que stockMin' })
+  @ApiProperty({
+    example: 2,
+    minimum: 0,
+    description: 'Debe ser menor que stockMin',
+  })
   @IsInt()
   @Min(0)
   stockCritical: number;
 
-  @ApiPropertyOptional({ example: 100, minimum: 0, description: 'Debe ser mayor que stockMin' })
+  @ApiPropertyOptional({
+    example: 100,
+    minimum: 0,
+    description: 'Debe ser mayor que stockMin',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)

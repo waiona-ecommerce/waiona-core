@@ -13,10 +13,7 @@ import { StocksModule } from 'src/modules/stocks/stocks.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      ProductEntity,
-      ComboEntity,
-    ]),
+    TypeOrmModule.forFeature([ProductEntity, ComboEntity]),
     CalculationModule,
     StocksModule,
   ],

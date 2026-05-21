@@ -50,7 +50,7 @@ import { ShopModule } from './shop/shop.module';
   exports: [
     CategoryService,
     ProductService,
-    ComboService, 
+    ComboService,
     ProductImageService,
     ComboImageService,
   ],

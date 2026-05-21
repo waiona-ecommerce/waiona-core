@@ -1,6 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
-
 import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
 import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
 import { BaseEntity } from 'src/common/entities/base.entity';
@@ -8,7 +7,6 @@ import { BaseEntity } from 'src/common/entities/base.entity';
 @Entity('product_taxes')
 @Index(['productId', 'taxId'], { unique: true })
 export class ProductTaxEntity extends BaseEntity {
-
   @Column({
     name: 'product_id',
     type: 'int',
@@ -32,5 +30,4 @@ export class ProductTaxEntity extends BaseEntity {
   })
   @JoinColumn({ name: 'tax_id' })
   tax: TaxEntity;
-
 }

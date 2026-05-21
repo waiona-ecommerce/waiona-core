@@ -34,18 +34,14 @@ import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item
     StockLocationsService,
     StockMovementService,
     StockItemsService,
-    StockWriteOffService
+    StockWriteOffService,
   ],
   controllers: [
     StockLocationsController,
     StockMovementController,
     StockItemsController,
-    StockWriteOffController
+    StockWriteOffController,
   ],
-  exports: [    
-    StockLocationsService,
-    StockMovementService,
-    StockItemsService,    
-  ],
+  exports: [StockLocationsService, StockMovementService, StockItemsService],
 })
 export class StocksModule {}
