@@ -19,6 +19,7 @@ import { UserEntity } from '../../users/entities/user.entity';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { ForgotPasswordDto } from 'src/modules/mail/dto/forgot-password.dto';
 import { ResetPasswordDto } from 'src/modules/mail/dto/reset-password.dto';
+import { RefreshTokenDto } from '../dto/refresh-token.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -74,18 +75,54 @@ export class AuthController {
   @ApiOperation({ summary: 'Login con email y contraseña' })
   @ApiResponse({
     status: 200,
-    description: 'JWT y datos del usuario autenticado',
+    description: 'Access token, refresh token y datos del usuario autenticado',
   })
   @ApiResponse({
     status: 401,
     description: 'Credenciales inválidas o cuenta no activada',
   })
-  login(@Req() req: Request): { user: UserEntity; access_token: string } {
+  async login(@Req() req: Request): Promise<{
+    user: UserEntity;
+    access_token: string;
+    refresh_token: string;
+  }> {
     const user = req.user as UserEntity;
-    return {
-      user,
-      access_token: this.authService.generateToken(user),
-    };
+    const tokens = await this.authService.login(user);
+    return { user, ...tokens };
+  }
+
+  // ==========================
+  // POST /auth/refresh
+  // ==========================
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Obtener nuevo access token con refresh token' })
+  @ApiResponse({ status: 200, description: 'Nuevos access y refresh token' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token inválido, expirado o revocado',
+  })
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    return this.authService.refresh(dto.refresh_token);
+  }
+
+  // ==========================
+  // POST /auth/logout
+  // ==========================
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Revocar refresh token (logout)' })
+  @ApiResponse({ status: 204, description: 'Sesión cerrada correctamente' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token inválido o ya revocado',
+  })
+  async logout(@Body() dto: RefreshTokenDto): Promise<void> {
+    await this.authService.logout(dto.refresh_token);
   }
 
   // ==========================

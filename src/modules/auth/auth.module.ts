@@ -13,19 +13,20 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 import { TokenEntity } from '../mail/entities/token.entity';
+import { RefreshTokenEntity } from './entities/refresh-token.entity';
 import { Env } from 'src/env.model';
 
 @Module({
   imports: [
     UsersModule,
-    MailModule, // 👈 correcto
+    MailModule,
     PassportModule,
-    TypeOrmModule.forFeature([TokenEntity]), // 👈 clave
+    TypeOrmModule.forFeature([TokenEntity, RefreshTokenEntity]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService<Env>) => ({
         secret: configService.get('JWT_SECRET', { infer: true }),
-        signOptions: { expiresIn: '6d' },
+        signOptions: { expiresIn: '15m' },
       }),
     }),
   ],

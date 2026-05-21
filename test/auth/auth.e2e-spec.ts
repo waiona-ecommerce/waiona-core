@@ -22,6 +22,7 @@ import { UserEntity } from 'src/modules/users/entities/user.entity';
 import { ProfileEntity } from 'src/modules/users/entities/profile.entity';
 import { RoleEntity } from 'src/modules/users/entities/role.entity';
 import { TokenEntity } from 'src/modules/mail/entities/token.entity';
+import { RefreshTokenEntity } from 'src/modules/auth/entities/refresh-token.entity';
 import { RoleType } from 'src/common/enums/role-type.enum';
 
 describe('Auth (e2e)', () => {
@@ -46,7 +47,13 @@ describe('Auth (e2e)', () => {
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB') ?? 'waiona_test',
-            entities: [UserEntity, ProfileEntity, RoleEntity, TokenEntity],
+            entities: [
+              UserEntity,
+              ProfileEntity,
+              RoleEntity,
+              TokenEntity,
+              RefreshTokenEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
@@ -56,13 +63,14 @@ describe('Auth (e2e)', () => {
           ProfileEntity,
           RoleEntity,
           TokenEntity,
+          RefreshTokenEntity,
         ]),
         PassportModule,
         JwtModule.registerAsync({
           inject: [ConfigService],
           useFactory: (config: ConfigService) => ({
             secret: config.get('JWT_SECRET') ?? 'test_secret',
-            signOptions: { expiresIn: '1d' },
+            signOptions: { expiresIn: '15m' },
           }),
         }),
       ],
@@ -106,6 +114,11 @@ describe('Auth (e2e)', () => {
     lastName: 'User',
   };
   let activationToken: string;
+  let refreshToken: string;
+
+  // =============================================
+  // POST /auth/register
+  // =============================================
 
   describe('POST /auth/register', () => {
     it('should register and return 201', async () => {
@@ -129,6 +142,10 @@ describe('Auth (e2e)', () => {
         .expect(400));
   });
 
+  // =============================================
+  // POST /auth/login — cuenta inactiva
+  // =============================================
+
   describe('POST /auth/login — inactive', () => {
     it('should return 401 if not activated', () =>
       request(app.getHttpServer())
@@ -136,6 +153,10 @@ describe('Auth (e2e)', () => {
         .send({ email: testUser.email, password: testUser.password })
         .expect(401));
   });
+
+  // =============================================
+  // GET /auth/activate
+  // =============================================
 
   describe('GET /auth/activate', () => {
     it('should activate account', () =>
@@ -154,15 +175,23 @@ describe('Auth (e2e)', () => {
         .expect(400));
   });
 
+  // =============================================
+  // POST /auth/login
+  // =============================================
+
   describe('POST /auth/login', () => {
-    it('should login and return 200 with token and no password', async () => {
+    it('should login and return access_token, refresh_token and user without password', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: testUser.email, password: testUser.password })
         .expect(200);
+
       expect(res.body.access_token).toBeDefined();
+      expect(res.body.refresh_token).toBeDefined();
       expect(res.body.user.password).toBeUndefined();
       expect(res.body.user.role.type).toBe(RoleType.CLIENT);
+
+      refreshToken = res.body.refresh_token;
     });
 
     it('should return 401 with wrong password', () =>
@@ -171,6 +200,98 @@ describe('Auth (e2e)', () => {
         .send({ email: testUser.email, password: 'wrong' })
         .expect(401));
   });
+
+  // =============================================
+  // POST /auth/refresh
+  // =============================================
+
+  describe('POST /auth/refresh', () => {
+    it('200 — retorna nuevos access_token y refresh_token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken })
+        .expect(200);
+
+      expect(res.body.access_token).toBeDefined();
+      expect(res.body.refresh_token).toBeDefined();
+      expect(res.body.refresh_token).not.toBe(refreshToken);
+
+      // guardar nuevo refresh token para próximos tests
+      refreshToken = res.body.refresh_token;
+    });
+
+    it('401 — token inválido (no existe)', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: 'token_que_no_existe' })
+        .expect(401);
+    });
+
+    it('401 — token ya fue rotado (revocado)', async () => {
+      // obtener un token fresco y luego rotarlo
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email, password: testUser.password });
+      const tokenToRotate = loginRes.body.refresh_token;
+
+      // primer refresh — lo rota
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: tokenToRotate })
+        .expect(200);
+
+      // segundo refresh con el token ya rotado → 401
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: tokenToRotate })
+        .expect(401);
+    });
+
+    it('400 — body inválido (sin refresh_token)', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({})
+        .expect(400);
+    });
+  });
+
+  // =============================================
+  // POST /auth/logout
+  // =============================================
+
+  describe('POST /auth/logout', () => {
+    it('204 — revoca el refresh token', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refresh_token: refreshToken })
+        .expect(204);
+    });
+
+    it('401 — token ya revocado', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refresh_token: refreshToken })
+        .expect(401);
+    });
+
+    it('401 — token inválido', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refresh_token: 'token_inexistente' })
+        .expect(401);
+    });
+
+    it('400 — body inválido', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({})
+        .expect(400);
+    });
+  });
+
+  // =============================================
+  // POST /auth/forgot-password
+  // =============================================
 
   describe('POST /auth/forgot-password', () => {
     it('should return 200 even for unknown email — no hints', async () => {
@@ -189,6 +310,10 @@ describe('Auth (e2e)', () => {
       expect(mockMailService.sendPasswordResetEmail).toHaveBeenCalled();
     });
   });
+
+  // =============================================
+  // POST /auth/reset-password
+  // =============================================
 
   describe('POST /auth/reset-password', () => {
     it('should reset password and allow login with new password', async () => {

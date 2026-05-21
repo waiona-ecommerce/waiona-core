@@ -6,10 +6,23 @@ import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 jest.mock('bcrypt', () => ({ compare: jest.fn() }));
 import * as bcrypt from 'bcrypt';
 
+jest.mock('crypto', () => {
+  const actual = jest.requireActual<typeof import('crypto')>('crypto');
+  return {
+    ...actual,
+    randomBytes: jest.fn(() => Buffer.from('deadbeef'.repeat(8), 'hex')),
+    createHash: jest.fn(() => ({
+      update: jest.fn().mockReturnThis(),
+      digest: jest.fn(() => 'hashed_token'),
+    })),
+  };
+});
+
 import { AuthService } from './auth.service';
 import { UsersService } from '../../users/services/users.service';
 import { MailService } from 'src/modules/mail/services/mail.service';
 import { TokenEntity } from 'src/modules/mail/entities/token.entity';
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { TokenType } from 'src/modules/mail/enum/token-type.enum';
 import { RoleType } from 'src/common/enums/role-type.enum';
 import { UserEntity } from '../../users/entities/user.entity';
@@ -20,6 +33,7 @@ describe('AuthService', () => {
   let jwtService: any;
   let mailService: any;
   let tokenRepo: any;
+  let refreshTokenRepo: any;
 
   const mockUsersService = () => ({
     findByEmail: jest.fn(),
@@ -43,6 +57,12 @@ describe('AuthService', () => {
     create: jest.fn(),
     save: jest.fn(),
     update: jest.fn(),
+  });
+
+  const mockRefreshTokenRepo = () => ({
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
   });
 
   const mockUser = (overrides = {}): UserEntity =>
@@ -69,6 +89,18 @@ describe('AuthService', () => {
       ...overrides,
     }) as unknown as TokenEntity;
 
+  const mockRefreshToken = (overrides = {}): RefreshTokenEntity =>
+    ({
+      id: 1,
+      userId: 1,
+      tokenHash: 'hashed_token',
+      expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+      revokedAt: null,
+      isRevoked: false,
+      isExpired: false,
+      ...overrides,
+    }) as unknown as RefreshTokenEntity;
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -77,6 +109,10 @@ describe('AuthService', () => {
         { provide: JwtService, useFactory: mockJwtService },
         { provide: MailService, useFactory: mockMailService },
         { provide: getRepositoryToken(TokenEntity), useFactory: mockTokenRepo },
+        {
+          provide: getRepositoryToken(RefreshTokenEntity),
+          useFactory: mockRefreshTokenRepo,
+        },
       ],
     }).compile();
 
@@ -85,6 +121,7 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
     mailService = module.get(MailService);
     tokenRepo = module.get(getRepositoryToken(TokenEntity));
+    refreshTokenRepo = module.get(getRepositoryToken(RefreshTokenEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -140,6 +177,104 @@ describe('AuthService', () => {
         role: RoleType.CLIENT,
       });
       expect(token).toBe('mock.jwt.token');
+    });
+  });
+
+  // ==========================
+  // login
+  // ==========================
+
+  describe('login', () => {
+    it('should return access_token and refresh_token', async () => {
+      const user = mockUser();
+      const rt = mockRefreshToken();
+      refreshTokenRepo.create.mockReturnValue(rt);
+      refreshTokenRepo.save.mockResolvedValue(rt);
+
+      const result = await service.login(user);
+
+      expect(result.access_token).toBe('mock.jwt.token');
+      expect(result.refresh_token).toBeDefined();
+      expect(typeof result.refresh_token).toBe('string');
+      expect(refreshTokenRepo.save).toHaveBeenCalled();
+    });
+  });
+
+  // ==========================
+  // refresh
+  // ==========================
+
+  describe('refresh', () => {
+    it('should rotate refresh token and return new tokens', async () => {
+      const rt = mockRefreshToken();
+      refreshTokenRepo.findOne.mockResolvedValue(rt);
+      refreshTokenRepo.save.mockResolvedValue(rt);
+      usersService.findOne.mockResolvedValue(mockUser());
+      refreshTokenRepo.create.mockReturnValue(rt);
+
+      const result = await service.refresh('raw_token');
+
+      expect(rt.revokedAt).not.toBeNull();
+      expect(result.access_token).toBe('mock.jwt.token');
+      expect(result.refresh_token).toBeDefined();
+    });
+
+    it('should throw 401 if refresh token not found', async () => {
+      refreshTokenRepo.findOne.mockResolvedValue(null);
+      await expect(service.refresh('bad_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw 401 if refresh token is revoked', async () => {
+      refreshTokenRepo.findOne.mockResolvedValue(
+        mockRefreshToken({ isRevoked: true }),
+      );
+      await expect(service.refresh('raw_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw 401 if refresh token is expired', async () => {
+      refreshTokenRepo.findOne.mockResolvedValue(
+        mockRefreshToken({ isExpired: true }),
+      );
+      await expect(service.refresh('raw_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  // ==========================
+  // logout
+  // ==========================
+
+  describe('logout', () => {
+    it('should revoke the refresh token', async () => {
+      const rt = mockRefreshToken();
+      refreshTokenRepo.findOne.mockResolvedValue(rt);
+      refreshTokenRepo.save.mockResolvedValue(rt);
+
+      await service.logout('raw_token');
+
+      expect(rt.revokedAt).not.toBeNull();
+      expect(refreshTokenRepo.save).toHaveBeenCalledWith(rt);
+    });
+
+    it('should throw 401 if refresh token not found', async () => {
+      refreshTokenRepo.findOne.mockResolvedValue(null);
+      await expect(service.logout('bad_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw 401 if refresh token already revoked', async () => {
+      refreshTokenRepo.findOne.mockResolvedValue(
+        mockRefreshToken({ isRevoked: true }),
+      );
+      await expect(service.logout('raw_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
