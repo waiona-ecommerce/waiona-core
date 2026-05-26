@@ -79,7 +79,7 @@ describe('StockLocations (e2e)', () => {
       .expect(201);
 
     expect(res.body.id).toBeDefined();
-    expect(res.body.name).toBe('Depósito Central');
+    expect(res.body.name).toBe('DEPÓSITO CENTRAL');
     expect(res.body.type).toBe(StockLocationType.WAREHOUSE);
     expect(res.body.address).toBeUndefined();
   });
@@ -145,7 +145,7 @@ describe('StockLocations (e2e)', () => {
       .get(`/v1/stock-locations/${createRes.body.id}`)
       .expect(200);
 
-    expect(res.body.name).toBe('Depósito Norte');
+    expect(res.body.name).toBe('DEPÓSITO NORTE');
   });
 
   it('GET /stock-locations/:id -> 404 when not found', async () => {
@@ -168,7 +168,7 @@ describe('StockLocations (e2e)', () => {
       .send({ name: 'Actualizado' })
       .expect(200);
 
-    expect(res.body.name).toBe('Actualizado');
+    expect(res.body.name).toBe('ACTUALIZADO');
   });
 
   it('PATCH /stock-locations/:id -> 200 clears address with null', async () => {

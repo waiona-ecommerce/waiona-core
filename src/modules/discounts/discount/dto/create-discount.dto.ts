@@ -10,7 +10,7 @@ import {
   IsEnum,
   IsDate,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
@@ -20,7 +20,8 @@ export class CreateDiscountDto {
   // BASIC INFO
   // ==========================
 
-  @ApiProperty({ example: 'Black Friday', minLength: 3, maxLength: 100 })
+  @ApiProperty({ example: 'BLACK FRIDAY', minLength: 3, maxLength: 100 })
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @MinLength(3)
   @MaxLength(100)
@@ -32,6 +33,7 @@ export class CreateDiscountDto {
     maxLength: 255,
   })
   @IsOptional()
+  @Transform(({ value }) => value?.trim())
   @IsString()
   @MinLength(3)
   @MaxLength(255)

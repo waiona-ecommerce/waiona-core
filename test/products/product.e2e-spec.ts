@@ -105,7 +105,7 @@ describe('Product (e2e)', () => {
       .expect(201);
 
     expect(res.body.id).toBeDefined();
-    expect(res.body.name).toBe('Coca Cola 500ml');
+    expect(res.body.name).toBe('COCA COLA 500ML');
     expect(res.body.categoryId).toBe(categoryId);
   });
 
@@ -183,7 +183,7 @@ describe('Product (e2e)', () => {
       .send({ name: 'Coca Cola 1L', isActive: false })
       .expect(200);
 
-    expect(res.body.name).toBe('Coca Cola 1L');
+    expect(res.body.name).toBe('COCA COLA 1L');
     expect(res.body.isActive).toBe(false);
   });
 

@@ -12,7 +12,7 @@ import {
   ValidateNested,
   ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { DeliveryType } from '../enums/delivery-type.enum';
 
@@ -54,6 +54,7 @@ export class CreateOrderDto {
     nullable: true,
   })
   @ValidateIf((o) => o.deliveryType === DeliveryType.DELIVERY)
+  @Transform(({ value }) => value?.trim())
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
@@ -61,12 +62,14 @@ export class CreateOrderDto {
 
   @ApiProperty({ example: 'PROMO10', required: false, nullable: true })
   @IsOptional()
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @MaxLength(100)
   couponCode?: string;
 
   @ApiProperty({ example: 'Sin cebolla', required: false, nullable: true })
   @IsOptional()
+  @Transform(({ value }) => value?.trim())
   @IsString()
   @MaxLength(500)
   notes?: string;

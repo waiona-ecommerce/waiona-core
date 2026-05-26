@@ -11,13 +11,14 @@ import {
   IsInt,
   IsBoolean,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class CreateCouponDto {
   @ApiProperty({ example: 'PROMO10' })
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @MinLength(3)
   @MaxLength(100)

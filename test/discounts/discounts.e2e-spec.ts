@@ -172,7 +172,7 @@ describe('Discounts (e2e)', () => {
         .expect(201);
 
       expect(res.body.id).toBeDefined();
-      expect(res.body.name).toBe('Black Friday');
+      expect(res.body.name).toBe('BLACK FRIDAY');
       expect(res.body.value).toBe(20);
       expect(res.body.isPercentage).toBe(true);
       expect(res.body.status).toBe('active');
@@ -341,7 +341,7 @@ describe('Discounts (e2e)', () => {
         .expect(200);
 
       expect(res.body.id).toBe(createRes.body.id);
-      expect(res.body.name).toBe('Para buscar por ID');
+      expect(res.body.name).toBe('PARA BUSCAR POR ID');
       expect(res.body.status).toBe('active');
     });
 
@@ -363,7 +363,7 @@ describe('Discounts (e2e)', () => {
         .send({ name: 'Nombre actualizado' })
         .expect(200);
 
-      expect(res.body.name).toBe('Nombre actualizado');
+      expect(res.body.name).toBe('NOMBRE ACTUALIZADO');
       expect(res.body.value).toBe(10);
       expect(res.body.status).toBeDefined();
     });

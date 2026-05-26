@@ -100,7 +100,7 @@ describe('Margins (e2e)', () => {
       .expect(201);
 
     expect(res.body.id).toBeDefined();
-    expect(res.body.name).toBe('General 20%');
+    expect(res.body.name).toBe('GENERAL 20%');
     expect(res.body.value).toBe(20);
     expect(res.body.isPercentage).toBe(true);
   });
@@ -182,7 +182,7 @@ describe('Margins (e2e)', () => {
       .expect(200);
 
     expect(res.body.id).toBe(createRes.body.id);
-    expect(res.body.name).toBe('Para buscar');
+    expect(res.body.name).toBe('PARA BUSCAR');
   });
 
   it('GET /margins/:id -> 404 si no existe', async () => {
@@ -204,7 +204,7 @@ describe('Margins (e2e)', () => {
       .expect(200);
 
     expect(res.body.value).toBe(25);
-    expect(res.body.name).toBe('Para actualizar');
+    expect(res.body.name).toBe('PARA ACTUALIZAR');
   });
 
   it('PATCH /margins/:id -> 200 actualiza el nombre', async () => {
@@ -217,7 +217,7 @@ describe('Margins (e2e)', () => {
       .send({ name: 'Nombre nuevo' })
       .expect(200);
 
-    expect(res.body.name).toBe('Nombre nuevo');
+    expect(res.body.name).toBe('NOMBRE NUEVO');
   });
 
   it('PATCH /margins/:id -> 400 si porcentaje supera 100', async () => {

@@ -7,11 +7,12 @@ import {
   IsBoolean,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateMarginDto {
-  @ApiProperty({ example: 'Margen estándar', minLength: 3, maxLength: 100 })
+  @ApiProperty({ example: 'MARGEN ESTÁNDAR', minLength: 3, maxLength: 100 })
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @IsNotEmpty()
   @MinLength(3)

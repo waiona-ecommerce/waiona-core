@@ -165,6 +165,10 @@ JWT payload: `{ sub: userId, role: RoleType }`
 - `class-validator` para validación
 - `@Type(() => Number)` en query params numéricos (el ValidationPipe tiene `transform: true`)
 - `PartialType` para update DTOs
+- Normalización de strings con `@Transform` de `class-transformer`:
+  - Identificadores de negocio (`name`, `code`, `sku`) → `value?.toUpperCase().trim()`
+  - Texto libre (`description`, `address`, `notes`) → `value?.trim()`
+  - URLs, emails, passwords → sin `@Transform`
 
 ### Tests
 - Unit tests con mocks del repositorio (sin DB real)

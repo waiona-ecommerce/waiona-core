@@ -212,7 +212,7 @@ describe('Combos (e2e)', () => {
       .send({ name: 'Combo Actualizado' })
       .expect(200);
 
-    expect(res.body.name).toBe('Combo Actualizado');
+    expect(res.body.name).toBe('COMBO ACTUALIZADO');
   });
 
   it('PATCH /combos/:id → 200 reemplaza items', async () => {
