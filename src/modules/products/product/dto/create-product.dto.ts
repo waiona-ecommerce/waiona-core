@@ -10,6 +10,7 @@ import {
   MinLength,
   IsNotEmpty,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
 
 export class CreateProductDto {
@@ -17,6 +18,7 @@ export class CreateProductDto {
   // Identificación
   // ==========================
 
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @IsNotEmpty()
   @MinLength(3)
@@ -27,12 +29,14 @@ export class CreateProductDto {
   // Información básica
   // ==========================
 
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(150)
   name: string;
 
+  @Transform(({ value }) => value?.trim())
   @IsString()
   @IsNotEmpty()
   @MinLength(5)

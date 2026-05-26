@@ -47,7 +47,7 @@ Un margen se **asigna a un `ProductPricing` o `ComboPricing`** — no se aplica 
 
 ```typescript
 {
-  name:         string;   // requerido, 3–100 chars
+  name:         string;   // requerido, 3–100 chars — normalizado a MAYÚSCULAS + trim automáticamente
   value:        number;   // requerido, >= 0, máx 2 decimales
   isPercentage: boolean;  // requerido
 }
@@ -104,7 +104,7 @@ Crea un nuevo margen.
 **Request:**
 ```json
 {
-  "name": "Margen estándar",
+  "name": "margen estándar",
   "value": 20,
   "isPercentage": true
 }
@@ -114,7 +114,7 @@ Crea un nuevo margen.
 ```json
 {
   "id": 1,
-  "name": "Margen estándar",
+  "name": "MARGEN ESTÁNDAR",
   "value": 20,
   "isPercentage": true,
   "createdAt": "2026-05-16T14:00:00.000Z",
@@ -207,6 +207,7 @@ Soft delete. **Bloqueado** si el margen está asignado a algún `ProductPricing`
 | Regla | Dónde se aplica |
 |---|---|
 | `name` único en toda la tabla | `create` y `update` cuando cambia el nombre |
+| `name` normalizado a mayúsculas + trim | `@Transform` en el DTO — antes de validación |
 | Si `isPercentage: true` → `value ≤ 100` | `create` y `update` |
 | No eliminar si está en uso | `remove` — verifica `productPricing` y `comboPricing` en paralelo |
 | Soft delete — `deletedAt` nunca `null` en registros eliminados | `remove` vía `softDelete()` |
@@ -219,12 +220,14 @@ Soft delete. **Bloqueado** si el margen está asignado a algún `ProductPricing`
 ```json
 POST /margins
 { "name": "General 20%", "value": 20, "isPercentage": true }
+// guardado como: "GENERAL 20%"
 ```
 
 **Margen fijo para productos importados:**
 ```json
 POST /margins
 { "name": "Importado fijo", "value": 500, "isPercentage": false }
+// guardado como: "IMPORTADO FIJO"
 ```
 
 **Actualizar solo el valor:**
@@ -260,6 +263,7 @@ DELETE /margins/1
 | E2E tests — PostgreSQL real, `dropSchema: true`, 17 tests | ✅ |
 | Swagger — `@ApiTags`, `@ApiOperation`, `@ApiResponse` en controller | ✅ |
 | Swagger — `@ApiProperty` en todos los DTOs | ✅ |
+| `@Transform` en campos `name` del CreateDto — normalización a mayúsculas | ✅ |
 
 ---
 

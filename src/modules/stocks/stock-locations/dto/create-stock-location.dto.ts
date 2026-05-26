@@ -6,10 +6,12 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { StockLocationType } from '../enums/stock-location-type.enum';
 
 export class CreateStockLocationDto {
-  @ApiProperty({ example: 'Depósito Central', minLength: 3, maxLength: 120 })
+  @ApiProperty({ example: 'DEPÓSITO CENTRAL', minLength: 3, maxLength: 120 })
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @MinLength(3)
   @MaxLength(120)
@@ -21,6 +23,7 @@ export class CreateStockLocationDto {
 
   @ApiPropertyOptional({ example: 'Av. Corrientes 1234', maxLength: 255 })
   @IsOptional()
+  @Transform(({ value }) => value?.trim())
   @IsString()
   @MaxLength(255)
   address?: string;

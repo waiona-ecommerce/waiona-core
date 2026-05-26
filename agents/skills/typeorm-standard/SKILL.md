@@ -109,15 +109,28 @@ export class NombreEntity extends BaseEntity {
 
 ```typescript
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class CreateNombreDto {
-  @ApiProperty({ example: 'Ejemplo', minLength: 3, maxLength: 100 })
+  @ApiProperty({ example: 'EJEMPLO', minLength: 3, maxLength: 100 })
+  @Transform(({ value }) => value?.toUpperCase().trim())  // identifier/label field
   @IsString()
   @IsNotEmpty()
   @MinLength(3)
   @MaxLength(100)
   name: string;
+
+  @ApiProperty({ example: 'Descripción libre' })
+  @Transform(({ value }) => value?.trim())  // free-text field
+  @IsString()
+  description: string;
 }
+```
+
+**String normalization rules:**
+- `name`, `code`, `sku` → `toUpperCase().trim()` — identifiers de negocio, siempre mayúsculas
+- `description`, `address`, `notes` → `trim()` solo — texto libre, respetar case del usuario
+- URLs, emails, passwords → sin `@Transform`
 ```
 
 ### UpdateDto — usar `PartialType` de `@nestjs/swagger`, no de `@nestjs/mapped-types`
@@ -258,6 +271,7 @@ findOne({ where: { id, isDeleted: false }, relations: ['category', 'items'] })
 - **Returning entities from services**: Always return DTOs.
 - **Missing FK column**: Always declare `@Column({ name: 'x_id' })` alongside `@ManyToOne`.
 - **Multi-table writes without transaction**: Use `dataSource.transaction()`.
+- **Missing `@Transform` on string fields**: Every text field in a CreateDto needs normalization — identifiers uppercase, free-text trim.
 
 ---
 

@@ -7,17 +7,19 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { StockLocationType } from '../enums/stock-location-type.enum';
 
 // PartialType no se usa porque address acepta null para limpiar el campo.
 // string | null no es asignable a string del Create DTO, así que se declara manualmente.
 export class UpdateStockLocationDto {
   @ApiPropertyOptional({
-    example: 'Depósito Norte',
+    example: 'DEPÓSITO NORTE',
     minLength: 3,
     maxLength: 120,
   })
   @IsOptional()
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @MinLength(3)
   @MaxLength(120)
@@ -35,6 +37,7 @@ export class UpdateStockLocationDto {
   })
   @IsOptional()
   @ValidateIf((o) => o.address !== null)
+  @Transform(({ value }) => (value === null ? null : value?.trim()))
   @IsString()
   @MaxLength(255)
   address?: string | null;

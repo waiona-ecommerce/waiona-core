@@ -33,7 +33,7 @@ export class CreateComboItemDto {
 // ==========================
 
 export class CreateComboDto {
-  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
