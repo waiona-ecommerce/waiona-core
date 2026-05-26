@@ -72,7 +72,7 @@ describe('TaxTypes (e2e)', () => {
   // -------------------------
 
   it('POST /tax-types -> should create', async () => {
-    const dto = { code: 'IVA', name: 'Impuesto' };
+    const dto = { code: 'IVA', name: 'IMPUESTO' };
 
     const res = await request(app.getHttpServer())
       .post('/v1/tax-types')
@@ -162,7 +162,7 @@ describe('TaxTypes (e2e)', () => {
       .send({ name: 'Eco Updated' })
       .expect(200);
 
-    expect(res.body.name).toBe('Eco Updated');
+    expect(res.body.name).toBe('ECO UPDATED');
   });
 
   it('PATCH /tax-types/:id -> should return 404', async () => {

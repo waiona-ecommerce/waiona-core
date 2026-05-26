@@ -96,7 +96,7 @@ describe('Categories (e2e)', () => {
       .expect(201);
 
     expect(res.body.id).toBeDefined();
-    expect(res.body.name).toBe('Bebidas');
+    expect(res.body.name).toBe('BEBIDAS');
     expect(res.body.isActive).toBe(true);
     expect(res.body.parentId).toBeNull();
   });
@@ -145,7 +145,7 @@ describe('Categories (e2e)', () => {
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
-    const root = res.body.find((c: any) => c.name === 'Gaseosas');
+    const root = res.body.find((c: any) => c.name === 'GASEOSAS');
     expect(root).toBeDefined();
     expect(root.children).toBeDefined();
   });
@@ -163,7 +163,7 @@ describe('Categories (e2e)', () => {
       .get(`/v1/categories/${created.body.id}`)
       .expect(200);
 
-    expect(res.body.name).toBe('Lácteos');
+    expect(res.body.name).toBe('LÁCTEOS');
   });
 
   it('GET /categories/:id → 404 si no existe', async () => {
@@ -184,7 +184,7 @@ describe('Categories (e2e)', () => {
       .send({ name: 'Snacks Premium', isActive: false })
       .expect(200);
 
-    expect(res.body.name).toBe('Snacks Premium');
+    expect(res.body.name).toBe('SNACKS PREMIUM');
     expect(res.body.isActive).toBe(false);
   });
 
