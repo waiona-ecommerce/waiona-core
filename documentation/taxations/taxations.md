@@ -2,14 +2,15 @@
 
 ## ¿Qué hace este módulo?
 
-Gestiona todos los impuestos del sistema. Está dividido en cuatro sub-módulos independientes con sus propios controladores, servicios y entidades:
+Gestiona todos los impuestos del sistema. Está dividido en tres sub-módulos independientes con sus propios controladores, servicios y entidades:
 
 | Sub-módulo | Entidad | Ruta base |
 |---|---|---|
 | `tax-types` | `TaxTypeEntity` | `/tax-types` |
 | `taxes` | `TaxEntity` | `/tax-types/:taxTypeId/taxes` |
 | `product-taxes` | `ProductTaxEntity` | `/products/:productId/taxes` |
-| `combo-taxes` | `ComboTaxEntity` | `/combos/:comboId/taxes` |
+
+> **No existe `combo-taxes`.** Los impuestos de un combo se derivan automáticamente de los impuestos de sus productos componentes mediante prorrateo lineal (ver sección _Prorrateo en combos_).
 
 ### Posición en el flujo de precios
 
@@ -68,20 +69,6 @@ unitPrice
 // @Index(['productId', 'taxId'], { unique: true })
 ```
 
-### `ComboTaxEntity`
-
-```typescript
-{
-  id:        number;  // PK autoincremental
-  comboId:   number;  // FK → combos.id (CASCADE)
-  taxId:     number;  // FK → taxes.id (CASCADE)
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-// @Index(['comboId', 'taxId'], { unique: true })
-```
-
 ---
 
 ## DTOs
@@ -114,7 +101,7 @@ unitPrice
 **`CreateTaxDto`**
 ```typescript
 {
-  value:        number;          // >= 0, máx 2 decimales
+  value:        number;          // >= 0.01, máx 2 decimales; si isPercentage → máx 100; si fijo → máx 1.000.000
   isPercentage: boolean;         // requerido
   currency?:    CurrencyCode;    // requerido si !isPercentage
   isGlobal?:    boolean;         // default false
@@ -138,33 +125,22 @@ unitPrice
 }
 ```
 
-### Product Taxes / Combo Taxes
+### Product Taxes
 
-**`CreateProductTaxDto`** / **`CreateComboTaxDto`**
+**`CreateProductTaxDto`**
 ```typescript
 {
   taxId: number;  // >= 1, requerido
 }
 ```
 
-**`UpdateProductTaxDto`** / **`UpdateComboTaxDto`** — `PartialType(Create...Dto)`
+**`UpdateProductTaxDto`** — `PartialType(CreateProductTaxDto)`
 
 **`ProductTaxResponseDto`**
 ```typescript
 {
   id:        number;
   productId: number;
-  taxId:     number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
-
-**`ComboTaxResponseDto`**
-```typescript
-{
-  id:        number;
-  comboId:   number;
   taxId:     number;
   createdAt: Date;
   updatedAt: Date;
@@ -237,7 +213,8 @@ Lista todos los impuestos de un tipo. **Response 200:** `TaxResponseDto[]`.
 - `400` — `taxTypeId` no existe
 - `400` — `!isPercentage` sin `currency`
 - `400` — `isPercentage` con `currency`
-- `400` — `value` negativo
+- `400` — `value < 0.01`
+- `400` — porcentaje > 100 o monto fijo > 1.000.000
 
 ### Taxes — `PATCH /tax-types/:taxTypeId/taxes/:id`
 
@@ -281,9 +258,37 @@ Lista todos los impuestos asignados al producto. **Response 200:** `ProductTaxRe
 
 ---
 
-### Combo Taxes
+---
 
-Idéntico a Product Taxes con `/combos/:comboId/taxes` y `ComboTaxResponseDto`.
+## Prorrateo en combos
+
+Los combos **no tienen impuestos asignados directamente**. En su lugar, `CalculationService.sumTaxesWithProration()` calcula los impuestos del combo de la siguiente manera:
+
+1. **Impuestos globales** — se aplican sobre el precio total del combo (`priceAfterMargin`).
+2. **Impuestos específicos por producto** — se distribuye el precio del combo proporcionalmente entre los productos componentes según su precio de referencia (unitPrice × quantity). El impuesto específico de cada producto se aplica sobre su base prorrateada.
+
+**Fórmula:**
+```
+precioRef_item = unitPrice_producto × cantidad
+totalRef       = Σ precioRef_item
+
+baseProrrateada_item = comboPrice × (precioRef_item / totalRef)
+impuestoEspecífico   = baseProrrateada_item × tasa_item
+```
+
+**Prevención de doble conteo:** si un impuesto es global, **no** se aplica nuevamente en la etapa de específicos, aunque el producto lo tenga asignado en `product_taxes`. Se usa un `Set<number>` con los IDs globales para filtrar.
+
+**Ejemplo:**
+```
+Combo $1.000 | Café $800 (×1) + Pan $400 (×1)
+totalRef = 1.200
+
+Café  → base prorrateada = 1.000 × (800/1200) = $666.67  | IIBB 3% → $20
+Pan   → base prorrateada = 1.000 × (400/1200) = $333.33  | IIBB 5% → $16.67
+IVA global 21% sobre $1.000 → $210
+
+Total impuestos = $210 + $20 + $16.67 = $246.67
+```
 
 ---
 
@@ -294,8 +299,10 @@ Idéntico a Product Taxes con `/combos/:comboId/taxes` y `ComboTaxResponseDto`.
 | `code` único en `tax_types` | `create` y `update` cuando cambia el code |
 | Si `!isPercentage` → `currency` requerida | `create` y `update` de taxes |
 | Si `isPercentage` → `currency` prohibida | `create` y `update` de taxes |
+| Si `isPercentage` → `value ≤ 100` | `create` y `update` — `validateTaxValue()` |
+| Si `!isPercentage` → `value ≤ 1.000.000` | `create` y `update` — `validateTaxValue()` |
 | `taxTypeId` debe existir al crear un tax | `create` de taxes |
-| Un impuesto global no puede asignarse a producto/combo | `create` de product-taxes y combo-taxes |
+| Un impuesto global no puede asignarse a un producto | `create` de product-taxes |
 | Soft delete en todas las entidades | `softDelete(id)` — `deletedAt IS NULL` filtrado automáticamente |
 
 ---
@@ -315,15 +322,10 @@ src/modules/taxation/
 │   ├── services/taxes.service.ts
 │   ├── entities/tax.entity.ts
 │   └── dto/  create · update · response
-├── product-taxes/
-│   ├── controllers/product-taxes.controller.ts
-│   ├── services/product-taxes.service.ts
-│   ├── entities/product-taxes.entity.ts
-│   └── dto/  create · update · response
-└── combo-taxes/
-    ├── controllers/combo-taxes.controller.ts
-    ├── services/combo-taxes.service.ts
-    ├── entities/combo-taxes.entity.ts
+└── product-taxes/
+    ├── controllers/product-taxes.controller.ts
+    ├── services/product-taxes.service.ts
+    ├── entities/product-taxes.entity.ts
     └── dto/  create · update · response
 ```
 
@@ -367,10 +369,8 @@ npx jest --testPathPattern="taxation" --no-coverage
 | `taxes.controller.spec.ts` | delegación por endpoint |
 | `product-taxes.service.spec.ts` | create, findAll, findOne, update, remove — happy path + 400/404 |
 | `product-taxes.controller.spec.ts` | delegación por endpoint |
-| `combo-taxes.service.spec.ts` | create, findAll, findOne, update, remove — happy path + 400/404 |
-| `combo-taxes.controller.spec.ts` | delegación por endpoint |
 
-**Total: 71 unit tests — 8 suites.**
+**Total: 6 suites.**
 
 ### E2E tests
 
@@ -384,11 +384,10 @@ npx jest --config test/jest-e2e.json --testPathPattern="taxation" --runInBand
 | `tax-types.e2e-spec.ts` | 10 |
 | `taxes.e2e-spec.ts` | 12 |
 | `product-taxes.e2e-spec.ts` | 12 — seed via `dataSource.manager.save` |
-| `combo-taxes.e2e-spec.ts` | 12 — seed via `dataSource.manager.save` |
 
-**Total: 46 e2e tests — 4 suites.**
+**Total: 3 suites.**
 
-> `product-taxes` y `combo-taxes` incluyen en el schema todas las entidades del árbol de dependencias de `ProductEntity` / `ComboEntity` para satisfacer el validador de metadata de TypeORM: `ProductImageEntity`, `ComboItemEntity`, `ComboImageEntity`, `CategoryEntity`.
+> `product-taxes` incluye en el schema todas las entidades del árbol de dependencias de `ProductEntity` para satisfacer el validador de metadata de TypeORM: `ProductImageEntity`, `ComboItemEntity`, `ComboImageEntity`, `CategoryEntity`.
 
 ---
 
@@ -401,7 +400,6 @@ Disponible en `/api/docs` una vez corriendo la app.
 | Tax Types | `Tax Types` | `@ApiTags`, `@ApiBearerAuth`, `@ApiOperation`, `@ApiResponse` |
 | Taxes | `Taxes` | ídem + `@ApiParam({ name: 'taxTypeId' })` |
 | Product Taxes | `Product Taxes` | ídem + `@ApiParam({ name: 'productId' })` |
-| Combo Taxes | `Combo Taxes` | ídem + `@ApiParam({ name: 'comboId' })` |
 
 ---
 
@@ -409,9 +407,10 @@ Disponible en `/api/docs` una vez corriendo la app.
 
 ```
 TaxationModule
-  ├── exporta TaxTypeEntity, TaxEntity, ProductTaxEntity, ComboTaxEntity
+  ├── exporta TaxesService, TaxTypesService, ProductTaxesService
   └── consumido por pricing/calculation/
         └── CalculationService
-              ├── lee taxes con isGlobal = true  → aplica a todos
-              └── lee product_taxes / combo_taxes → aplica los específicos
+              ├── taxRepo.find({ isGlobal: true })         → aplica a todos (productos y combos)
+              ├── productTaxRepo.find({ productId })       → aplica al producto específico
+              └── sumTaxesWithProration(comboId, price)    → combos: global + específicos vía prorrateo
 ```
