@@ -29,17 +29,20 @@ Permite que los administradores **creen descuentos y los asignen a productos o c
 
 Un descuento puede:
 - Tener una fecha de inicio y una fecha de vencimiento (o ninguna, siendo permanente)
-- Ser un porcentaje (`20% off`) o un monto fijo (`$500 off`)
+- Ser un porcentaje entre 0.01% y 100%
 - Aplicarse a uno o varios productos y combos a la vez
 
 ---
 
-## Tipos de descuento
+## Tipo de descuento
+
+Los descuentos son siempre porcentuales:
 
 | Tipo | Cómo funciona | Ejemplo |
 |---|---|---|
 | **Porcentual** | Se descuenta un porcentaje del precio | 20% off sobre $1.000 → precio $800 |
-| **Monto fijo** | Se descuenta un valor fijo del precio | $500 off sobre $2.000 → precio $1.500 |
+
+Si necesitás descuentos de monto fijo a nivel orden, usá los **cupones**.
 
 ---
 
@@ -62,7 +65,7 @@ Un descuento sin fechas siempre está **activo**.
 | Situación | Ejemplo de uso |
 |---|---|
 | Campaña estacional | "Black Friday 20%" del 1 al 30 de noviembre |
-| Oferta de lanzamiento | "$500 off" en productos nuevos, sin fecha de fin |
+| Oferta de lanzamiento | "10% off" en productos nuevos, sin fecha de fin |
 | Liquidación de stock | "30% off" en productos seleccionados |
 | Promos de combo | "15% off" aplicado a combos de temporada |
 
@@ -74,7 +77,7 @@ Un descuento sin fechas siempre está **activo**.
 
 | Acción | Descripción |
 |---|---|
-| **Crear** un descuento | Definir nombre, tipo (porcentual o fijo), valor y fechas opcionales |
+| **Crear** un descuento | Definir nombre, valor porcentual y fechas opcionales |
 | **Ver** la lista de descuentos | Todos los descuentos activos del sistema, con su estado actual |
 | **Ver** un descuento específico | Detalle completo con estado calculado en tiempo real |
 | **Editar** un descuento | Cambiar cualquier campo parcialmente (nombre, fechas, valor, etc.) |
@@ -106,9 +109,7 @@ Un descuento sin fechas siempre está **activo**.
 
 - **Un combo solo puede tener un descuento activo a la vez** — igual que los productos.
 
-- **El porcentaje no puede superar el 100%** — si el descuento es porcentual, el valor máximo es 100.
-
-- **Un descuento de monto fijo debe indicar la moneda** — si el descuento no es porcentual, hay que especificar en qué moneda está expresado (por ejemplo, ARS).
+- **El descuento es siempre porcentual** — mínimo 0.01%, máximo 100%.
 
 - **Las fechas deben tener sentido** — si se define fecha de inicio y de fin, la de inicio debe ser anterior a la de fin. El sistema rechaza rangos vacíos o invertidos.
 
@@ -121,13 +122,9 @@ Un descuento sin fechas siempre está **activo**.
 ## Ejemplos del día a día
 
 **Crear un descuento para Black Friday:**
-> El administrador crea un descuento llamado "Black Friday 20%", con valor 20 y tipo porcentual.
+> El administrador crea un descuento llamado "Black Friday 20%", con valor 20.
 > Define el 1 de noviembre como inicio y el 30 de noviembre como fin.
 > Luego asigna los productos que participan de la promo.
-
-**Crear un descuento de monto fijo permanente:**
-> El administrador crea un descuento llamado "Oferta fija $500", con valor 500, tipo monto fijo y moneda ARS.
-> Sin fechas → el descuento queda activo indefinidamente hasta que lo eliminen.
 
 **Intentar asignar un producto que ya tiene descuento:**
 > El sistema no lo permite y avisa: "El producto ya tiene un descuento activo asignado."

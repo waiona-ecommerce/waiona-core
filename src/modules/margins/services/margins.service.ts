@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,7 +33,6 @@ export class MarginsService {
   // CREATE
   async create(dto: CreateMarginDto): Promise<MarginResponseDto> {
     await this.validateUniqueName(dto.name);
-    this.validatePercentageValue(dto.isPercentage, dto.value);
 
     const margin = this.marginRepository.create(dto);
     const saved = await this.marginRepository.save(margin);
@@ -75,10 +73,6 @@ export class MarginsService {
       await this.validateUniqueName(dto.name);
     }
 
-    const isPercentage = dto.isPercentage ?? margin.isPercentage;
-    const value = dto.value ?? Number(margin.value);
-    this.validatePercentageValue(isPercentage, value);
-
     const merged = this.marginRepository.merge(margin, dto);
     const updated = await this.marginRepository.save(merged);
     void this.shopCacheService.invalidate();
@@ -96,7 +90,7 @@ export class MarginsService {
 
     if (productUsage || comboUsage) {
       throw new ConflictException(
-        'Margin is in use by one or more pricings and cannot be deleted',
+        'El margen está en uso por uno o más pricings y no puede eliminarse',
       );
     }
 
@@ -108,20 +102,17 @@ export class MarginsService {
 
   private async findEntity(id: number): Promise<MarginEntity> {
     const margin = await this.marginRepository.findOne({ where: { id } });
-    if (!margin) throw new NotFoundException(`Margin with id ${id} not found`);
+    if (!margin)
+      throw new NotFoundException(`Margen con id ${id} no encontrado`);
     return margin;
   }
 
   private async validateUniqueName(name: string): Promise<void> {
     const existing = await this.marginRepository.findOne({ where: { name } });
     if (existing) {
-      throw new ConflictException(`Margin with name "${name}" already exists`);
-    }
-  }
-
-  private validatePercentageValue(isPercentage: boolean, value: number): void {
-    if (isPercentage && value > 100) {
-      throw new BadRequestException('Percentage margin cannot exceed 100');
+      throw new ConflictException(
+        `Ya existe un margen con el nombre "${name}"`,
+      );
     }
   }
 }

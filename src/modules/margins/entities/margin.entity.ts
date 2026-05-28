@@ -17,11 +17,4 @@ export class MarginEntity extends BaseEntity {
     nullable: false,
   })
   value: number;
-
-  @Column({
-    type: 'boolean',
-    default: true,
-    nullable: false,
-  })
-  isPercentage: boolean;
 }

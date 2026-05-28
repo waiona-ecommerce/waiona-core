@@ -26,7 +26,6 @@ describe('DiscountsController', () => {
       id: 1,
       name: 'Promo 10%',
       value: 10,
-      isPercentage: true,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,

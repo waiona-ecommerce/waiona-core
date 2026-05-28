@@ -4,11 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { MarginEntity } from '../entities/margin.entity';
 import { ProductPricingEntity } from 'src/modules/pricing/entities/product-pricing.entity';
 import { ComboPricingEntity } from 'src/modules/pricing/entities/combo-pricing.entity';
-import {
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('MarginsService', () => {
@@ -31,7 +27,6 @@ describe('MarginsService', () => {
     id: 1,
     name: 'Margen estándar',
     value: 20,
-    isPercentage: true,
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -77,7 +72,7 @@ describe('MarginsService', () => {
 
   describe('create', () => {
     it('should create a margin', async () => {
-      const dto = { name: 'Margen estándar', value: 20, isPercentage: true };
+      const dto = { name: 'Margen estándar', value: 20 };
       const entity = mockMargin();
 
       marginRepository.findOne.mockResolvedValue(null);
@@ -96,20 +91,8 @@ describe('MarginsService', () => {
       marginRepository.findOne.mockResolvedValue(mockMargin());
 
       await expect(
-        service.create({
-          name: 'Margen estándar',
-          value: 20,
-          isPercentage: true,
-        } as any),
+        service.create({ name: 'Margen estándar', value: 20 } as any),
       ).rejects.toThrow(ConflictException);
-    });
-
-    it('should throw BadRequestException if percentage value exceeds 100', async () => {
-      marginRepository.findOne.mockResolvedValue(null);
-
-      await expect(
-        service.create({ name: 'Alto', value: 150, isPercentage: true } as any),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -206,16 +189,6 @@ describe('MarginsService', () => {
 
       await expect(service.update(1, { name: 'Nuevo' } as any)).rejects.toThrow(
         ConflictException,
-      );
-    });
-
-    it('should throw BadRequestException if percentage value exceeds 100', async () => {
-      marginRepository.findOne.mockResolvedValue(
-        mockMargin({ isPercentage: true }),
-      );
-
-      await expect(service.update(1, { value: 150 } as any)).rejects.toThrow(
-        BadRequestException,
       );
     });
   });

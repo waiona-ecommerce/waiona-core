@@ -21,7 +21,6 @@ Un descuento se **asigna a productos o combos específicos** mediante entidades 
 | Escenario | Ejemplo |
 |---|---|
 | Descuento estacional | "Black Friday 20%" aplicado a productos seleccionados |
-| Descuento de monto fijo | "$500 off" en productos de una categoría |
 | Descuento con vigencia | Empieza el 1/11 y termina el 30/11 |
 | Descuento permanente | Sin fechas, activo hasta que se elimine |
 
@@ -46,15 +45,13 @@ discounts/
 
 ```typescript
 {
-  id:           number;         // PK autoincremental
-  name:         string;         // nombre del descuento, 3–100 chars
-  description?: string;         // descripción opcional, máx 255 chars
-  value:        number;         // decimal(10,2) — viene como string de PG, convertido en DTO
-  isPercentage: boolean;        // true = %, false = monto fijo
-  currency?:    CurrencyCode;   // requerido si isPercentage = false, null si isPercentage = true
-  startsAt?:    Date;           // inicio de vigencia (opcional)
-  endsAt?:      Date;           // fin de vigencia (opcional)
-  deletedAt:    Date | null;    // soft delete vía @DeleteDateColumn
+  id:           number;      // PK autoincremental
+  name:         string;      // nombre del descuento, 3–100 chars
+  description?: string;      // descripción opcional, máx 255 chars
+  value:        number;      // decimal(10,2) — porcentaje, viene como string de PG, convertido en DTO
+  startsAt?:    Date;        // inicio de vigencia (opcional)
+  endsAt?:      Date;        // fin de vigencia (opcional)
+  deletedAt:    Date | null; // soft delete vía @DeleteDateColumn
   createdAt:    Date;
   updatedAt:    Date;
 }
@@ -76,13 +73,11 @@ El status **no se persiste en la base de datos** — se calcula en tiempo real d
 
 ```typescript
 {
-  name:          string;        // requerido, 3–100 chars
-  description?:  string;        // opcional, 3–255 chars
-  value:         number;        // requerido, min 0.01, máx 2 decimales
-  isPercentage:  boolean;       // requerido
-  currency?:     CurrencyCode;  // requerido si isPercentage = false
-  startsAt?:     Date;          // opcional — ISO 8601
-  endsAt?:       Date;          // opcional — ISO 8601
+  name:          string;  // requerido, 3–100 chars — normalizado a MAYÚSCULAS + trim automáticamente
+  description?:  string;  // opcional, 3–255 chars
+  value:         number;  // requerido, >= 0.01, <= 100, máx 2 decimales — siempre porcentaje
+  startsAt?:     Date;    // opcional — ISO 8601
+  endsAt?:       Date;    // opcional — ISO 8601
 }
 ```
 
@@ -92,13 +87,11 @@ Todos los campos son opcionales (`PartialType` de `CreateDiscountDto` vía `@nes
 
 ```typescript
 {
-  name?:          string;
-  description?:   string;
-  value?:         number;
-  isPercentage?:  boolean;
-  currency?:      CurrencyCode;
-  startsAt?:      Date;
-  endsAt?:        Date;
+  name?:         string;
+  description?:  string;
+  value?:        number;
+  startsAt?:     Date;
+  endsAt?:       Date;
 }
 ```
 
@@ -109,10 +102,8 @@ Todos los campos son opcionales (`PartialType` de `CreateDiscountDto` vía `@nes
   id:            number;
   name:          string;
   description?:  string;
-  status:        DiscountStatus;   // calculado en tiempo real
-  value:         number;           // Number(entity.value) — fix decimal PG
-  isPercentage:  boolean;
-  currency?:     CurrencyCode;     // null si isPercentage = true
+  status:        DiscountStatus;  // calculado en tiempo real
+  value:         number;          // Number(entity.value) — fix decimal PG — siempre porcentaje
   startsAt?:     Date;
   endsAt?:       Date;
   createdAt:     Date;
@@ -183,13 +174,14 @@ Todos los endpoints requieren JWT con rol `SUPER_ADMIN` o `ADMIN`.
 
 Crea un nuevo descuento.
 
+Los descuentos son siempre porcentuales.
+
 **Request:**
 ```json
 {
   "name": "Black Friday",
   "description": "Descuento de temporada",
   "value": 20,
-  "isPercentage": true,
   "startsAt": "2025-11-01T00:00:00.000Z",
   "endsAt": "2025-11-30T23:59:59.000Z"
 }
@@ -199,12 +191,10 @@ Crea un nuevo descuento.
 ```json
 {
   "id": 1,
-  "name": "Black Friday",
+  "name": "BLACK FRIDAY",
   "description": "Descuento de temporada",
   "status": "scheduled",
   "value": 20,
-  "isPercentage": true,
-  "currency": null,
   "startsAt": "2025-11-01T00:00:00.000Z",
   "endsAt": "2025-11-30T23:59:59.000Z",
   "createdAt": "2026-05-17T10:00:00.000Z",
@@ -214,8 +204,6 @@ Crea un nuevo descuento.
 
 **Errores posibles:**
 - `400` — `startsAt >= endsAt` (rango vacío o invertido)
-- `400` — `isPercentage: true` con `value > 100`
-- `400` — `isPercentage: false` sin `currency`
 
 ---
 
@@ -238,7 +226,6 @@ limit → default: 20, min: 1, máx: 100
       "name": "Black Friday",
       "status": "active",
       "value": 20,
-      "isPercentage": true,
       "createdAt": "2026-05-17T10:00:00.000Z",
       "updatedAt": "2026-05-17T10:00:00.000Z"
     }
@@ -397,9 +384,7 @@ Quita un combo de un descuento (soft delete del target).
 | Regla | Dónde se aplica |
 |---|---|
 | `startsAt` debe ser estrictamente menor que `endsAt` (usa `>=`) | `create` y `update` — `validateDates()` |
-| Si `isPercentage: true` → `value ≤ 100` | `create` y `update` — `validateValue()` |
-| Si `isPercentage: false` → `currency` requerida | `create` y `update` — `validateValue()` |
-| Si `isPercentage: true` → `currency` se limpia automáticamente | `create` y `update` — `normalizeDiscount()` |
+| `value` entre 0.01 y 100 (siempre porcentaje) | `@Min` / `@Max` en el DTO |
 | Un producto solo puede tener un target activo en toda la tabla | `create` target — `validateProductHasNoActiveDiscount()` |
 | Un combo solo puede tener un target activo en toda la tabla | `create` target — `validateComboHasNoActiveDiscount()` |
 | `validateUniqueTarget` evita duplicado en el mismo descuento | `create` target — antes de la validación cross-discount |
@@ -427,20 +412,8 @@ POST /discounts
 {
   "name": "Black Friday 20%",
   "value": 20,
-  "isPercentage": true,
   "startsAt": "2025-11-01T00:00:00.000Z",
   "endsAt": "2025-11-30T23:59:59.000Z"
-}
-```
-
-**Descuento de monto fijo permanente:**
-```json
-POST /discounts
-{
-  "name": "Oferta fija $500",
-  "value": 500,
-  "isPercentage": false,
-  "currency": "ARS"
 }
 ```
 
@@ -480,7 +453,6 @@ POST /discounts/2/targets/products
 | `@HttpCode(204)` en todos los DELETE | ✅ |
 | `GuardsModule` no importado en el módulo | ✅ |
 | `status` calculado en DTO, no persiste en DB | ✅ |
-| `normalizeDiscount()` limpia `currency` cuando `isPercentage = true` | ✅ |
 | `validateDates()` usa `>=` para bloquear rango vacío | ✅ |
 | Validación cross-discount: un producto/combo solo tiene un descuento activo | ✅ |
 | Unit tests — service y controller, 6 suites | ✅ |
@@ -517,14 +489,12 @@ npx jest --config test/jest-e2e.json --testPathPattern="discounts"
 
 | Caso | Status code esperado |
 |---|---|
-| POST descuento porcentual activo | 201 |
-| POST descuento monto fijo | 201 |
+| POST descuento activo | 201 |
 | POST descuento programado | 201 — status: scheduled |
 | POST descuento vencido | 201 — status: expired |
 | POST descuento permanente | 201 — status: active |
 | POST sin campos requeridos | 400 |
-| POST porcentaje > 100 | 400 |
-| POST monto fijo sin currency | 400 |
+| POST value fuera de rango | 400 |
 | POST startsAt >= endsAt | 400 |
 | GET paginado | 200 — data[], total, page, limit |
 | GET con `?page=1&limit=2` | 200 |
@@ -533,7 +503,7 @@ npx jest --config test/jest-e2e.json --testPathPattern="discounts"
 | GET por id existente | 200 — con status |
 | GET por id inexistente | 404 |
 | PATCH actualiza valor | 200 — status definido |
-| PATCH actualiza isPercentage → false + currency | 200 |
+| PATCH actualiza value | 200 |
 | PATCH id inexistente | 404 |
 | DELETE exitoso + GET posterior | 204 → 404 |
 | DELETE id inexistente | 404 |

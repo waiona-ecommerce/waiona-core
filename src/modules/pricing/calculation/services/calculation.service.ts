@@ -5,8 +5,8 @@ import { Repository } from 'typeorm';
 import { ProductPricingEntity } from '../../entities/product-pricing.entity';
 import { ComboPricingEntity } from '../../entities/combo-pricing.entity';
 import { ProductTaxEntity } from 'src/modules/taxation/product-taxes/entities/product-taxes.entity';
-import { ComboTaxEntity } from 'src/modules/taxation/combo-taxes/entities/combo-taxes.entity';
 import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
+import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
 import { DiscountProductTargetEntity } from 'src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
 import { DiscountComboTargetEntity } from 'src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
 
@@ -27,11 +27,11 @@ export class CalculationService {
     @InjectRepository(ProductTaxEntity)
     private productTaxRepo: Repository<ProductTaxEntity>,
 
-    @InjectRepository(ComboTaxEntity)
-    private comboTaxRepo: Repository<ComboTaxEntity>,
-
     @InjectRepository(TaxEntity)
     private taxRepo: Repository<TaxEntity>,
+
+    @InjectRepository(ComboItemEntity)
+    private comboItemRepo: Repository<ComboItemEntity>,
 
     @InjectRepository(DiscountProductTargetEntity)
     private discountProductRepo: Repository<DiscountProductTargetEntity>,
@@ -51,20 +51,12 @@ export class CalculationService {
   preview(dto: CalculatePreviewDto): PriceBreakdownDto {
     const unitPrice = dto.unitPrice;
 
-    // 1. Descuento sobre unitPrice
-    const discount = this.applyValue(
-      unitPrice,
-      dto.discountValue,
-      dto.discountIsPercentage,
-    );
+    // 1. Descuento sobre unitPrice (siempre porcentaje)
+    const discount = this.applyValue(unitPrice, dto.discountValue, true);
     const priceAfterDiscount = unitPrice - discount;
 
-    // 2. Margen sobre priceAfterDiscount
-    const margin = this.applyValue(
-      priceAfterDiscount,
-      dto.marginValue,
-      dto.marginIsPercentage,
-    );
+    // 2. Margen sobre priceAfterDiscount (siempre porcentaje)
+    const margin = this.applyValue(priceAfterDiscount, dto.marginValue, true);
     const priceAfterMargin = priceAfterDiscount + margin;
 
     // 3. Impuestos sobre priceAfterMargin
@@ -76,11 +68,7 @@ export class CalculationService {
     const finalPrice = priceAfterMargin + taxes;
 
     // 4. fullPrice — precio sin descuento (margen e impuestos recalculados sobre unitPrice)
-    const marginFull = this.applyValue(
-      unitPrice,
-      dto.marginValue,
-      dto.marginIsPercentage,
-    );
+    const marginFull = this.applyValue(unitPrice, dto.marginValue, true);
     const priceAfterMarginFull = unitPrice + marginFull;
     const taxesFull = (dto.taxes ?? []).reduce((acc, tax) => {
       return (
@@ -148,21 +136,13 @@ export class CalculationService {
         : null;
 
     const discount = activeDiscount
-      ? this.applyValue(
-          unitPrice,
-          activeDiscount.value,
-          activeDiscount.isPercentage,
-        )
+      ? this.applyValue(unitPrice, activeDiscount.value, true)
       : 0;
     const priceAfterDiscount = unitPrice - discount;
 
-    // 3. Margen
+    // 3. Margen (siempre porcentaje)
     const margin = pricing.margin
-      ? this.applyValue(
-          priceAfterDiscount,
-          Number(pricing.margin.value),
-          pricing.margin.isPercentage,
-        )
+      ? this.applyValue(priceAfterDiscount, Number(pricing.margin.value), true)
       : 0;
     const priceAfterMargin = priceAfterDiscount + margin;
 
@@ -173,11 +153,7 @@ export class CalculationService {
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
     const marginFull = pricing.margin
-      ? this.applyValue(
-          unitPrice,
-          Number(pricing.margin.value),
-          pricing.margin.isPercentage,
-        )
+      ? this.applyValue(unitPrice, Number(pricing.margin.value), true)
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
     const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
@@ -234,39 +210,32 @@ export class CalculationService {
         : null;
 
     const discount = activeDiscount
-      ? this.applyValue(
-          unitPrice,
-          activeDiscount.value,
-          activeDiscount.isPercentage,
-        )
+      ? this.applyValue(unitPrice, activeDiscount.value, true)
       : 0;
     const priceAfterDiscount = unitPrice - discount;
 
-    // 3. Margen
+    // 3. Margen (siempre porcentaje)
     const margin = pricing.margin
-      ? this.applyValue(
-          priceAfterDiscount,
-          Number(pricing.margin.value),
-          pricing.margin.isPercentage,
-        )
+      ? this.applyValue(priceAfterDiscount, Number(pricing.margin.value), true)
       : 0;
     const priceAfterMargin = priceAfterDiscount + margin;
 
-    // 4. Impuestos del combo + globales
-    const taxEntities = await this.fetchTaxesForCombo(dto.comboId);
-    const taxes = this.sumTaxes(taxEntities, priceAfterMargin);
+    // 4. Impuestos via prorrateo (globales + específicos de cada producto)
+    const taxes = await this.sumTaxesWithProration(
+      dto.comboId,
+      priceAfterMargin,
+    );
     const finalPrice = priceAfterMargin + taxes;
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
     const marginFull = pricing.margin
-      ? this.applyValue(
-          unitPrice,
-          Number(pricing.margin.value),
-          pricing.margin.isPercentage,
-        )
+      ? this.applyValue(unitPrice, Number(pricing.margin.value), true)
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
+    const taxesFull = await this.sumTaxesWithProration(
+      dto.comboId,
+      priceAfterMarginFull,
+    );
     const fullPrice = priceAfterMarginFull + taxesFull;
 
     return this.buildBreakdown(
@@ -330,21 +299,58 @@ export class CalculationService {
     return allTaxes;
   }
 
-  private async fetchTaxesForCombo(comboId: number): Promise<TaxEntity[]> {
-    const [comboTaxes, globalTaxes] = await Promise.all([
-      this.comboTaxRepo.find({ where: { comboId }, relations: ['tax'] }),
-      this.taxRepo.find({ where: { isGlobal: true } }),
-    ]);
-    const seen = new Set<number>();
-    const allTaxes: TaxEntity[] = [];
-    for (const ct of comboTaxes) {
-      seen.add(ct.tax.id);
-      allTaxes.push(ct.tax);
+  private async sumTaxesWithProration(
+    comboId: number,
+    comboPrice: number,
+  ): Promise<number> {
+    // 1. Taxes globales sobre el precio total del combo
+    const globalTaxes = await this.taxRepo.find({ where: { isGlobal: true } });
+    const globalTaxIds = new Set(globalTaxes.map((t) => t.id));
+    const globalAmount = this.sumTaxes(globalTaxes, comboPrice);
+
+    // 2. Items del combo con su pricing de referencia
+    const items = await this.comboItemRepo.find({ where: { comboId } });
+    if (!items.length) return globalAmount;
+
+    const itemsWithRef = await Promise.all(
+      items.map(async (item) => {
+        const pricing = await this.productPricingRepo.findOne({
+          where: { productId: item.productId },
+        });
+        return {
+          productId: item.productId,
+          refPrice: pricing ? Number(pricing.unitPrice) * item.quantity : 0,
+        };
+      }),
+    );
+
+    const totalRef = itemsWithRef.reduce((acc, i) => acc + i.refPrice, 0);
+    if (!totalRef) return globalAmount;
+
+    // 3. Taxes específicos de cada producto aplicados sobre su base prorrateada
+    let specificAmount = 0;
+    for (const item of itemsWithRef) {
+      if (!item.refPrice) continue;
+
+      const proratedBase = comboPrice * (item.refPrice / totalRef);
+
+      const productTaxes = await this.productTaxRepo.find({
+        where: { productId: item.productId },
+        relations: ['tax'],
+      });
+
+      for (const pt of productTaxes) {
+        if (!globalTaxIds.has(pt.tax.id)) {
+          specificAmount += this.applyValue(
+            proratedBase,
+            Number(pt.tax.value),
+            pt.tax.isPercentage,
+          );
+        }
+      }
     }
-    for (const t of globalTaxes) {
-      if (!seen.has(t.id)) allTaxes.push(t);
-    }
-    return allTaxes;
+
+    return globalAmount + specificAmount;
   }
 
   private sumTaxes(taxes: TaxEntity[], base: number): number {

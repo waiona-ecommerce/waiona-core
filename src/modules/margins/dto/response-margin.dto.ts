@@ -11,9 +11,6 @@ export class MarginResponseDto {
   @ApiProperty({ example: 20 })
   value: number;
 
-  @ApiProperty({ example: true })
-  isPercentage: boolean;
-
   @ApiProperty()
   createdAt: Date;
 
@@ -24,7 +21,6 @@ export class MarginResponseDto {
     this.id = entity.id;
     this.name = entity.name;
     this.value = Number(entity.value);
-    this.isPercentage = entity.isPercentage;
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;
   }

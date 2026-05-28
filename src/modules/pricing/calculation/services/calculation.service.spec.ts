@@ -5,10 +5,10 @@ import { CalculationService } from '../../calculation/services/calculation.servi
 import { ProductPricingEntity } from '../../entities/product-pricing.entity';
 import { ComboPricingEntity } from '../../entities/combo-pricing.entity';
 import { ProductTaxEntity } from 'src/modules/taxation/product-taxes/entities/product-taxes.entity';
-import { ComboTaxEntity } from 'src/modules/taxation/combo-taxes/entities/combo-taxes.entity';
 import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
 import { DiscountProductTargetEntity } from 'src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
 import { DiscountComboTargetEntity } from 'src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
+import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
 import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 describe('CalculationService', () => {
@@ -17,12 +17,12 @@ describe('CalculationService', () => {
   const mockProductPricingRepo = () => ({ findOne: jest.fn() });
   const mockComboPricingRepo = () => ({ findOne: jest.fn() });
   const mockProductTaxRepo = () => ({ find: jest.fn() });
-  const mockComboTaxRepo = () => ({ find: jest.fn() });
   const mockTaxRepo = () => ({ find: jest.fn() });
   const mockDiscountProductRepo = () => ({ findOne: jest.fn() });
   const mockDiscountComboRepo = () => ({ findOne: jest.fn() });
+  const mockComboItemRepo = () => ({ find: jest.fn() });
 
-  const mockMargin = { id: 1, value: 20, isPercentage: true };
+  const mockMargin = { id: 1, value: 20 };
 
   const mockProductPricing = (overrides = {}) => ({
     id: 1,
@@ -44,13 +44,29 @@ describe('CalculationService', () => {
     ...overrides,
   });
 
+  const mockGlobalTax = (overrides = {}) => ({
+    id: 1,
+    value: 21,
+    isPercentage: true,
+    isGlobal: true,
+    ...overrides,
+  });
+
+  const mockSpecificTax = (overrides = {}) => ({
+    id: 2,
+    value: 3,
+    isPercentage: true,
+    isGlobal: false,
+    ...overrides,
+  });
+
   let productPricingRepo: any;
   let comboPricingRepo: any;
   let productTaxRepo: any;
-  let comboTaxRepo: any;
   let taxRepo: any;
   let discountProductRepo: any;
   let discountComboRepo: any;
+  let comboItemRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -68,10 +84,6 @@ describe('CalculationService', () => {
           provide: getRepositoryToken(ProductTaxEntity),
           useFactory: mockProductTaxRepo,
         },
-        {
-          provide: getRepositoryToken(ComboTaxEntity),
-          useFactory: mockComboTaxRepo,
-        },
         { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
         {
           provide: getRepositoryToken(DiscountProductTargetEntity),
@@ -81,6 +93,10 @@ describe('CalculationService', () => {
           provide: getRepositoryToken(DiscountComboTargetEntity),
           useFactory: mockDiscountComboRepo,
         },
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useFactory: mockComboItemRepo,
+        },
       ],
     }).compile();
 
@@ -88,7 +104,6 @@ describe('CalculationService', () => {
     productPricingRepo = module.get(getRepositoryToken(ProductPricingEntity));
     comboPricingRepo = module.get(getRepositoryToken(ComboPricingEntity));
     productTaxRepo = module.get(getRepositoryToken(ProductTaxEntity));
-    comboTaxRepo = module.get(getRepositoryToken(ComboTaxEntity));
     taxRepo = module.get(getRepositoryToken(TaxEntity));
     discountProductRepo = module.get(
       getRepositoryToken(DiscountProductTargetEntity),
@@ -96,6 +111,7 @@ describe('CalculationService', () => {
     discountComboRepo = module.get(
       getRepositoryToken(DiscountComboTargetEntity),
     );
+    comboItemRepo = module.get(getRepositoryToken(ComboItemEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -130,22 +146,133 @@ describe('CalculationService', () => {
   });
 
   // ==========================
-  // calculateCombo
+  // calculateCombo — prorrateo
   // ==========================
 
   describe('calculateCombo', () => {
-    it('should calculate combo price correctly', async () => {
+    it('should apply only global taxes when combo has no items', async () => {
       comboPricingRepo.findOne.mockResolvedValue(mockComboPricing());
       discountComboRepo.findOne.mockResolvedValue(null);
-      comboTaxRepo.find.mockResolvedValue([]);
-      taxRepo.find.mockResolvedValue([]);
+      taxRepo.find.mockResolvedValue([mockGlobalTax()]);
+      comboItemRepo.find.mockResolvedValue([]);
 
       const result = await service.calculateCombo({ comboId: 1 });
 
+      // margen 20% sobre 1200 = 240 → priceAfterMargin = 1440
+      // IVA 21% sobre 1440 = 302.4 → finalPrice = 1742.4
       expect(result.unitPrice).toBe(1200);
-      expect(result.finalPrice).toBeGreaterThan(result.unitPrice);
-      expect(result.coupon).toBe(0);
-      expect(result.orderTotal).toBe(result.finalPrice);
+      expect(result.taxes).toBeCloseTo(302.4, 1);
+      expect(result.finalPrice).toBeCloseTo(1742.4, 1);
+    });
+
+    it('should prorate specific taxes across combo items by reference price', async () => {
+      // Combo $1000, items: Café $800 (1 ud) + Pan $400 (1 ud) = ref $1200
+      // Proporción: Café 66.67%, Pan 33.33%
+      // Base prorrateada: Café $666.67, Pan $333.33
+      // IIBB 3% Café: $20, IIBB 5% Pan: $16.67
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
+      discountComboRepo.findOne.mockResolvedValue(null);
+      taxRepo.find.mockResolvedValue([]); // sin globales
+
+      comboItemRepo.find.mockResolvedValue([
+        { productId: 1, quantity: 1 },
+        { productId: 2, quantity: 1 },
+      ]);
+
+      productPricingRepo.findOne
+        .mockResolvedValueOnce({ unitPrice: 800 }) // Café
+        .mockResolvedValueOnce({ unitPrice: 400 }); // Pan
+
+      productTaxRepo.find
+        .mockResolvedValueOnce([{ tax: mockSpecificTax({ id: 10, value: 3 }) }]) // IIBB Café 3%
+        .mockResolvedValueOnce([
+          { tax: mockSpecificTax({ id: 11, value: 5 }) },
+        ]); // IIBB Pan 5%
+
+      const result = await service.calculateCombo({ comboId: 1 });
+
+      // Café: 1000 * (800/1200) = 666.67 → 3% = 20
+      // Pan:  1000 * (400/1200) = 333.33 → 5% = 16.67
+      expect(result.taxes).toBeCloseTo(36.67, 1);
+    });
+
+    it('should apply global tax on full price AND specific via proration without double counting', async () => {
+      // Global IVA 21% sobre precio total
+      // IIBB 3% específico de Café sobre base prorrateada
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
+      discountComboRepo.findOne.mockResolvedValue(null);
+      taxRepo.find.mockResolvedValue([mockGlobalTax({ id: 1, value: 21 })]); // IVA global
+
+      comboItemRepo.find.mockResolvedValue([
+        { productId: 1, quantity: 1 },
+        { productId: 2, quantity: 1 },
+      ]);
+
+      productPricingRepo.findOne
+        .mockResolvedValueOnce({ unitPrice: 800 })
+        .mockResolvedValueOnce({ unitPrice: 400 });
+
+      productTaxRepo.find
+        .mockResolvedValueOnce([{ tax: mockSpecificTax({ id: 2, value: 3 }) }]) // IIBB Café 3%
+        .mockResolvedValueOnce([]); // Pan sin específico
+
+      const result = await service.calculateCombo({ comboId: 1 });
+
+      // IVA 21% sobre 1000 = 210
+      // IIBB 3% sobre 666.67 = 20
+      // Total taxes = 230
+      expect(result.taxes).toBeCloseTo(230, 0);
+    });
+
+    it('should handle quantity > 1 in proration', async () => {
+      // 2 Cafés ($800 c/u) + 1 Pan ($400)
+      // Ref: Café 2*800=1600, Pan 1*400=400 → total 2000
+      // Proporción: Café 80%, Pan 20%
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
+      discountComboRepo.findOne.mockResolvedValue(null);
+      taxRepo.find.mockResolvedValue([]);
+
+      comboItemRepo.find.mockResolvedValue([
+        { productId: 1, quantity: 2 },
+        { productId: 2, quantity: 1 },
+      ]);
+
+      productPricingRepo.findOne
+        .mockResolvedValueOnce({ unitPrice: 800 })
+        .mockResolvedValueOnce({ unitPrice: 400 });
+
+      productTaxRepo.find
+        .mockResolvedValueOnce([
+          { tax: mockSpecificTax({ id: 10, value: 10 }) },
+        ]) // 10% Café
+        .mockResolvedValueOnce([]);
+
+      const result = await service.calculateCombo({ comboId: 1 });
+
+      // Café: 1000 * 80% = 800 → 10% = 80
+      expect(result.taxes).toBeCloseTo(80, 1);
+    });
+
+    it('should skip items without pricing and apply only globals', async () => {
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
+      discountComboRepo.findOne.mockResolvedValue(null);
+      taxRepo.find.mockResolvedValue([mockGlobalTax({ value: 21 })]);
+
+      comboItemRepo.find.mockResolvedValue([{ productId: 99, quantity: 1 }]);
+      productPricingRepo.findOne.mockResolvedValue(null); // sin pricing
+
+      const result = await service.calculateCombo({ comboId: 1 });
+
+      // totalRef = 0 → solo globales: 21% de 1000 = 210
+      expect(result.taxes).toBeCloseTo(210, 1);
     });
 
     it('should throw NotFoundException if combo has no pricing', async () => {
@@ -165,9 +292,7 @@ describe('CalculationService', () => {
       const result = service.preview({
         unitPrice: 500,
         discountValue: 10,
-        discountIsPercentage: true,
         marginValue: 20,
-        marginIsPercentage: true,
         taxes: [{ value: 21, isPercentage: true }],
         couponValue: 50,
         couponIsPercentage: false,

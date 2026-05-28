@@ -60,18 +60,24 @@ export class TaxesService {
     });
 
     if (!taxType) {
-      throw new BadRequestException(`TaxType with id ${taxTypeId} not found`);
+      throw new BadRequestException(
+        `Tipo de impuesto con id ${taxTypeId} no encontrado`,
+      );
     }
 
     if (!dto.isPercentage && !dto.currency) {
-      throw new BadRequestException('Currency is required for fixed taxes');
+      throw new BadRequestException(
+        'Los impuestos de monto fijo requieren una moneda',
+      );
     }
 
     if (dto.isPercentage && dto.currency) {
       throw new BadRequestException(
-        'Percentage taxes should not have currency',
+        'Los impuestos porcentuales no deben tener moneda',
       );
     }
+
+    this.validateTaxValue(dto.value, dto.isPercentage);
 
     const newEntity = this.taxRepository.create({
       taxTypeId,
@@ -98,14 +104,18 @@ export class TaxesService {
       changes.currency !== undefined ? changes.currency : entity.currency;
 
     if (!isPercentage && !currency) {
-      throw new BadRequestException('Currency is required for fixed taxes');
+      throw new BadRequestException(
+        'Los impuestos de monto fijo requieren una moneda',
+      );
     }
 
     if (isPercentage && currency) {
       throw new BadRequestException(
-        'Percentage taxes should not have currency',
+        'Los impuestos porcentuales no deben tener moneda',
       );
     }
+
+    this.validateTaxValue(changes.value ?? Number(entity.value), isPercentage);
 
     const merged = this.taxRepository.merge(entity, changes);
     const saved = await this.taxRepository.save(merged);
@@ -127,13 +137,27 @@ export class TaxesService {
   // PRIVATE
   // ==========================
 
+  private validateTaxValue(value: number, isPercentage: boolean): void {
+    if (isPercentage && value > 100) {
+      throw new BadRequestException(
+        'El valor del impuesto no puede superar el 100%',
+      );
+    }
+    if (!isPercentage && value > 1_000_000) {
+      throw new BadRequestException(
+        'El monto fijo del impuesto no puede superar 1.000.000',
+      );
+    }
+  }
+
   private async findEntity(id: number): Promise<TaxEntity> {
     const entity = await this.taxRepository.findOne({
       where: { id },
       relations: ['taxType'],
     });
 
-    if (!entity) throw new NotFoundException(`Tax with id ${id} not found`);
+    if (!entity)
+      throw new NotFoundException(`Impuesto con id ${id} no encontrado`);
     return entity;
   }
 }

@@ -25,14 +25,15 @@ Precio de costo
 
 Permite que los administradores **gestionen todos los impuestos del negocio** de forma centralizada. En lugar de cargar el mismo impuesto producto por producto, se definen una sola vez y se reutilizan.
 
-El módulo tiene cuatro partes:
+El módulo tiene tres partes:
 
 | Parte | Para qué sirve |
 |---|---|
 | **Tipos de impuesto** | Agrupa los impuestos por categoría: IVA, Ingresos Brutos, etc. |
 | **Impuestos** | Define el valor concreto de cada impuesto |
 | **Impuestos de producto** | Asigna un impuesto específico a un producto |
-| **Impuestos de combo** | Asigna un impuesto específico a un combo |
+
+> Los combos **no tienen impuestos asignados directamente**. Heredan los impuestos de sus productos componentes de forma automática (ver sección _¿Cómo se calculan los impuestos de un combo?_).
 
 ---
 
@@ -52,10 +53,10 @@ Un **tipo de impuesto** es simplemente una categoría que agrupa impuestos relac
 
 Cada impuesto pertenece a un tipo y define el valor que se cobra. Hay dos formas de definirlo:
 
-| Tipo | Cómo funciona | Ejemplo |
-|---|---|---|
-| **Porcentual** | Se aplica un porcentaje sobre el precio | IVA 21%: sobre $100 → cobra $21 extra |
-| **Monto fijo** | Se suma una cantidad fija en una moneda | Tasa fija de $50 ARS sin importar el precio |
+| Tipo | Cómo funciona | Límites | Ejemplo |
+|---|---|---|---|
+| **Porcentual** | Se aplica un porcentaje sobre el precio | 0.01% — 100% | IVA 21%: sobre $100 → cobra $21 extra |
+| **Monto fijo** | Se suma una cantidad fija en una moneda | $0.01 — $1.000.000 | Tasa fija de $50 ARS sin importar el precio |
 
 Además, un impuesto puede ser **global** o **específico**:
 
@@ -90,12 +91,12 @@ Además, un impuesto puede ser **global** o **específico**:
 | **Editar** | Cambiar el valor, tipo o condición de global |
 | **Eliminar** | Borrado lógico |
 
-### Sobre impuestos de producto / combo
+### Sobre impuestos de producto
 
 | Acción | Descripción |
 |---|---|
-| **Asignar** | Vincular un impuesto específico a un producto o combo |
-| **Ver** la lista | Todos los impuestos asignados a un producto/combo |
+| **Asignar** | Vincular un impuesto específico a un producto |
+| **Ver** la lista | Todos los impuestos asignados a un producto |
 | **Ver** uno | Detalle de una asignación |
 | **Eliminar** | Quitar la asignación |
 
@@ -108,7 +109,9 @@ Además, un impuesto puede ser **global** o **específico**:
 - **El código del tipo de impuesto debe ser único** — no pueden existir dos tipos con el mismo código (ej: no pueden existir dos `IVA`).
 - **Un impuesto fijo necesita moneda** — si no es porcentual, se debe indicar la moneda (actualmente `ARS`).
 - **Un impuesto porcentual no puede tener moneda** — son excluyentes.
-- **Un impuesto global no se puede asignar a un producto o combo** — ya se aplica a todo automáticamente. El sistema bloquea esa acción.
+- **El porcentaje no puede superar el 100%** — el sistema rechaza valores mayores.
+- **El monto fijo no puede superar $1.000.000** — el sistema rechaza valores mayores.
+- **Un impuesto global no se puede asignar a un producto** — ya se aplica a todo automáticamente. El sistema bloquea esa acción.
 - **Los registros nunca se borran definitivamente** — quedan en el historial del sistema (borrado lógico).
 
 ---
@@ -135,6 +138,29 @@ Además, un impuesto puede ser **global** o **específico**:
 
 ---
 
+## ¿Cómo se calculan los impuestos de un combo?
+
+Un combo tiene un precio único ("combo $1.000"), pero sus productos componentes pueden tener impuestos específicos distintos (por ejemplo, IIBB diferente por categoría). El sistema resuelve esto con **prorrateo lineal**:
+
+1. Se toma el precio de referencia de cada producto del combo (su precio unitario × cantidad).
+2. Se calcula qué porcentaje representa cada producto sobre el total de referencia.
+3. El precio del combo se distribuye en esa misma proporción.
+4. El impuesto específico de cada producto se aplica sobre su parte proporcional del precio del combo.
+5. Los impuestos globales (IVA) se aplican sobre el precio total del combo, una sola vez.
+
+**Ejemplo — Combo $1.000 con Café ($800) y Pan ($400):**
+
+| Producto | Precio ref | Proporción | Base prorrateada | IIBB |
+|---|---|---|---|---|
+| Café | $800 | 66,7% | $666,67 | 3% → $20 |
+| Pan | $400 | 33,3% | $333,33 | 5% → $16,67 |
+| IVA global 21% | — | — | $1.000 (precio combo) | $210 |
+| **Total impuestos** | | | | **$246,67** |
+
+> Este cálculo es automático. No hay que asignar impuestos al combo — alcanza con asignarlos a cada producto.
+
+---
+
 ## ¿Cómo se conecta con el resto del sistema?
 
 Los impuestos son consumidos por el módulo de **Cálculo de precios** (`CalculationService`):
@@ -142,7 +168,8 @@ Los impuestos son consumidos por el módulo de **Cálculo de precios** (`Calcula
 ```
 Motor de cálculo
   └── lee todos los impuestos globales activos
-  └── lee los impuestos específicos asignados al producto/combo
+  └── para productos: lee los impuestos específicos asignados al producto
+  └── para combos: aplica prorrateo sobre los productos componentes
   └── aplica todos sobre el precio (después del margen)
   └── devuelve el precio final con impuestos incluidos
 ```

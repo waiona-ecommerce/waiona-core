@@ -4,13 +4,14 @@ import {
   IsOptional,
   IsArray,
   Min,
+  Max,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class TaxPreviewDto {
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   value: number;
 
   @IsBoolean()
@@ -32,25 +33,19 @@ export class CalculatePreviewDto {
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
+  @Max(100)
   discountValue?: number;
 
-  @IsOptional()
-  @IsBoolean()
-  discountIsPercentage?: boolean;
-
   // ==========================
-  // Margen
+  // Margen (siempre porcentaje)
   // ==========================
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
+  @Max(1000)
   marginValue?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  marginIsPercentage?: boolean;
 
   // ==========================
   // Impuestos

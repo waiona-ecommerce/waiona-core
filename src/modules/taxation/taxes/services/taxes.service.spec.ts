@@ -146,6 +146,24 @@ describe('TaxesService', () => {
         } as any),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw BadRequestException if percentage tax exceeds 100', async () => {
+      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
+      await expect(
+        service.create(1, { value: 101, isPercentage: true } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if fixed tax exceeds 1000000', async () => {
+      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
+      await expect(
+        service.create(1, {
+          value: 1_000_001,
+          isPercentage: false,
+          currency: 'ARS',
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ==========================

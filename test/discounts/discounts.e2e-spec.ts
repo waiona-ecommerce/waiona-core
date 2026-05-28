@@ -168,15 +168,13 @@ describe('Discounts (e2e)', () => {
     it('201 — descuento porcentual sin fechas (ACTIVE)', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Black Friday', value: 20, isPercentage: true })
+        .send({ name: 'Black Friday', value: 20 })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.name).toBe('BLACK FRIDAY');
       expect(res.body.value).toBe(20);
-      expect(res.body.isPercentage).toBe(true);
       expect(res.body.status).toBe('active');
-      expect(res.body.currency).toBeUndefined();
     });
 
     it('201 — descuento porcentual con fechas futuras (SCHEDULED)', async () => {
@@ -188,7 +186,6 @@ describe('Discounts (e2e)', () => {
         .send({
           name: 'Promo Programada',
           value: 15,
-          isPercentage: true,
           startsAt: future1,
           endsAt: future2,
         })
@@ -206,7 +203,6 @@ describe('Discounts (e2e)', () => {
         .send({
           name: 'Promo Expirada',
           value: 5,
-          isPercentage: true,
           startsAt: past1,
           endsAt: past2,
         })
@@ -215,34 +211,18 @@ describe('Discounts (e2e)', () => {
       expect(res.body.status).toBe('expired');
     });
 
-    it('201 — descuento de monto fijo con currency', async () => {
-      const res = await request(app.getHttpServer())
+    it('400 — campo desconocido isPercentage rechazado', async () => {
+      await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento Fijo ARS',
-          value: 500,
-          isPercentage: false,
-          currency: 'ARS',
-        })
-        .expect(201);
-
-      expect(res.body.isPercentage).toBe(false);
-      expect(res.body.currency).toBe('ARS');
-      expect(res.body.value).toBe(500);
+        .send({ name: 'Con isPercentage', value: 20, isPercentage: true })
+        .expect(400);
     });
 
-    it('201 — currency se limpia a null cuando isPercentage=true', async () => {
-      const res = await request(app.getHttpServer())
+    it('400 — campo desconocido currency rechazado', async () => {
+      await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Porcentaje con currency ignorada',
-          value: 10,
-          isPercentage: true,
-          currency: 'ARS',
-        })
-        .expect(201);
-
-      expect(res.body.currency).toBeUndefined();
+        .send({ name: 'Con currency', value: 20, currency: 'ARS' })
+        .expect(400);
     });
 
     it('400 — faltan campos requeridos', async () => {
@@ -252,17 +232,10 @@ describe('Discounts (e2e)', () => {
         .expect(400);
     });
 
-    it('400 — porcentaje superior a 100', async () => {
+    it('400 — value superior a 100', async () => {
       await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Inválido', value: 110, isPercentage: true })
-        .expect(400);
-    });
-
-    it('400 — monto fijo sin currency', async () => {
-      await request(app.getHttpServer())
-        .post('/v1/discounts')
-        .send({ name: 'Sin moneda', value: 200, isPercentage: false })
+        .send({ name: 'Inválido', value: 110 })
         .expect(400);
     });
 
@@ -272,7 +245,6 @@ describe('Discounts (e2e)', () => {
         .send({
           name: 'Fechas inválidas',
           value: 10,
-          isPercentage: true,
           startsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
           endsAt: new Date(Date.now()).toISOString(),
         })
@@ -286,7 +258,6 @@ describe('Discounts (e2e)', () => {
         .send({
           name: 'Rango vacío',
           value: 10,
-          isPercentage: true,
           startsAt: same,
           endsAt: same,
         })
@@ -334,7 +305,7 @@ describe('Discounts (e2e)', () => {
     it('200 — retorna el descuento por ID', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Para buscar por ID', value: 10, isPercentage: true });
+        .send({ name: 'Para buscar por ID', value: 10 });
 
       const res = await request(app.getHttpServer())
         .get(`/v1/discounts/${createRes.body.id}`)
@@ -356,7 +327,7 @@ describe('Discounts (e2e)', () => {
     it('200 — actualiza el nombre', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Nombre original', value: 10, isPercentage: true });
+        .send({ name: 'Nombre original', value: 10 });
 
       const res = await request(app.getHttpServer())
         .patch(`/v1/discounts/${createRes.body.id}`)
@@ -368,10 +339,10 @@ describe('Discounts (e2e)', () => {
       expect(res.body.status).toBeDefined();
     });
 
-    it('200 — actualiza el value manteniendo isPercentage', async () => {
+    it('200 — actualiza el value', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Para actualizar value', value: 10, isPercentage: true });
+        .send({ name: 'Para actualizar value', value: 10 });
 
       const res = await request(app.getHttpServer())
         .patch(`/v1/discounts/${createRes.body.id}`)
@@ -379,14 +350,13 @@ describe('Discounts (e2e)', () => {
         .expect(200);
 
       expect(res.body.value).toBe(30);
-      expect(res.body.isPercentage).toBe(true);
       expect(res.body.status).toBeDefined();
     });
 
-    it('400 — porcentaje superior a 100 en update', async () => {
+    it('400 — value superior a 100 en update', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Para rechazar update', value: 10, isPercentage: true });
+        .send({ name: 'Para rechazar update', value: 10 });
 
       await request(app.getHttpServer())
         .patch(`/v1/discounts/${createRes.body.id}`)
@@ -397,11 +367,7 @@ describe('Discounts (e2e)', () => {
     it('400 — startsAt posterior a endsAt en update', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Para fechas inválidas update',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Para fechas inválidas update', value: 10 });
 
       await request(app.getHttpServer())
         .patch(`/v1/discounts/${createRes.body.id}`)
@@ -424,7 +390,7 @@ describe('Discounts (e2e)', () => {
     it('204 — soft delete exitoso', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Para eliminar', value: 5, isPercentage: true });
+        .send({ name: 'Para eliminar', value: 5 });
 
       await request(app.getHttpServer())
         .delete(`/v1/discounts/${createRes.body.id}`)
@@ -434,11 +400,7 @@ describe('Discounts (e2e)', () => {
     it('404 — el descuento eliminado ya no es visible', async () => {
       const createRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Para eliminar y verificar',
-          value: 5,
-          isPercentage: true,
-        });
+        .send({ name: 'Para eliminar y verificar', value: 5 });
 
       await request(app.getHttpServer())
         .delete(`/v1/discounts/${createRes.body.id}`)
@@ -464,11 +426,7 @@ describe('Discounts (e2e)', () => {
     it('201 — asigna un producto a un descuento', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento para producto',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento para producto', value: 10 });
 
       const res = await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
@@ -484,11 +442,7 @@ describe('Discounts (e2e)', () => {
     it('409 — el mismo producto no puede asignarse dos veces al mismo descuento', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento duplicado producto',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento duplicado producto', value: 10 });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
@@ -503,21 +457,12 @@ describe('Discounts (e2e)', () => {
     it('409 — un producto no puede tener más de un descuento activo', async () => {
       const discount1Res = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento A para conflicto',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento A para conflicto', value: 10 });
 
       const discount2Res = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento B para conflicto',
-          value: 20,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento B para conflicto', value: 20 });
 
-      // Seed: busca un producto libre para este test
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
       });
@@ -550,11 +495,7 @@ describe('Discounts (e2e)', () => {
     it('400 — si falta productId en el body', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento para validación',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento para validación', value: 10 });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
@@ -567,11 +508,7 @@ describe('Discounts (e2e)', () => {
     it('200 — retorna los productos asignados', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento GET productos',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento GET productos', value: 10 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
@@ -601,7 +538,7 @@ describe('Discounts (e2e)', () => {
     it('200 — retorna array vacío si no hay targets', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Sin targets producto', value: 10, isPercentage: true });
+        .send({ name: 'Sin targets producto', value: 10 });
 
       const res = await request(app.getHttpServer())
         .get(`/v1/discounts/${discountRes.body.id}/targets/products`)
@@ -621,11 +558,7 @@ describe('Discounts (e2e)', () => {
     it('204 — elimina el target (soft delete) y ya no aparece en el listado', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento DELETE producto',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento DELETE producto', value: 10 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
@@ -659,11 +592,7 @@ describe('Discounts (e2e)', () => {
     it('404 — si el target no existe', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento para 404 target',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento para 404 target', value: 10 });
 
       await request(app.getHttpServer())
         .delete(`/v1/discounts/${discountRes.body.id}/targets/products/999999`)
@@ -671,16 +600,12 @@ describe('Discounts (e2e)', () => {
     });
 
     it('201 — un producto puede reasignarse a otro descuento después de eliminar el target', async () => {
-      const d1 = await request(app.getHttpServer()).post('/v1/discounts').send({
-        name: 'Descuento reasign prod 1',
-        value: 10,
-        isPercentage: true,
-      });
-      const d2 = await request(app.getHttpServer()).post('/v1/discounts').send({
-        name: 'Descuento reasign prod 2',
-        value: 20,
-        isPercentage: true,
-      });
+      const d1 = await request(app.getHttpServer())
+        .post('/v1/discounts')
+        .send({ name: 'Descuento reasign prod 1', value: 10 });
+      const d2 = await request(app.getHttpServer())
+        .post('/v1/discounts')
+        .send({ name: 'Descuento reasign prod 2', value: 20 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
@@ -717,7 +642,7 @@ describe('Discounts (e2e)', () => {
     it('201 — asigna un combo a un descuento', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Descuento para combo', value: 10, isPercentage: true });
+        .send({ name: 'Descuento para combo', value: 10 });
 
       const res = await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
@@ -733,11 +658,7 @@ describe('Discounts (e2e)', () => {
     it('409 — el mismo combo no puede asignarse dos veces al mismo descuento', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento duplicado combo',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento duplicado combo', value: 10 });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
@@ -752,19 +673,11 @@ describe('Discounts (e2e)', () => {
     it('409 — un combo no puede tener más de un descuento activo', async () => {
       const discount1Res = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento A combo conflicto',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento A combo conflicto', value: 10 });
 
       const discount2Res = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento B combo conflicto',
-          value: 20,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento B combo conflicto', value: 20 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
@@ -796,11 +709,7 @@ describe('Discounts (e2e)', () => {
     it('400 — si falta comboId en el body', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento validación combo',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento validación combo', value: 10 });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
@@ -813,7 +722,7 @@ describe('Discounts (e2e)', () => {
     it('200 — retorna los combos asignados', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Descuento GET combos', value: 10, isPercentage: true });
+        .send({ name: 'Descuento GET combos', value: 10 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
@@ -841,7 +750,7 @@ describe('Discounts (e2e)', () => {
     it('200 — retorna array vacío si no hay targets', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({ name: 'Sin targets combo', value: 10, isPercentage: true });
+        .send({ name: 'Sin targets combo', value: 10 });
 
       const res = await request(app.getHttpServer())
         .get(`/v1/discounts/${discountRes.body.id}/targets/combos`)
@@ -861,11 +770,7 @@ describe('Discounts (e2e)', () => {
     it('204 — elimina el target (soft delete) y ya no aparece en el listado', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento DELETE combo',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento DELETE combo', value: 10 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },
@@ -897,11 +802,7 @@ describe('Discounts (e2e)', () => {
     it('404 — si el target no existe', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
-        .send({
-          name: 'Descuento para 404 combo target',
-          value: 10,
-          isPercentage: true,
-        });
+        .send({ name: 'Descuento para 404 combo target', value: 10 });
 
       await request(app.getHttpServer())
         .delete(`/v1/discounts/${discountRes.body.id}/targets/combos/999999`)
@@ -909,16 +810,12 @@ describe('Discounts (e2e)', () => {
     });
 
     it('201 — un combo puede reasignarse a otro descuento después de eliminar el target', async () => {
-      const d1 = await request(app.getHttpServer()).post('/v1/discounts').send({
-        name: 'Descuento reasign combo 1',
-        value: 10,
-        isPercentage: true,
-      });
-      const d2 = await request(app.getHttpServer()).post('/v1/discounts').send({
-        name: 'Descuento reasign combo 2',
-        value: 20,
-        isPercentage: true,
-      });
+      const d1 = await request(app.getHttpServer())
+        .post('/v1/discounts')
+        .send({ name: 'Descuento reasign combo 1', value: 10 });
+      const d2 = await request(app.getHttpServer())
+        .post('/v1/discounts')
+        .send({ name: 'Descuento reasign combo 2', value: 20 });
 
       const category = await dataSource.manager.findOne(CategoryEntity, {
         where: { name: 'Test Category' },

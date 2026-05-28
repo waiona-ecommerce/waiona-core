@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { DiscountEntity } from '../entities/discounts.entity';
 import { DiscountStatus } from '../enums/discount-status.enum';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class DiscountResponseDto {
   @ApiProperty({ example: 1 })
@@ -19,12 +18,6 @@ export class DiscountResponseDto {
 
   @ApiProperty({ example: 10 })
   value: number;
-
-  @ApiProperty({ example: true })
-  isPercentage: boolean;
-
-  @ApiPropertyOptional({ enum: CurrencyCode, example: CurrencyCode.ARS })
-  currency?: CurrencyCode;
 
   @ApiPropertyOptional({ example: '2025-11-01T00:00:00.000Z' })
   startsAt?: Date;
@@ -44,8 +37,6 @@ export class DiscountResponseDto {
     this.description = entity.description ?? undefined;
 
     this.value = Number(entity.value);
-    this.isPercentage = entity.isPercentage;
-    this.currency = entity.currency ?? undefined;
 
     this.startsAt = entity.startsAt ?? undefined;
     this.endsAt = entity.endsAt ?? undefined;

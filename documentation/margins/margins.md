@@ -33,13 +33,12 @@ Un margen se **asigna a un `ProductPricing` o `ComboPricing`** — no se aplica 
 
 ```typescript
 {
-  id:           number;       // PK autoincremental
-  name:         string;       // nombre único, máx 100 chars
-  value:        number;       // decimal(10,2) — viene como string de PG, convertido en DTO
-  isPercentage: boolean;      // true = %, false = monto fijo
-  deletedAt:    Date | null;  // soft delete vía @DeleteDateColumn
-  createdAt:    Date;
-  updatedAt:    Date;
+  id:        number;       // PK autoincremental
+  name:      string;       // nombre único, máx 100 chars
+  value:     number;       // decimal(10,2) — porcentaje, viene como string de PG, convertido en DTO
+  deletedAt: Date | null;  // soft delete vía @DeleteDateColumn
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
 
@@ -47,9 +46,8 @@ Un margen se **asigna a un `ProductPricing` o `ComboPricing`** — no se aplica 
 
 ```typescript
 {
-  name:         string;   // requerido, 3–100 chars — normalizado a MAYÚSCULAS + trim automáticamente
-  value:        number;   // requerido, >= 0, máx 2 decimales
-  isPercentage: boolean;  // requerido
+  name:  string;  // requerido, 3–100 chars — normalizado a MAYÚSCULAS + trim automáticamente
+  value: number;  // requerido, >= 0.01, <= 1000, máx 2 decimales — siempre porcentaje
 }
 ```
 
@@ -59,9 +57,8 @@ Todos los campos son opcionales (`PartialType` de `CreateMarginDto`):
 
 ```typescript
 {
-  name?:         string;
-  value?:        number;
-  isPercentage?: boolean;
+  name?:  string;
+  value?: number;
 }
 ```
 
@@ -69,12 +66,11 @@ Todos los campos son opcionales (`PartialType` de `CreateMarginDto`):
 
 ```typescript
 {
-  id:           number;
-  name:         string;
-  value:        number;   // ya convertido a number (PG devuelve decimal como string)
-  isPercentage: boolean;
-  createdAt:    Date;
-  updatedAt:    Date;
+  id:        number;
+  name:      string;
+  value:     number;   // ya convertido a number (PG devuelve decimal como string)
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
 
@@ -99,14 +95,13 @@ Todos requieren JWT con rol `SUPER_ADMIN` o `ADMIN`.
 
 ### `POST /margins`
 
-Crea un nuevo margen.
+Crea un nuevo margen. Los márgenes son siempre porcentuales.
 
 **Request:**
 ```json
 {
   "name": "margen estándar",
-  "value": 20,
-  "isPercentage": true
+  "value": 20
 }
 ```
 
@@ -116,14 +111,12 @@ Crea un nuevo margen.
   "id": 1,
   "name": "MARGEN ESTÁNDAR",
   "value": 20,
-  "isPercentage": true,
   "createdAt": "2026-05-16T14:00:00.000Z",
   "updatedAt": "2026-05-16T14:00:00.000Z"
 }
 ```
 
 **Errores posibles:**
-- `400` — porcentaje > 100 (`isPercentage: true` con `value: 150`)
 - `409` — nombre ya existe
 
 ---
@@ -184,7 +177,6 @@ Actualización parcial. Solo se actualiza lo que se envía.
 **Response 200:** `MarginResponseDto` actualizado
 
 **Errores posibles:**
-- `400` — el nuevo valor excede 100 siendo porcentaje
 - `404` — no encontrado
 - `409` — el nuevo nombre ya existe en otro margen
 
@@ -208,7 +200,7 @@ Soft delete. **Bloqueado** si el margen está asignado a algún `ProductPricing`
 |---|---|
 | `name` único en toda la tabla | `create` y `update` cuando cambia el nombre |
 | `name` normalizado a mayúsculas + trim | `@Transform` en el DTO — antes de validación |
-| Si `isPercentage: true` → `value ≤ 100` | `create` y `update` |
+| `value` entre 0.01 y 1000 (siempre porcentaje) | `@Min` / `@Max` en el DTO |
 | No eliminar si está en uso | `remove` — verifica `productPricing` y `comboPricing` en paralelo |
 | Soft delete — `deletedAt` nunca `null` en registros eliminados | `remove` vía `softDelete()` |
 
@@ -216,18 +208,11 @@ Soft delete. **Bloqueado** si el margen está asignado a algún `ProductPricing`
 
 ## Ejemplos de uso real
 
-**Margen porcentual para categoría general:**
+**Margen para categoría general:**
 ```json
 POST /margins
-{ "name": "General 20%", "value": 20, "isPercentage": true }
+{ "name": "General 20%", "value": 20 }
 // guardado como: "GENERAL 20%"
-```
-
-**Margen fijo para productos importados:**
-```json
-POST /margins
-{ "name": "Importado fijo", "value": 500, "isPercentage": false }
-// guardado como: "IMPORTADO FIJO"
 ```
 
 **Actualizar solo el valor:**
@@ -239,7 +224,7 @@ PATCH /margins/1
 **Intentar eliminar un margen en uso — responde 409:**
 ```json
 DELETE /margins/1
-→ 409 Conflict: "Margin is in use by one or more pricings and cannot be deleted"
+→ 409 Conflict: "El margen está en uso por uno o más pricings y no puede eliminarse"
 ```
 
 ---
@@ -290,11 +275,9 @@ npx jest --config test/jest-e2e.json --testPathPattern="margins"
 
 | Caso | Status code esperado |
 |---|---|
-| POST con datos válidos (porcentual) | 201 |
-| POST con datos válidos (fijo) | 201 |
+| POST con datos válidos | 201 |
 | POST sin campos requeridos | 400 |
-| POST con porcentaje > 100 | 400 |
-| POST con value negativo | 400 |
+| POST con value fuera de rango | 400 |
 | POST con nombre duplicado | 409 |
 | GET paginado | 200 |
 | GET con `?page=1&limit=2` | 200 |
@@ -302,7 +285,7 @@ npx jest --config test/jest-e2e.json --testPathPattern="margins"
 | GET por id inexistente | 404 |
 | PATCH actualiza valor | 200 |
 | PATCH actualiza nombre | 200 |
-| PATCH porcentaje > 100 | 400 |
+| PATCH value fuera de rango | 400 |
 | PATCH nombre duplicado | 409 |
 | PATCH id inexistente | 404 |
 | DELETE exitoso + GET posterior | 204 → 404 |
