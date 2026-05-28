@@ -93,54 +93,50 @@ describe('Margins (e2e)', () => {
   // CREATE
   // -------------------------
 
-  it('POST /margins -> 201 con margen porcentual', async () => {
+  it('POST /margins -> 201 crea margen porcentual', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'General 20%', value: 20, isPercentage: true })
+      .send({ name: 'General 20%', value: 20 })
       .expect(201);
 
     expect(res.body.id).toBeDefined();
     expect(res.body.name).toBe('GENERAL 20%');
     expect(res.body.value).toBe(20);
-    expect(res.body.isPercentage).toBe(true);
   });
 
-  it('POST /margins -> 201 con margen fijo', async () => {
-    const res = await request(app.getHttpServer())
+  it('POST /margins -> 400 si se envía campo desconocido isPercentage', async () => {
+    await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Importado fijo', value: 500, isPercentage: false })
-      .expect(201);
-
-    expect(res.body.isPercentage).toBe(false);
-    expect(res.body.value).toBe(500);
+      .send({ name: 'Con isPercentage', value: 20, isPercentage: true })
+      .expect(400);
   });
 
   it('POST /margins -> 400 si faltan campos', async () => {
     await request(app.getHttpServer()).post('/v1/margins').send({}).expect(400);
   });
 
-  it('POST /margins -> 400 si porcentaje supera 100', async () => {
+  it('POST /margins -> 400 si value supera 1000', async () => {
     await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Invalido', value: 150, isPercentage: true })
+      .send({ name: 'Invalido', value: 1001 })
       .expect(400);
   });
 
   it('POST /margins -> 400 si value es negativo', async () => {
     await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Negativo', value: -5, isPercentage: true })
+      .send({ name: 'Negativo', value: -5 })
       .expect(400);
   });
 
   it('POST /margins -> 409 si el nombre ya existe', async () => {
     await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Duplicado', value: 10, isPercentage: true });
+      .send({ name: 'Duplicado', value: 10 });
 
     await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Duplicado', value: 15, isPercentage: true })
+      .send({ name: 'Duplicado', value: 15 })
       .expect(409);
   });
 
@@ -175,7 +171,7 @@ describe('Margins (e2e)', () => {
   it('GET /margins/:id -> 200 retorna el margen', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Para buscar', value: 10, isPercentage: true });
+      .send({ name: 'Para buscar', value: 10 });
 
     const res = await request(app.getHttpServer())
       .get(`/v1/margins/${createRes.body.id}`)
@@ -196,7 +192,7 @@ describe('Margins (e2e)', () => {
   it('PATCH /margins/:id -> 200 actualiza el valor', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Para actualizar', value: 10, isPercentage: true });
+      .send({ name: 'Para actualizar', value: 10 });
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/margins/${createRes.body.id}`)
@@ -210,7 +206,7 @@ describe('Margins (e2e)', () => {
   it('PATCH /margins/:id -> 200 actualiza el nombre', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Nombre viejo', value: 10, isPercentage: true });
+      .send({ name: 'Nombre viejo', value: 10 });
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/margins/${createRes.body.id}`)
@@ -220,25 +216,25 @@ describe('Margins (e2e)', () => {
     expect(res.body.name).toBe('NOMBRE NUEVO');
   });
 
-  it('PATCH /margins/:id -> 400 si porcentaje supera 100', async () => {
+  it('PATCH /margins/:id -> 400 si value supera 1000', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Check porcentaje', value: 10, isPercentage: true });
+      .send({ name: 'Check maximo', value: 10 });
 
     await request(app.getHttpServer())
       .patch(`/v1/margins/${createRes.body.id}`)
-      .send({ value: 150 })
+      .send({ value: 1001 })
       .expect(400);
   });
 
   it('PATCH /margins/:id -> 409 si el nuevo nombre ya existe', async () => {
     await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Nombre existente', value: 10, isPercentage: true });
+      .send({ name: 'Nombre existente', value: 10 });
 
     const createRes = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Otro margen', value: 5, isPercentage: true });
+      .send({ name: 'Otro margen', value: 5 });
 
     await request(app.getHttpServer())
       .patch(`/v1/margins/${createRes.body.id}`)
@@ -260,7 +256,7 @@ describe('Margins (e2e)', () => {
   it('DELETE /margins/:id -> 204 y luego 404', async () => {
     const createRes = await request(app.getHttpServer())
       .post('/v1/margins')
-      .send({ name: 'Para eliminar', value: 5, isPercentage: true });
+      .send({ name: 'Para eliminar', value: 5 });
 
     await request(app.getHttpServer())
       .delete(`/v1/margins/${createRes.body.id}`)
