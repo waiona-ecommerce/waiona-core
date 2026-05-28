@@ -52,21 +52,29 @@ export class TaxesService {
     });
 
     if (!taxType) {
-      throw new BadRequestException(`TaxType with id ${taxTypeId} not found`);
+      throw new BadRequestException(
+        `Tipo de impuesto con id ${taxTypeId} no encontrado`,
+      );
     }
 
     // Regla de negocio: isPercentage y currency son mutuamente excluyentes.
     // Un impuesto de tipo porcentaje (ej: IVA 21%) no tiene sentido que lleve moneda.
     // Un impuesto de monto fijo (ej: tasa fija de $10 ARS) sí requiere moneda.
     if (!dto.isPercentage && !dto.currency) {
-      throw new BadRequestException('Currency is required for fixed taxes');
+      throw new BadRequestException(
+        'Los impuestos de monto fijo requieren una moneda',
+      );
     }
 
     if (dto.isPercentage && dto.currency) {
       throw new BadRequestException(
-        'Percentage taxes should not have currency',
+        'Los impuestos porcentuales no deben tener moneda',
       );
     }
+
+    // Validación del rango del valor según su tipo.
+    // No puede vivir solo en el DTO porque depende de isPercentage (otro campo).
+    this.validateTaxValue(dto.value, dto.isPercentage);
 
     // Se construye manualmente el objeto a crear en lugar de hacer create(dto)
     // directamente, porque taxTypeId viene del URL (no del body del DTO) y
@@ -107,14 +115,20 @@ export class TaxesService {
     // Se re-evalúa la regla de negocio sobre el estado efectivo final,
     // no sobre los valores parciales del DTO.
     if (!isPercentage && !currency) {
-      throw new BadRequestException('Currency is required for fixed taxes');
+      throw new BadRequestException(
+        'Los impuestos de monto fijo requieren una moneda',
+      );
     }
 
     if (isPercentage && currency) {
       throw new BadRequestException(
-        'Percentage taxes should not have currency',
+        'Los impuestos porcentuales no deben tener moneda',
       );
     }
+
+    // Ídem que en create: se valida el valor sobre el estado efectivo final.
+    const value = changes.value !== undefined ? Number(changes.value) : Number(entity.value);
+    this.validateTaxValue(value, isPercentage);
 
     const merged = this.taxRepository.merge(entity, changes);
     const saved = await this.taxRepository.save(merged);
@@ -145,8 +159,25 @@ export class TaxesService {
       relations: ['taxType'],
     });
 
-    if (!entity) throw new NotFoundException(`Tax with id ${id} not found`);
+    if (!entity) throw new NotFoundException(`Impuesto con id ${id} no encontrado`);
     return entity;
+  }
+
+  // Validación del rango del valor según el tipo de impuesto.
+  // Separada en un método privado porque se reutiliza en create() y update().
+  // No puede vivir en el DTO porque depende del valor de isPercentage (otro campo).
+  // Sincrónica porque no hace IO: solo evalúa números en memoria.
+  private validateTaxValue(value: number, isPercentage: boolean): void {
+    if (isPercentage && value > 100) {
+      throw new BadRequestException(
+        'El valor del impuesto no puede superar el 100%',
+      );
+    }
+    if (!isPercentage && value > 1_000_000) {
+      throw new BadRequestException(
+        'El monto fijo del impuesto no puede superar 1.000.000',
+      );
+    }
   }
 }
 ```

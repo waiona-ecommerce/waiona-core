@@ -32,13 +32,9 @@ export class MarginsService {
     // Si existe, lanza ConflictException (HTTP 409).
     await this.validateUniqueName(dto.name);
 
-    // Si isPercentage es true y value supera 100, lanza BadRequestException (HTTP 400).
-    // Esta validación no puede vivir solo en el DTO porque depende de la combinación
-    // de dos campos a la vez.
-    this.validatePercentageValue(dto.isPercentage, dto.value);
-
-    // .create() construye una instancia de MarginEntity en memoria a partir del DTO,
-    // mapeando los campos automáticamente. NO hace ninguna query a la DB todavía.
+    // Los márgenes son siempre porcentuales. El límite superior (1000%) y el
+    // inferior (0.01%) se validan en el DTO con @Min y @Max, no en el servicio.
+    // No hay campo isPercentage: el motor de cálculo asume porcentaje siempre.
     const margin = this.marginRepository.create(dto);
 
     // .save() ejecuta el INSERT en la tabla "margins" y devuelve la entidad
@@ -106,17 +102,6 @@ export class MarginsService {
       await this.validateUniqueName(dto.name);
     }
 
-    // El operador ?? (nullish coalescing) resuelve el estado efectivo de los campos
-    // para la validación. Si el DTO no trae isPercentage, se usa el valor actual del margen.
-    // Así validatePercentageValue siempre recibe los valores que quedarán en la DB,
-    // no los parciales del DTO.
-    const isPercentage = dto.isPercentage ?? margin.isPercentage;
-
-    // Number() convierte el decimal de PostgreSQL (que TypeORM retorna como string)
-    // a número real antes de usarlo en la validación.
-    const value = dto.value ?? Number(margin.value);
-    this.validatePercentageValue(isPercentage, value);
-
     // .merge() aplica los campos del DTO sobre la entidad existente sin perder los campos
     // que el DTO no mandó. Es el equivalente a Object.assign pero específico de TypeORM,
     // manteniendo los metadatos internos de la entidad.
@@ -149,7 +134,7 @@ export class MarginsService {
     // Esta validación protege la consistencia de datos desde la capa de aplicación.
     if (productUsage || comboUsage) {
       throw new ConflictException(
-        'Margin is in use by one or more pricings and cannot be deleted',
+        'El margen está en uso por uno o más pricings y no puede eliminarse',
       );
     }
 
@@ -168,7 +153,7 @@ export class MarginsService {
   // puede llamarlo. Para leer un margen desde afuera se usa findOne() (que devuelve DTO).
   private async findEntity(id: number): Promise<MarginEntity> {
     const margin = await this.marginRepository.findOne({ where: { id } });
-    if (!margin) throw new NotFoundException(`Margin with id ${id} not found`);
+    if (!margin) throw new NotFoundException(`Margen con id ${id} no encontrado`);
     return margin;
   }
 
@@ -179,17 +164,7 @@ export class MarginsService {
   private async validateUniqueName(name: string): Promise<void> {
     const existing = await this.marginRepository.findOne({ where: { name } });
     if (existing) {
-      throw new ConflictException(`Margin with name "${name}" already exists`);
-    }
-  }
-
-  // Validación puramente en memoria, sin IO → es sincrónica (no async).
-  // La regla de negocio: si el margen es de tipo porcentaje, no puede superar 100.
-  // Si es monto fijo (isPercentage: false), el valor puede ser cualquier número positivo.
-  // Esta validación cruzada entre dos campos no puede expresarse con class-validator en el DTO.
-  private validatePercentageValue(isPercentage: boolean, value: number): void {
-    if (isPercentage && value > 100) {
-      throw new BadRequestException('Percentage margin cannot exceed 100');
+      throw new ConflictException(`Ya existe un margen con el nombre "${name}"`);
     }
   }
 }

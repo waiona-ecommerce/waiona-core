@@ -31,12 +31,13 @@ export class MarginsController {
   @Post()
   @ApiOperation({ summary: 'Crear un margen de ganancia' })
   @ApiResponse({ status: 201, type: MarginResponseDto })
-  @ApiResponse({ status: 400, description: 'Porcentaje mayor a 100 o datos inválidos' })
+  @ApiResponse({ status: 400, description: 'Valor mayor a 1000 o datos inválidos' })
   @ApiResponse({ status: 409, description: 'Ya existe un margen con ese nombre' })
   create(@Body() dto: CreateMarginDto): Promise<MarginResponseDto> {
     // @Body() extrae el body del request y lo pasa por el ValidationPipe global.
     // El pipe ejecuta los decoradores de class-validator en CreateMarginDto
-    // (name entre 3-100 chars, value >= 0 con máx 2 decimales, isPercentage booleano).
+    // (name entre 3-100 chars, value entre 0.01 y 1000 con máx 2 decimales).
+    // Los márgenes son siempre porcentuales: no existe campo isPercentage.
     // Si alguna validación falla, el pipe lanza BadRequestException antes de
     // que este método se ejecute siquiera.
     // NestJS devuelve HTTP 201 por defecto para métodos @Post().
@@ -85,7 +86,7 @@ export class MarginsController {
   @ApiOperation({ summary: 'Actualizar un margen (parcial)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, type: MarginResponseDto })
-  @ApiResponse({ status: 400, description: 'Porcentaje mayor a 100' })
+  @ApiResponse({ status: 400, description: 'Valor mayor a 1000 o datos inválidos' })
   @ApiResponse({ status: 404, description: 'Margen no encontrado' })
   @ApiResponse({ status: 409, description: 'Ya existe un margen con ese nombre' })
   update(

@@ -13,41 +13,14 @@ export class DiscountsService {
   // ─── CREATE ──────────────────────────────────────────────────────────────────
 
   async create(dto: CreateDiscountDto): Promise<DiscountResponseDto> {
-    // Las validaciones se ejecutan en este orden deliberado:
-    // 1. Fechas (independiente del tipo de descuento)
-    // 2. Normalización (limpia los datos antes de validar el valor)
-    // 3. Valor (trabaja con datos ya normalizados)
+    // Los descuentos son siempre porcentuales (0.01% – 100%).
+    // No existe campo isPercentage ni currency: el DTO los bloquea con
+    // forbidNonWhitelisted y el motor de cálculo asume porcentaje siempre.
+    // La única validación de negocio que no puede vivir en el DTO
+    // es la consistencia entre startsAt y endsAt.
     this.validateDates(dto.startsAt, dto.endsAt);
 
-    // normalizeDiscount prepara los campos que interactúan entre sí
-    // (value, isPercentage, currency) antes de validarlos.
-    // Si isPercentage es true, fuerza currency a null aquí para que
-    // validateValue y el save() siempre reciban datos consistentes.
-    const normalized = this.normalizeDiscount({
-      value: dto.value,
-      isPercentage: dto.isPercentage,
-      currency: dto.currency,
-    });
-
-    // Valida el valor sobre los datos ya normalizados, no sobre el DTO crudo.
-    this.validateValue(
-      normalized.value,
-      normalized.isPercentage,
-      normalized.currency,
-    );
-
-    const discount = this.discountRepository.create({
-      name: dto.name,
-      description: dto.description,
-      startsAt: dto.startsAt,
-      endsAt: dto.endsAt,
-      value: normalized.value,
-      isPercentage: normalized.isPercentage,
-      // ?? null: si currency llegó como undefined (no enviada), se guarda null explícito.
-      // La entidad declara currency como nullable, así que null es el valor correcto en DB.
-      currency: normalized.currency ?? null,
-    });
-
+    const discount = this.discountRepository.create(dto);
     const saved = await this.discountRepository.save(discount);
     void this.shopCacheService.invalidate(); // Fire-and-forget.
     return new DiscountResponseDto(saved);
@@ -89,40 +62,17 @@ export class DiscountsService {
   ): Promise<DiscountResponseDto> {
     const discount = await this.findEntity(id);
 
-    // Se reconstruye el estado final campo a campo usando ?? para combinar
-    // el valor del DTO (si viene) con el valor actual de la entidad (fallback).
-    // NO se usa .merge() ni spread del dto aquí, deliberadamente: el merge/spread
-    // pisaría campos con undefined cuando el DTO parcial no los envía, lo que
-    // podría romper la entidad o limpiar datos que deberían mantenerse.
-    const value = Number(dto.value ?? discount.value); // Number(): casteo defensivo, TypeORM puede retornar decimal como string.
-    const isPercentage = dto.isPercentage ?? discount.isPercentage;
-    const currency = dto.currency ?? discount.currency;
-
+    // Se resuelve el estado efectivo de las fechas combinando el DTO parcial
+    // con los valores actuales de la entidad. Así validateDates siempre recibe
+    // el rango completo que quedará en la DB, no solo los campos que cambian.
     const startsAt = dto.startsAt ?? discount.startsAt;
     const endsAt = dto.endsAt ?? discount.endsAt;
-
-    // Se validan fechas y valor sobre el estado efectivo final, no sobre el DTO parcial.
     this.validateDates(startsAt, endsAt);
 
-    const normalized = this.normalizeDiscount({ value, isPercentage, currency });
-
-    this.validateValue(
-      normalized.value,
-      normalized.isPercentage,
-      normalized.currency,
-    );
-
-    // Asignación campo a campo directa sobre la entidad ya cargada.
-    // Es equivalente a merge() pero más explícito sobre qué campos se tocan.
-    discount.name = dto.name ?? discount.name;
-    discount.description = dto.description ?? discount.description;
-    discount.value = normalized.value;
-    discount.isPercentage = normalized.isPercentage;
-    discount.currency = normalized.currency ?? null;
-    discount.startsAt = startsAt ?? null;
-    discount.endsAt = endsAt ?? null;
-
-    const updated = await this.discountRepository.save(discount);
+    // .merge() aplica el DTO parcial sobre la entidad sin perder los campos
+    // que el cliente no mandó en este PATCH.
+    const merged = this.discountRepository.merge(discount, dto);
+    const updated = await this.discountRepository.save(merged);
     void this.shopCacheService.invalidate();
     return new DiscountResponseDto(updated);
   }
@@ -143,7 +93,7 @@ export class DiscountsService {
     });
 
     if (!discount) {
-      throw new NotFoundException(`Discount with id ${id} not found`);
+      throw new NotFoundException(`Descuento con id ${id} no encontrado`);
     }
 
     return discount;
@@ -154,51 +104,13 @@ export class DiscountsService {
       // >= en lugar de > para rechazar el caso startsAt === endsAt,
       // que crearía un rango vacío (ningún momento del tiempo pertenecería al descuento).
       if (new Date(startsAt) >= new Date(endsAt)) {
-        throw new BadRequestException('startsAt must be before endsAt');
+        throw new BadRequestException(
+          'La fecha de inicio debe ser anterior a la fecha de fin',
+        );
       }
     }
     // Si alguna de las dos es null/undefined, no se valida: ambas son opcionales.
     // Un descuento sin fechas es válido (aplica siempre hasta que se borre).
-  }
-
-  private validateValue(
-    value: number,
-    isPercentage: boolean,
-    currency?: CurrencyCode | null,
-  ): void {
-    if (isPercentage) {
-      // Un porcentaje de descuento mayor a 100 no tiene sentido (precio negativo).
-      if (value > 100) {
-        throw new BadRequestException('Percentage discount cannot exceed 100');
-      }
-    } else {
-      // Un descuento de monto fijo necesita saber en qué moneda está expresado.
-      // Sin currency, el motor de cálculo de precios no puede aplicarlo.
-      if (!currency) {
-        throw new BadRequestException(
-          'Fixed amount discount requires a currency',
-        );
-      }
-    }
-  }
-
-  private normalizeDiscount({
-    value,
-    isPercentage,
-    currency,
-  }: {
-    value: number;
-    isPercentage: boolean;
-    currency?: CurrencyCode | null;
-  }) {
-    return {
-      value,
-      isPercentage,
-      // Si el descuento es de tipo porcentaje, se fuerza currency a null
-      // independientemente de lo que haya llegado en el DTO.
-      // Esto evita que quede un dato huérfano en la DB (currency guardada pero ignorada).
-      currency: isPercentage ? null : currency,
-    };
   }
 }
 ```
