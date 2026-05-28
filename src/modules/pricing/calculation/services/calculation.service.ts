@@ -59,11 +59,9 @@ export class CalculationService {
     const margin = this.applyValue(priceAfterDiscount, dto.marginValue, true);
     const priceAfterMargin = priceAfterDiscount + margin;
 
-    // 3. Impuestos sobre priceAfterMargin
+    // 3. Impuestos sobre priceAfterMargin (siempre porcentaje)
     const taxes = (dto.taxes ?? []).reduce((acc, tax) => {
-      return (
-        acc + this.applyValue(priceAfterMargin, tax.value, tax.isPercentage)
-      );
+      return acc + this.applyValue(priceAfterMargin, tax.value, true);
     }, 0);
     const finalPrice = priceAfterMargin + taxes;
 
@@ -71,9 +69,7 @@ export class CalculationService {
     const marginFull = this.applyValue(unitPrice, dto.marginValue, true);
     const priceAfterMarginFull = unitPrice + marginFull;
     const taxesFull = (dto.taxes ?? []).reduce((acc, tax) => {
-      return (
-        acc + this.applyValue(priceAfterMarginFull, tax.value, tax.isPercentage)
-      );
+      return acc + this.applyValue(priceAfterMarginFull, tax.value, true);
     }, 0);
     const fullPrice = priceAfterMarginFull + taxesFull;
 
@@ -344,7 +340,7 @@ export class CalculationService {
           specificAmount += this.applyValue(
             proratedBase,
             Number(pt.tax.value),
-            pt.tax.isPercentage,
+            true,
           );
         }
       }
@@ -355,8 +351,7 @@ export class CalculationService {
 
   private sumTaxes(taxes: TaxEntity[], base: number): number {
     return taxes.reduce(
-      (acc, tax) =>
-        acc + this.applyValue(base, Number(tax.value), tax.isPercentage),
+      (acc, tax) => acc + this.applyValue(base, Number(tax.value), true),
       0,
     );
   }

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -41,6 +42,15 @@ export class ProductTaxesService {
     if (tax.isGlobal) {
       throw new BadRequestException(
         'A global tax cannot be assigned to a specific product',
+      );
+    }
+
+    const existing = await this.productTaxRepository.findOne({
+      where: { productId: dto.productId, taxId: dto.taxId },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `El impuesto ${dto.taxId} ya está asignado a este producto`,
       );
     }
 

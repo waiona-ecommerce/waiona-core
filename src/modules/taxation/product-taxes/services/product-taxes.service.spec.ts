@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { ProductTaxesService } from './product-taxes.service';
 import { ProductTaxEntity } from '../entities/product-taxes.entity';
 import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
@@ -61,6 +65,7 @@ describe('ProductTaxesService', () => {
     it('should create a product tax', async () => {
       const pt = mockProductTax();
       taxRepo.findOne.mockResolvedValue(mockTax());
+      productTaxRepo.findOne.mockResolvedValue(null); // no duplicate
       productTaxRepo.create.mockReturnValue(pt);
       productTaxRepo.save.mockResolvedValue(pt);
       const result = await service.create({ productId: 1, taxId: 1 });
@@ -80,6 +85,14 @@ describe('ProductTaxesService', () => {
       await expect(
         service.create({ productId: 1, taxId: 1 } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException if tax already assigned to product', async () => {
+      taxRepo.findOne.mockResolvedValue(mockTax());
+      productTaxRepo.findOne.mockResolvedValue(mockProductTax()); // ya existe
+      await expect(
+        service.create({ productId: 1, taxId: 1 } as any),
+      ).rejects.toThrow(ConflictException);
     });
   });
 

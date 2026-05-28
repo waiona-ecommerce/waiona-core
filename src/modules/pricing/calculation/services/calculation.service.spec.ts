@@ -9,7 +9,6 @@ import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
 import { DiscountProductTargetEntity } from 'src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
 import { DiscountComboTargetEntity } from 'src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
 import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 describe('CalculationService', () => {
   let service: CalculationService;
@@ -27,7 +26,7 @@ describe('CalculationService', () => {
   const mockProductPricing = (overrides = {}) => ({
     id: 1,
     productId: 1,
-    currency: CurrencyCode.ARS,
+    currency: 'ARS',
     unitPrice: 500,
     margin: mockMargin,
     deletedAt: null,
@@ -37,7 +36,7 @@ describe('CalculationService', () => {
   const mockComboPricing = (overrides = {}) => ({
     id: 1,
     comboId: 1,
-    currency: CurrencyCode.ARS,
+    currency: 'ARS',
     unitPrice: 1200,
     margin: mockMargin,
     deletedAt: null,
@@ -47,7 +46,6 @@ describe('CalculationService', () => {
   const mockGlobalTax = (overrides = {}) => ({
     id: 1,
     value: 21,
-    isPercentage: true,
     isGlobal: true,
     ...overrides,
   });
@@ -55,7 +53,6 @@ describe('CalculationService', () => {
   const mockSpecificTax = (overrides = {}) => ({
     id: 2,
     value: 3,
-    isPercentage: true,
     isGlobal: false,
     ...overrides,
   });
@@ -293,7 +290,7 @@ describe('CalculationService', () => {
         unitPrice: 500,
         discountValue: 10,
         marginValue: 20,
-        taxes: [{ value: 21, isPercentage: true }],
+        taxes: [{ value: 21 }],
         couponValue: 50,
         couponIsPercentage: false,
       });

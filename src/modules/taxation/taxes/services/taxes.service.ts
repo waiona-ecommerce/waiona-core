@@ -65,25 +65,9 @@ export class TaxesService {
       );
     }
 
-    if (!dto.isPercentage && !dto.currency) {
-      throw new BadRequestException(
-        'Los impuestos de monto fijo requieren una moneda',
-      );
-    }
-
-    if (dto.isPercentage && dto.currency) {
-      throw new BadRequestException(
-        'Los impuestos porcentuales no deben tener moneda',
-      );
-    }
-
-    this.validateTaxValue(dto.value, dto.isPercentage);
-
     const newEntity = this.taxRepository.create({
       taxTypeId,
       value: dto.value,
-      isPercentage: dto.isPercentage,
-      currency: dto.currency,
       isGlobal: dto.isGlobal ?? false,
     });
 
@@ -98,25 +82,6 @@ export class TaxesService {
 
   async update(id: number, changes: UpdateTaxDto): Promise<TaxResponseDto> {
     const entity = await this.findEntity(id);
-
-    const isPercentage = changes.isPercentage ?? entity.isPercentage;
-    const currency =
-      changes.currency !== undefined ? changes.currency : entity.currency;
-
-    if (!isPercentage && !currency) {
-      throw new BadRequestException(
-        'Los impuestos de monto fijo requieren una moneda',
-      );
-    }
-
-    if (isPercentage && currency) {
-      throw new BadRequestException(
-        'Los impuestos porcentuales no deben tener moneda',
-      );
-    }
-
-    this.validateTaxValue(changes.value ?? Number(entity.value), isPercentage);
-
     const merged = this.taxRepository.merge(entity, changes);
     const saved = await this.taxRepository.save(merged);
     void this.shopCacheService.invalidate();
@@ -136,19 +101,6 @@ export class TaxesService {
   // ==========================
   // PRIVATE
   // ==========================
-
-  private validateTaxValue(value: number, isPercentage: boolean): void {
-    if (isPercentage && value > 100) {
-      throw new BadRequestException(
-        'El valor del impuesto no puede superar el 100%',
-      );
-    }
-    if (!isPercentage && value > 1_000_000) {
-      throw new BadRequestException(
-        'El monto fijo del impuesto no puede superar 1.000.000',
-      );
-    }
-  }
 
   private async findEntity(id: number): Promise<TaxEntity> {
     const entity = await this.taxRepository.findOne({

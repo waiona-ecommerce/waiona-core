@@ -1,21 +1,12 @@
-import { IsNumber, IsBoolean, Min, IsOptional, IsEnum } from 'class-validator';
+import { IsNumber, Min, Max, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
 
 export class CreateTaxDto {
-  @ApiProperty({ example: 21, minimum: 0.01 })
+  @ApiProperty({ example: 21, minimum: 0.01, maximum: 100 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(100)
   value: number;
-
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  isPercentage: boolean;
-
-  @ApiPropertyOptional({ enum: CurrencyCode, example: CurrencyCode.ARS })
-  @IsOptional()
-  @IsEnum(CurrencyCode)
-  currency?: CurrencyCode;
 
   @ApiPropertyOptional({ example: false, default: false })
   @IsOptional()

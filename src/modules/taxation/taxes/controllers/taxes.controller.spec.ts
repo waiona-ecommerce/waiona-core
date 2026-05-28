@@ -46,8 +46,6 @@ describe('TaxesController', () => {
     id: 1,
     taxTypeId: 1,
     value: 21,
-    isPercentage: true,
-    currency: undefined,
     isGlobal: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -104,7 +102,7 @@ describe('TaxesController', () => {
 
   describe('create', () => {
     it('should create a tax', async () => {
-      const dto = { value: 21, isPercentage: true };
+      const dto = { value: 21 };
       const tax = mockTaxResponse();
       service.create.mockResolvedValue(tax);
 
