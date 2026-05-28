@@ -32,9 +32,7 @@ describe('TaxesService', () => {
       id: 1,
       taxTypeId: 1,
       value: 21,
-      isPercentage: true,
       isGlobal: false,
-      currency: null,
       deletedAt: null,
       taxType: mockTaxType(),
       createdAt: new Date(),
@@ -106,63 +104,22 @@ describe('TaxesService', () => {
   // create
   // ==========================
   describe('create', () => {
-    it('should create a percentage tax', async () => {
+    it('should create a tax', async () => {
       const tax = mockTax();
       taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
       taxRepo.create.mockReturnValue(tax);
       taxRepo.save.mockResolvedValue(tax);
-      taxRepo.findOne.mockResolvedValue(tax); // recarga post-save
+      taxRepo.findOne.mockResolvedValue(tax);
 
-      const result = await service.create(1, {
-        value: 21,
-        isPercentage: true,
-        isGlobal: false,
-      });
+      const result = await service.create(1, { value: 21 });
       expect(result.value).toBe(21);
-      expect(result.isPercentage).toBe(true);
     });
 
     it('should throw BadRequestException if taxType not found', async () => {
       taxTypeRepo.findOne.mockResolvedValue(null);
-      await expect(
-        service.create(999, { value: 21, isPercentage: true } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if fixed tax has no currency', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
-      await expect(
-        service.create(1, { value: 500, isPercentage: false } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if percentage tax has currency', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
-      await expect(
-        service.create(1, {
-          value: 21,
-          isPercentage: true,
-          currency: 'ARS',
-        } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if percentage tax exceeds 100', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
-      await expect(
-        service.create(1, { value: 101, isPercentage: true } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if fixed tax exceeds 1000000', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
-      await expect(
-        service.create(1, {
-          value: 1_000_001,
-          isPercentage: false,
-          currency: 'ARS',
-        } as any),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(999, { value: 21 })).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -173,9 +130,7 @@ describe('TaxesService', () => {
     it('should update a tax', async () => {
       const tax = mockTax();
       const updated = mockTax({ value: 10.5 });
-      taxRepo.findOne
-        .mockResolvedValueOnce(tax) // findOne inicial
-        .mockResolvedValueOnce(updated); // recarga post-save
+      taxRepo.findOne.mockResolvedValueOnce(tax).mockResolvedValueOnce(updated);
       taxRepo.merge.mockReturnValue(updated);
       taxRepo.save.mockResolvedValue(updated);
 
@@ -188,15 +143,6 @@ describe('TaxesService', () => {
       await expect(service.update(999, {} as any)).rejects.toThrow(
         NotFoundException,
       );
-    });
-
-    it('should throw BadRequestException if removing currency from fixed tax', async () => {
-      taxRepo.findOne.mockResolvedValue(
-        mockTax({ isPercentage: false, currency: 'ARS' }),
-      );
-      await expect(
-        service.update(1, { currency: null } as any),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 

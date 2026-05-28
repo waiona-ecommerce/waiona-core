@@ -43,17 +43,17 @@ unitPrice
 
 ```typescript
 {
-  id:           number;          // PK autoincremental
-  taxTypeId:    number;          // FK → tax_types.id (RESTRICT)
-  value:        number;          // decimal(10,2) — viene como string de PG, convertir con Number()
-  isPercentage: boolean;
-  currency:     CurrencyCode | null;  // solo si !isPercentage → 'ARS'
-  isGlobal:     boolean;         // default false
-  deletedAt:    Date | null;
-  createdAt:    Date;
-  updatedAt:    Date;
+  id:        number;       // PK autoincremental
+  taxTypeId: number;       // FK → tax_types.id (RESTRICT)
+  value:     number;       // decimal(10,2) — 0.01 a 100 (siempre porcentaje)
+  isGlobal:  boolean;      // default false
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
+
+> **Todos los impuestos son porcentuales.** Los impuestos de monto fijo (tasas municipales, etc.) operan a nivel de orden, no de producto, y no están modelados en este módulo.
 
 ### `ProductTaxEntity`
 
@@ -101,10 +101,8 @@ unitPrice
 **`CreateTaxDto`**
 ```typescript
 {
-  value:        number;          // >= 0.01, máx 2 decimales; si isPercentage → máx 100; si fijo → máx 1.000.000
-  isPercentage: boolean;         // requerido
-  currency?:    CurrencyCode;    // requerido si !isPercentage
-  isGlobal?:    boolean;         // default false
+  value:     number;   // >= 0.01 y <= 100, máx 2 decimales (siempre porcentaje)
+  isGlobal?: boolean;  // default false
 }
 ```
 
@@ -113,15 +111,13 @@ unitPrice
 **`TaxResponseDto`**
 ```typescript
 {
-  id:           number;
-  taxTypeId:    number;
-  value:        number;          // Number(entity.value) — fix decimal de PG
-  isPercentage: boolean;
-  currency?:    CurrencyCode;
-  isGlobal:     boolean;
-  createdAt:    Date;
-  updatedAt:    Date;
-  taxType?:     TaxTypeResponseDto;  // presente cuando se carga la relación
+  id:        number;
+  taxTypeId: number;
+  value:     number;   // Number(entity.value) — fix decimal de PG
+  isGlobal:  boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  taxType?:  TaxTypeResponseDto;  // presente cuando se carga la relación
 }
 ```
 
@@ -201,26 +197,24 @@ Lista todos los impuestos de un tipo. **Response 200:** `TaxResponseDto[]`.
 ### Taxes — `POST /tax-types/:taxTypeId/taxes`
 
 ```json
-{ "value": 21, "isPercentage": true }
+{ "value": 21 }
 ```
 ```json
-{ "value": 50, "isPercentage": false, "currency": "ARS" }
+{ "value": 3, "isGlobal": false }
 ```
 
 **Response 201:** `TaxResponseDto`
 
 **Errores:**
 - `400` — `taxTypeId` no existe
-- `400` — `!isPercentage` sin `currency`
-- `400` — `isPercentage` con `currency`
-- `400` — `value < 0.01`
-- `400` — porcentaje > 100 o monto fijo > 1.000.000
+- `400` — `value < 0.01` o `value > 100`
+- `400` — campo desconocido (forbidNonWhitelisted)
 
 ### Taxes — `PATCH /tax-types/:taxTypeId/taxes/:id`
 
-Actualización parcial. Revalida consistencia `isPercentage` / `currency` con el estado resultante.
+Actualización parcial.
 
-**Errores:** `400` — inconsistencia porcentaje/moneda | `404` — no encontrado.
+**Errores:** `400` — validación fallida | `404` — no encontrado.
 
 ### Taxes — `DELETE /tax-types/:taxTypeId/taxes/:id`
 
@@ -255,8 +249,6 @@ Lista todos los impuestos asignados al producto. **Response 200:** `ProductTaxRe
 ### Product Taxes — `DELETE /products/:productId/taxes/:id`
 
 **Response 204.** **Errores:** `404` — no encontrado.
-
----
 
 ---
 
@@ -297,10 +289,7 @@ Total impuestos = $210 + $20 + $16.67 = $246.67
 | Regla | Dónde se aplica |
 |---|---|
 | `code` único en `tax_types` | `create` y `update` cuando cambia el code |
-| Si `!isPercentage` → `currency` requerida | `create` y `update` de taxes |
-| Si `isPercentage` → `currency` prohibida | `create` y `update` de taxes |
-| Si `isPercentage` → `value ≤ 100` | `create` y `update` — `validateTaxValue()` |
-| Si `!isPercentage` → `value ≤ 1.000.000` | `create` y `update` — `validateTaxValue()` |
+| `value` entre 0.01 y 100 | DTO — `@Min(0.01)` + `@Max(100)` |
 | `taxTypeId` debe existir al crear un tax | `create` de taxes |
 | Un impuesto global no puede asignarse a un producto | `create` de product-taxes |
 | Soft delete en todas las entidades | `softDelete(id)` — `deletedAt IS NULL` filtrado automáticamente |

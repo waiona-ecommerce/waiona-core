@@ -89,52 +89,41 @@ describe('Taxes (e2e)', () => {
   // CREATE
   // -------------------------
 
-  it('POST /tax-types/:id/taxes -> should create percentage tax', async () => {
+  it('POST /tax-types/:id/taxes -> should create a tax', async () => {
     const res = await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 21, isPercentage: true })
+      .send({ value: 21 })
       .expect(201);
 
     expect(res.body.value).toBe(21);
-    expect(res.body.isPercentage).toBe(true);
     expect(res.body.taxTypeId).toBe(taxTypeId);
   });
 
-  it('POST /tax-types/:id/taxes -> should create fixed tax with currency', async () => {
-    const res = await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 50, isPercentage: false, currency: 'ARS' })
-      .expect(201);
-
-    expect(res.body.isPercentage).toBe(false);
-    expect(res.body.currency).toBe('ARS');
-  });
-
-  it('POST /tax-types/:id/taxes -> should fail if fixed tax has no currency', async () => {
+  it('POST /tax-types/:id/taxes -> should fail if unknown field sent', async () => {
     await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 50, isPercentage: false })
-      .expect(400);
-  });
-
-  it('POST /tax-types/:id/taxes -> should fail if percentage tax has currency', async () => {
-    await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 21, isPercentage: true, currency: 'ARS' })
+      .send({ value: 21, isPercentage: true })
       .expect(400);
   });
 
   it('POST /tax-types/:id/taxes -> should fail if taxType not found', async () => {
     await request(app.getHttpServer())
       .post('/v1/tax-types/999/taxes')
-      .send({ value: 21, isPercentage: true })
+      .send({ value: 21 })
       .expect(400);
   });
 
   it('POST /tax-types/:id/taxes -> should fail if value is negative', async () => {
     await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: -5, isPercentage: true })
+      .send({ value: -5 })
+      .expect(400);
+  });
+
+  it('POST /tax-types/:id/taxes -> should fail if value exceeds 100', async () => {
+    await request(app.getHttpServer())
+      .post(`/v1/tax-types/${taxTypeId}/taxes`)
+      .send({ value: 101 })
       .expect(400);
   });
 
@@ -170,7 +159,7 @@ describe('Taxes (e2e)', () => {
   it('GET /tax-types/:id/taxes/:taxId -> should return one', async () => {
     const createRes = await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 10.5, isPercentage: true });
+      .send({ value: 10.5 });
 
     const res = await request(app.getHttpServer())
       .get(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
@@ -192,7 +181,7 @@ describe('Taxes (e2e)', () => {
   it('PATCH /tax-types/:id/taxes/:taxId -> should update value', async () => {
     const createRes = await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 5, isPercentage: true });
+      .send({ value: 5 });
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
@@ -202,10 +191,10 @@ describe('Taxes (e2e)', () => {
     expect(res.body.value).toBe(8);
   });
 
-  it('PATCH /tax-types/:id/taxes/:taxId -> should fail if percentage tax gets currency', async () => {
+  it('PATCH /tax-types/:id/taxes/:taxId -> should fail if unknown field sent', async () => {
     const createRes = await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 21, isPercentage: true });
+      .send({ value: 21 });
 
     await request(app.getHttpServer())
       .patch(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
@@ -227,7 +216,7 @@ describe('Taxes (e2e)', () => {
   it('DELETE /tax-types/:id/taxes/:taxId -> should soft delete', async () => {
     const createRes = await request(app.getHttpServer())
       .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 3, isPercentage: true });
+      .send({ value: 3 });
 
     await request(app.getHttpServer())
       .delete(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)

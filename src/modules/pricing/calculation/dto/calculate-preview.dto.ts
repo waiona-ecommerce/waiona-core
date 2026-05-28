@@ -12,10 +12,8 @@ import { Type } from 'class-transformer';
 export class TaxPreviewDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(100)
   value: number;
-
-  @IsBoolean()
-  isPercentage: boolean;
 }
 
 export class CalculatePreviewDto {
@@ -48,7 +46,7 @@ export class CalculatePreviewDto {
   marginValue?: number;
 
   // ==========================
-  // Impuestos
+  // Impuestos (siempre porcentaje)
   // ==========================
 
   @IsOptional()
