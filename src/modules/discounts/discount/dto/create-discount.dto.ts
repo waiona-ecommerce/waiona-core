@@ -39,7 +39,12 @@ export class CreateDiscountDto {
   // VALUE (siempre porcentaje)
   // ==========================
 
-  @ApiProperty({ example: 10, minimum: 0.01, maximum: 100, description: 'Porcentaje de descuento. Mín 0.01, máx 100.' })
+  @ApiProperty({
+    example: 10,
+    minimum: 0.01,
+    maximum: 100,
+    description: 'Porcentaje de descuento. Mín 0.01, máx 100.',
+  })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)

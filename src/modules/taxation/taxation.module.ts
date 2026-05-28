@@ -15,26 +15,10 @@ import { ProductTaxEntity } from './product-taxes/entities/product-taxes.entity'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      TaxEntity,
-      TaxTypeEntity,
-      ProductTaxEntity,
-    ]),
+    TypeOrmModule.forFeature([TaxEntity, TaxTypeEntity, ProductTaxEntity]),
   ],
-  controllers: [
-    TaxesController,
-    TaxTypesController,
-    ProductTaxesController,
-  ],
-  providers: [
-    TaxesService,
-    TaxTypesService,
-    ProductTaxesService,
-  ],
-  exports: [
-    TaxesService,
-    TaxTypesService,
-    ProductTaxesService,
-  ],
+  controllers: [TaxesController, TaxTypesController, ProductTaxesController],
+  providers: [TaxesService, TaxTypesService, ProductTaxesService],
+  exports: [TaxesService, TaxTypesService, ProductTaxesService],
 })
 export class TaxationModule {}

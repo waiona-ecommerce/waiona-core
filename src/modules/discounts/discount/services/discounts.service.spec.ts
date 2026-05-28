@@ -63,7 +63,12 @@ describe('DiscountsService', () => {
       const now = new Date();
       const past = new Date(now.getTime() - 1000);
       await expect(
-        service.create({ name: 'X', value: 10, startsAt: now, endsAt: past } as any),
+        service.create({
+          name: 'X',
+          value: 10,
+          startsAt: now,
+          endsAt: past,
+        } as any),
       ).rejects.toThrow(BadRequestException);
     });
   });

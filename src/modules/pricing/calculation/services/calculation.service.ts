@@ -136,11 +136,7 @@ export class CalculationService {
         : null;
 
     const discount = activeDiscount
-      ? this.applyValue(
-          unitPrice,
-          activeDiscount.value,
-          true,
-        )
+      ? this.applyValue(unitPrice, activeDiscount.value, true)
       : 0;
     const priceAfterDiscount = unitPrice - discount;
 
@@ -214,11 +210,7 @@ export class CalculationService {
         : null;
 
     const discount = activeDiscount
-      ? this.applyValue(
-          unitPrice,
-          activeDiscount.value,
-          true,
-        )
+      ? this.applyValue(unitPrice, activeDiscount.value, true)
       : 0;
     const priceAfterDiscount = unitPrice - discount;
 
@@ -229,7 +221,10 @@ export class CalculationService {
     const priceAfterMargin = priceAfterDiscount + margin;
 
     // 4. Impuestos via prorrateo (globales + específicos de cada producto)
-    const taxes = await this.sumTaxesWithProration(dto.comboId, priceAfterMargin);
+    const taxes = await this.sumTaxesWithProration(
+      dto.comboId,
+      priceAfterMargin,
+    );
     const finalPrice = priceAfterMargin + taxes;
 
     // 4b. fullPrice — precio sin descuento (margen e impuestos sobre unitPrice)
@@ -237,7 +232,10 @@ export class CalculationService {
       ? this.applyValue(unitPrice, Number(pricing.margin.value), true)
       : 0;
     const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = await this.sumTaxesWithProration(dto.comboId, priceAfterMarginFull);
+    const taxesFull = await this.sumTaxesWithProration(
+      dto.comboId,
+      priceAfterMarginFull,
+    );
     const fullPrice = priceAfterMarginFull + taxesFull;
 
     return this.buildBreakdown(

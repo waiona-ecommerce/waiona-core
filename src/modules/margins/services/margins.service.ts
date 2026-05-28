@@ -102,14 +102,17 @@ export class MarginsService {
 
   private async findEntity(id: number): Promise<MarginEntity> {
     const margin = await this.marginRepository.findOne({ where: { id } });
-    if (!margin) throw new NotFoundException(`Margen con id ${id} no encontrado`);
+    if (!margin)
+      throw new NotFoundException(`Margen con id ${id} no encontrado`);
     return margin;
   }
 
   private async validateUniqueName(name: string): Promise<void> {
     const existing = await this.marginRepository.findOne({ where: { name } });
     if (existing) {
-      throw new ConflictException(`Ya existe un margen con el nombre "${name}"`);
+      throw new ConflictException(
+        `Ya existe un margen con el nombre "${name}"`,
+      );
     }
   }
 }

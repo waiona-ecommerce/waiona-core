@@ -105,8 +105,12 @@ describe('CalculationService', () => {
     comboPricingRepo = module.get(getRepositoryToken(ComboPricingEntity));
     productTaxRepo = module.get(getRepositoryToken(ProductTaxEntity));
     taxRepo = module.get(getRepositoryToken(TaxEntity));
-    discountProductRepo = module.get(getRepositoryToken(DiscountProductTargetEntity));
-    discountComboRepo = module.get(getRepositoryToken(DiscountComboTargetEntity));
+    discountProductRepo = module.get(
+      getRepositoryToken(DiscountProductTargetEntity),
+    );
+    discountComboRepo = module.get(
+      getRepositoryToken(DiscountComboTargetEntity),
+    );
     comboItemRepo = module.get(getRepositoryToken(ComboItemEntity));
   });
 
@@ -182,8 +186,10 @@ describe('CalculationService', () => {
         .mockResolvedValueOnce({ unitPrice: 400 }); // Pan
 
       productTaxRepo.find
-        .mockResolvedValueOnce([{ tax: mockSpecificTax({ id: 10, value: 3 }) }])  // IIBB Café 3%
-        .mockResolvedValueOnce([{ tax: mockSpecificTax({ id: 11, value: 5 }) }]); // IIBB Pan 5%
+        .mockResolvedValueOnce([{ tax: mockSpecificTax({ id: 10, value: 3 }) }]) // IIBB Café 3%
+        .mockResolvedValueOnce([
+          { tax: mockSpecificTax({ id: 11, value: 5 }) },
+        ]); // IIBB Pan 5%
 
       const result = await service.calculateCombo({ comboId: 1 });
 
@@ -242,7 +248,9 @@ describe('CalculationService', () => {
         .mockResolvedValueOnce({ unitPrice: 400 });
 
       productTaxRepo.find
-        .mockResolvedValueOnce([{ tax: mockSpecificTax({ id: 10, value: 10 }) }]) // 10% Café
+        .mockResolvedValueOnce([
+          { tax: mockSpecificTax({ id: 10, value: 10 }) },
+        ]) // 10% Café
         .mockResolvedValueOnce([]);
 
       const result = await service.calculateCombo({ comboId: 1 });

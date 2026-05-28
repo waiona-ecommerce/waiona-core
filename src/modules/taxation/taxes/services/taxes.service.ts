@@ -60,11 +60,15 @@ export class TaxesService {
     });
 
     if (!taxType) {
-      throw new BadRequestException(`Tipo de impuesto con id ${taxTypeId} no encontrado`);
+      throw new BadRequestException(
+        `Tipo de impuesto con id ${taxTypeId} no encontrado`,
+      );
     }
 
     if (!dto.isPercentage && !dto.currency) {
-      throw new BadRequestException('Los impuestos de monto fijo requieren una moneda');
+      throw new BadRequestException(
+        'Los impuestos de monto fijo requieren una moneda',
+      );
     }
 
     if (dto.isPercentage && dto.currency) {
@@ -100,7 +104,9 @@ export class TaxesService {
       changes.currency !== undefined ? changes.currency : entity.currency;
 
     if (!isPercentage && !currency) {
-      throw new BadRequestException('Los impuestos de monto fijo requieren una moneda');
+      throw new BadRequestException(
+        'Los impuestos de monto fijo requieren una moneda',
+      );
     }
 
     if (isPercentage && currency) {
@@ -133,10 +139,14 @@ export class TaxesService {
 
   private validateTaxValue(value: number, isPercentage: boolean): void {
     if (isPercentage && value > 100) {
-      throw new BadRequestException('El valor del impuesto no puede superar el 100%');
+      throw new BadRequestException(
+        'El valor del impuesto no puede superar el 100%',
+      );
     }
     if (!isPercentage && value > 1_000_000) {
-      throw new BadRequestException('El monto fijo del impuesto no puede superar 1.000.000');
+      throw new BadRequestException(
+        'El monto fijo del impuesto no puede superar 1.000.000',
+      );
     }
   }
 
@@ -146,7 +156,8 @@ export class TaxesService {
       relations: ['taxType'],
     });
 
-    if (!entity) throw new NotFoundException(`Impuesto con id ${id} no encontrado`);
+    if (!entity)
+      throw new NotFoundException(`Impuesto con id ${id} no encontrado`);
     return entity;
   }
 }
