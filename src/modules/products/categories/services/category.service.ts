@@ -16,6 +16,7 @@ import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { CategoryResponseDto } from '../dto/category-response.dto';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { CategoryTreeResponseDto } from '../dto/category-tree-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class CategoryService {
@@ -28,6 +29,8 @@ export class CategoryService {
 
     @InjectRepository(ComboEntity)
     private readonly comboRepository: Repository<ComboEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -75,7 +78,7 @@ export class CategoryService {
 
       if (!parent) {
         throw new BadRequestException(
-          `Parent category with id ${dto.parentId} not found`,
+          `Categoría padre con id ${dto.parentId} no encontrada`,
         );
       }
     }
@@ -88,7 +91,7 @@ export class CategoryService {
     });
 
     const saved = await this.categoryRepository.save(entity);
-
+    void this.shopCacheService.invalidate();
     return new CategoryResponseDto(saved);
   }
 
@@ -109,13 +112,13 @@ export class CategoryService {
 
       if (!parent) {
         throw new BadRequestException(
-          `Parent category with id ${changes.parentId} not found`,
+          `Categoría padre con id ${changes.parentId} no encontrada`,
         );
       }
 
       if (await this.wouldCreateCycle(id, changes.parentId)) {
         throw new BadRequestException(
-          'Setting this parent would create a circular category hierarchy',
+          'Asignar esta categoría padre crearía una jerarquía circular',
         );
       }
     }
@@ -123,7 +126,7 @@ export class CategoryService {
     const merged = this.categoryRepository.merge(entity, changes);
 
     const saved = await this.categoryRepository.save(merged);
-
+    void this.shopCacheService.invalidate();
     return new CategoryResponseDto(saved);
   }
 
@@ -139,7 +142,7 @@ export class CategoryService {
     });
     if (productCount > 0) {
       throw new ConflictException(
-        `Cannot delete category: it has ${productCount} active product(s) assigned`,
+        `No se puede eliminar: la categoría tiene ${productCount} producto(s) asignado(s)`,
       );
     }
 
@@ -148,11 +151,12 @@ export class CategoryService {
     });
     if (comboCount > 0) {
       throw new ConflictException(
-        `Cannot delete category: it has ${comboCount} active combo(s) assigned`,
+        `No se puede eliminar: la categoría tiene ${comboCount} combo(s) asignado(s)`,
       );
     }
 
     await this.categoryRepository.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -207,7 +211,7 @@ export class CategoryService {
     });
 
     if (!entity) {
-      throw new NotFoundException(`Category with id ${id} not found`);
+      throw new NotFoundException(`Categoría con id ${id} no encontrada`);
     }
 
     return entity;

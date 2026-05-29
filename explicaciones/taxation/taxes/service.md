@@ -42,7 +42,7 @@ export class TaxesService {
   // ─── CREATE ──────────────────────────────────────────────────────────────────
 
   async create(taxTypeId: number, dto: CreateTaxDto): Promise<TaxResponseDto> {
-    // Verifica que el taxType padre exista. Si no existe, falla con 400 antes
+    // Verifica que el taxType padre exista. Si no existe, lanza 404 antes
     // de intentar insertar el tax. Esto complementa la FK de la DB con un mensaje
     // claro y predecible.
     const taxType = await this.taxTypeRepository.findOne({
@@ -50,7 +50,7 @@ export class TaxesService {
     });
 
     if (!taxType) {
-      throw new BadRequestException(
+      throw new NotFoundException(
         `Tipo de impuesto con id ${taxTypeId} no encontrado`,
       );
     }

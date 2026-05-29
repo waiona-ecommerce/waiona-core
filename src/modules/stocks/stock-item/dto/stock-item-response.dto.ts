@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { StockItemEntity } from '../entities/stock-item.entity';
 
 export class StockItemResponseDto {
@@ -7,6 +7,9 @@ export class StockItemResponseDto {
 
   @ApiProperty({ example: 1 })
   productId: number;
+
+  @ApiProperty({ example: 'CAFÉ TOSTADO' })
+  productName: string;
 
   @ApiProperty({ example: 1 })
   locationId: number;
@@ -29,9 +32,6 @@ export class StockItemResponseDto {
   @ApiProperty({ example: 5 })
   stockCritical: number;
 
-  @ApiPropertyOptional({ example: 200 })
-  stockMax?: number;
-
   @ApiProperty()
   createdAt: Date;
 
@@ -41,6 +41,7 @@ export class StockItemResponseDto {
   constructor(entity: StockItemEntity) {
     this.id = entity.id;
     this.productId = entity.productId;
+    this.productName = entity.product?.name ?? '';
     this.locationId = entity.locationId;
     this.locationName = entity.location?.name ?? '';
 
@@ -50,7 +51,6 @@ export class StockItemResponseDto {
 
     this.stockMin = entity.stockMin;
     this.stockCritical = entity.stockCritical;
-    this.stockMax = entity.stockMax ?? undefined;
 
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;

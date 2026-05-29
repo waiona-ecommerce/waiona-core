@@ -11,9 +11,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
+import { getRepositoryToken } from '@nestjs/typeorm';
+
 import { StockLocationsController } from '../../src/modules/stocks/stock-locations/controllers/stock-locations.controller';
 import { StockLocationsService } from '../../src/modules/stocks/stock-locations/services/stock-locations.service';
 import { StockLocationEntity } from '../../src/modules/stocks/stock-locations/entities/stock-locations.entity';
+import { StockItemEntity } from '../../src/modules/stocks/stock-item/entities/stock-item.entity';
 import { StockLocationType } from '../../src/modules/stocks/stock-locations/enums/stock-location-type.enum';
 
 describe('StockLocations (e2e)', () => {
@@ -41,7 +44,13 @@ describe('StockLocations (e2e)', () => {
         TypeOrmModule.forFeature([StockLocationEntity]),
       ],
       controllers: [StockLocationsController],
-      providers: [StockLocationsService],
+      providers: [
+        StockLocationsService,
+        {
+          provide: getRepositoryToken(StockItemEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

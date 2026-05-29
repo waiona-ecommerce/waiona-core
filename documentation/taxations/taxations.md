@@ -206,7 +206,7 @@ Lista todos los impuestos de un tipo. **Response 200:** `TaxResponseDto[]`.
 **Response 201:** `TaxResponseDto`
 
 **Errores:**
-- `400` — `taxTypeId` no existe
+- `404` — `taxTypeId` no existe
 - `400` — `value < 0.01` o `value > 100`
 - `400` — campo desconocido (forbidNonWhitelisted)
 
@@ -290,8 +290,8 @@ Total impuestos = $210 + $20 + $16.67 = $246.67
 |---|---|
 | `code` único en `tax_types` | `create` y `update` cuando cambia el code |
 | `value` entre 0.01 y 100 | DTO — `@Min(0.01)` + `@Max(100)` |
-| `taxTypeId` debe existir al crear un tax | `create` de taxes |
-| Un impuesto global no puede asignarse a un producto | `create` de product-taxes |
+| `taxTypeId` debe existir al crear un tax (→ 404 si no existe) | `create` de taxes |
+| Un impuesto global no puede asignarse a un producto (→ 400) | `create` de product-taxes |
 | Soft delete en todas las entidades | `softDelete(id)` — `deletedAt IS NULL` filtrado automáticamente |
 
 ---

@@ -150,7 +150,6 @@ describe('StockItems (e2e)', () => {
         locationId,
         stockMin: 5,
         stockCritical: 2,
-        stockMax: 100,
       })
       .expect(201);
 
@@ -172,7 +171,7 @@ describe('StockItems (e2e)', () => {
   it('POST /stock-items -> 400 when stockCritical >= stockMin', async () => {
     await request(app.getHttpServer())
       .post('/v1/stock-items')
-      .send({ productId: 9999, locationId, stockMin: 5, stockCritical: 5 })
+      .send({ productId, locationId, stockMin: 5, stockCritical: 5 })
       .expect(400);
   });
 
@@ -265,12 +264,11 @@ describe('StockItems (e2e)', () => {
   it('PATCH /stock-items/:id/thresholds -> 200 updates thresholds', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/v1/stock-items/${stockItemId}/thresholds`)
-      .send({ stockMin: 10, stockCritical: 3, stockMax: 200 })
+      .send({ stockMin: 10, stockCritical: 3 })
       .expect(200);
 
     expect(res.body.stockMin).toBe(10);
     expect(res.body.stockCritical).toBe(3);
-    expect(res.body.stockMax).toBe(200);
   });
 
   it('PATCH /stock-items/:id/thresholds -> 400 when stockCritical >= stockMin', async () => {

@@ -5,6 +5,7 @@ import { ComboImageService } from '../../../products/combo-images/services/combo
 import { ComboImageEntity } from '../../../products/combo-images/entities/combo-image.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { StorageService } from '../../../storage/storage.service';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('ComboImageService', () => {
   let service: ComboImageService;
@@ -22,6 +23,7 @@ describe('ComboImageService', () => {
     upload: jest.fn(),
     delete: jest.fn(),
   };
+  const mockShopCacheService = { invalidate: jest.fn() };
 
   const mockImage = (overrides = {}): ComboImageEntity =>
     ({
@@ -46,6 +48,7 @@ describe('ComboImageService', () => {
         },
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
         { provide: StorageService, useValue: mockStorageService },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
     service = module.get<ComboImageService>(ComboImageService);
@@ -64,6 +67,7 @@ describe('ComboImageService', () => {
         position: 1,
       });
       expect(result.url).toBe('https://img.com/combo1.jpg');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if combo not found', async () => {
@@ -104,6 +108,7 @@ describe('ComboImageService', () => {
       expect((await service.update(1, { position: 2 } as any)).position).toBe(
         2,
       );
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException', async () => {
@@ -122,6 +127,7 @@ describe('ComboImageService', () => {
       await service.remove(1);
       expect(mockStorageService.delete).not.toHaveBeenCalled();
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should delete from Cloudinary before soft delete when publicId exists', async () => {
@@ -134,6 +140,7 @@ describe('ComboImageService', () => {
         'waiona/combos/abc123',
       );
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException', async () => {
@@ -171,6 +178,7 @@ describe('ComboImageService', () => {
         'waiona/combos',
       );
       expect(result.url).toBe('https://res.cloudinary.com/x/combo.jpg');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if combo not found', async () => {

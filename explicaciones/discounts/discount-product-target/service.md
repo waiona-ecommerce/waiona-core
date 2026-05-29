@@ -13,6 +13,10 @@ export class DiscountProductTargetService {
     // que no existe o fue borrado con soft delete.
     @InjectRepository(DiscountEntity)
     private readonly discountRepository: Repository<DiscountEntity>,
+
+    // Invalida la caché cuando se asigna o quita un producto de un descuento,
+    // porque eso cambia qué precio ve el cliente en el shop.
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ─── CREATE ──────────────────────────────────────────────────────────────────
@@ -41,10 +45,8 @@ export class DiscountProductTargetService {
     });
 
     const saved = await this.repo.save(entity);
-
+    void this.shopCacheService.invalidate();
     return new DiscountProductTargetResponseDto(saved);
-    // No hay invalidación de caché aquí: el target en sí no cambia precios.
-    // Los precios se recalculan cuando el motor los lee, no cuando se asigna el target.
   }
 
   // ─── GET ALL BY DISCOUNT ─────────────────────────────────────────────────────
@@ -78,11 +80,12 @@ export class DiscountProductTargetService {
 
     if (!entity) {
       throw new NotFoundException(
-        `Product target ${productId} not found for discount ${discountId}`,
+        `El producto ${productId} no está asignado al descuento ${discountId}`,
       );
     }
 
     await this.repo.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
     // No hay PATCH/update: las asignaciones de target son atómicas.
     // Se crean o se borran; no hay "actualizar qué producto tiene un descuento".
   }
@@ -95,7 +98,7 @@ export class DiscountProductTargetService {
     });
 
     if (!discount) {
-      throw new NotFoundException(`Discount with id ${discountId} not found`);
+      throw new NotFoundException(`Descuento con id ${discountId} no encontrado`);
     }
 
     return discount;
@@ -112,7 +115,7 @@ export class DiscountProductTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Product ${productId} is already a target of discount ${discountId}`,
+        `El producto ${productId} ya es un target del descuento ${discountId}`,
       );
     }
   }
@@ -129,7 +132,7 @@ export class DiscountProductTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Product ${productId} already has an active discount assigned`,
+        `El producto ${productId} ya tiene un descuento activo asignado`,
       );
     }
   }

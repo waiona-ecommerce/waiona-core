@@ -10,6 +10,7 @@ import { UpdateProductImageDto } from '../dto/update-product-image.dto';
 import { UploadProductImageDto } from '../dto/upload-product-image.dto';
 import { ProductImageResponseDto } from '../dto/product-image-response.dto';
 import { StorageService } from '../../../storage/storage.service';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductImageService {
@@ -21,6 +22,8 @@ export class ProductImageService {
     private readonly productRepository: Repository<ProductEntity>,
 
     private readonly storageService: StorageService,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -33,13 +36,15 @@ export class ProductImageService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with id ${dto.productId} not found`);
+      throw new NotFoundException(
+        `Producto con id ${dto.productId} no encontrado`,
+      );
     }
 
     const image = this.productImageRepository.create(dto);
 
     const saved = await this.productImageRepository.save(image);
-
+    void this.shopCacheService.invalidate();
     return new ProductImageResponseDto(saved);
   }
 
@@ -75,6 +80,7 @@ export class ProductImageService {
     const image = await this.findEntity(id);
     const merged = this.productImageRepository.merge(image, dto);
     const updated = await this.productImageRepository.save(merged);
+    void this.shopCacheService.invalidate();
     return new ProductImageResponseDto(updated);
   }
 
@@ -90,7 +96,9 @@ export class ProductImageService {
       where: { id: dto.productId },
     });
     if (!product) {
-      throw new NotFoundException(`Product with id ${dto.productId} not found`);
+      throw new NotFoundException(
+        `Producto con id ${dto.productId} no encontrado`,
+      );
     }
 
     const { url, publicId } = await this.storageService.upload(
@@ -105,6 +113,7 @@ export class ProductImageService {
       publicId,
     });
     const saved = await this.productImageRepository.save(image);
+    void this.shopCacheService.invalidate();
     return new ProductImageResponseDto(saved);
   }
 
@@ -118,6 +127,7 @@ export class ProductImageService {
       await this.storageService.delete(image.publicId);
     }
     await this.productImageRepository.softDelete(image.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -127,7 +137,9 @@ export class ProductImageService {
   private async findEntity(id: number): Promise<ProductImageEntity> {
     const image = await this.productImageRepository.findOne({ where: { id } });
     if (!image)
-      throw new NotFoundException(`ProductImage with id ${id} not found`);
+      throw new NotFoundException(
+        `Imagen de producto con id ${id} no encontrada`,
+      );
     return image;
   }
 }

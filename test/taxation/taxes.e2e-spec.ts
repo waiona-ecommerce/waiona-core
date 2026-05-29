@@ -110,7 +110,7 @@ describe('Taxes (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v1/tax-types/999/taxes')
       .send({ value: 21 })
-      .expect(400);
+      .expect(404);
   });
 
   it('POST /tax-types/:id/taxes -> should fail if value is negative', async () => {

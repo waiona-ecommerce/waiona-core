@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementResponseDto } from '../../stock-movement/dto/stock-movement-respose.dto';
 
@@ -8,6 +8,9 @@ export class StockItemWithMovementsResponseDto {
 
   @ApiProperty({ example: 1 })
   productId: number;
+
+  @ApiProperty({ example: 'CAFÉ TOSTADO' })
+  productName: string;
 
   @ApiProperty({ example: 1 })
   locationId: number;
@@ -30,9 +33,6 @@ export class StockItemWithMovementsResponseDto {
   @ApiProperty({ example: 5 })
   stockCritical: number;
 
-  @ApiPropertyOptional({ example: 200 })
-  stockMax?: number;
-
   @ApiProperty({ type: [StockMovementResponseDto] })
   movements: StockMovementResponseDto[];
 
@@ -45,6 +45,7 @@ export class StockItemWithMovementsResponseDto {
   constructor(entity: StockItemEntity) {
     this.id = entity.id;
     this.productId = entity.productId;
+    this.productName = entity.product?.name ?? '';
     this.locationId = entity.locationId;
     this.locationName = entity.location?.name ?? '';
 
@@ -54,7 +55,6 @@ export class StockItemWithMovementsResponseDto {
 
     this.stockMin = entity.stockMin;
     this.stockCritical = entity.stockCritical;
-    this.stockMax = entity.stockMax ?? undefined;
 
     this.movements =
       entity.movements?.map(

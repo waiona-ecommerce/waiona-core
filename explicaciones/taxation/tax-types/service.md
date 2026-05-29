@@ -6,9 +6,11 @@ export class TaxTypesService {
     // Este servicio solo necesita su propio repositorio — no depende de otras entidades.
     @InjectRepository(TaxTypeEntity)
     private taxTypeRepository: Repository<TaxTypeEntity>,
-    // Nótese que NO hay ShopCacheService aquí. Los tax types son categorías
-    // administrativas que no afectan directamente los precios del shop.
-    // Son los taxes en sí (ver TaxesService) los que invalidan la caché.
+
+    // Invalida la caché cuando se modifica un tipo de impuesto.
+    // Aunque los TaxTypes son entidades administrativas, su nombre y código
+    // pueden aparecer en la respuesta del shop vía los taxes asociados.
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ─── FIND ALL (paginado) ──────────────────────────────────────────────────────
@@ -53,7 +55,7 @@ export class TaxTypesService {
 
     const newEntity = this.taxTypeRepository.create(dto);
     const saved = await this.taxTypeRepository.save(newEntity);
-
+    void this.shopCacheService.invalidate();
     return TaxTypeResponseDto.fromEntity(saved);
     // A diferencia de TaxesService.create(), aquí NO se re-fetchea la entidad
     // después del save(). Se usa "saved" directamente porque TaxType no tiene
@@ -77,7 +79,7 @@ export class TaxTypesService {
 
     const merged = this.taxTypeRepository.merge(entity, changes);
     const saved = await this.taxTypeRepository.save(merged);
-
+    void this.shopCacheService.invalidate();
     return TaxTypeResponseDto.fromEntity(saved);
   }
 
@@ -87,8 +89,8 @@ export class TaxTypesService {
     const entity = await this.findEntity(id);
     // Soft delete: setea deletedAt en la fila. TypeORM excluye este registro
     // de todos los find* futuros automáticamente.
-    // No se invalida caché porque los tax types no la afectan directamente.
     await this.taxTypeRepository.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ─── PRIVATE ─────────────────────────────────────────────────────────────────
@@ -101,7 +103,7 @@ export class TaxTypesService {
     });
 
     if (!entity) {
-      throw new NotFoundException(`Tax type with id ${id} not found`);
+      throw new NotFoundException(`Tipo de impuesto con id ${id} no encontrado`);
     }
 
     return entity;
@@ -116,7 +118,7 @@ export class TaxTypesService {
 
     if (existing) {
       throw new BadRequestException(
-        `Tax type with code "${code}" already exists`,
+        `Ya existe un tipo de impuesto con el código "${code}"`,
       );
     }
   }

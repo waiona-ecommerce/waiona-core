@@ -1,3 +1,4 @@
+import { ShopCacheService } from '../../src/common/cache/shop-cache.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
@@ -66,6 +67,10 @@ describe('ProductImages (e2e)', () => {
             }),
             delete: jest.fn().mockResolvedValue(undefined),
           },
+        },
+        {
+          provide: ShopCacheService,
+          useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() },
         },
       ],
     })

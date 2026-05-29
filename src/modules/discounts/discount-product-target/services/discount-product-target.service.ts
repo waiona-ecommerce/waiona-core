@@ -10,6 +10,7 @@ import { DiscountProductTargetEntity } from '../entities/discount-product-target
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { CreateDiscountProductTargetDto } from '../dto/create-discount-product-target.dto';
 import { DiscountProductTargetResponseDto } from '../dto/discount-target-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class DiscountProductTargetService {
@@ -18,6 +19,7 @@ export class DiscountProductTargetService {
     private readonly repo: Repository<DiscountProductTargetEntity>,
     @InjectRepository(DiscountEntity)
     private readonly discountRepository: Repository<DiscountEntity>,
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -40,7 +42,7 @@ export class DiscountProductTargetService {
     });
 
     const saved = await this.repo.save(entity);
-
+    void this.shopCacheService.invalidate();
     return new DiscountProductTargetResponseDto(saved);
   }
 
@@ -73,11 +75,12 @@ export class DiscountProductTargetService {
 
     if (!entity) {
       throw new NotFoundException(
-        `Product target ${productId} not found for discount ${discountId}`,
+        `El producto ${productId} no está asignado al descuento ${discountId}`,
       );
     }
 
     await this.repo.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -90,7 +93,9 @@ export class DiscountProductTargetService {
     });
 
     if (!discount) {
-      throw new NotFoundException(`Discount with id ${discountId} not found`);
+      throw new NotFoundException(
+        `Descuento con id ${discountId} no encontrado`,
+      );
     }
 
     return discount;
@@ -106,7 +111,7 @@ export class DiscountProductTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Product ${productId} is already a target of discount ${discountId}`,
+        `El producto ${productId} ya es un target del descuento ${discountId}`,
       );
     }
   }
@@ -121,7 +126,7 @@ export class DiscountProductTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Product ${productId} already has an active discount assigned`,
+        `El producto ${productId} ya tiene un descuento activo asignado`,
       );
     }
   }

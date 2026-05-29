@@ -13,8 +13,9 @@ export class ProductTaxesService {
     @InjectRepository(TaxEntity)
     private readonly taxRepository: Repository<TaxEntity>,
 
-    // No hay ShopCacheService aquí. Los product-taxes específicos no invalidan
-    // la caché global del shop directamente en este servicio.
+    // Invalida la caché cuando cambia la asignación de impuestos a un producto,
+    // porque afecta directamente el precio final visible en el shop.
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ─── CREATE ──────────────────────────────────────────────────────────────────
@@ -32,7 +33,7 @@ export class ProductTaxesService {
     });
 
     if (!tax) {
-      throw new NotFoundException(`Tax with id ${dto.taxId} not found`);
+      throw new NotFoundException(`Impuesto con id ${dto.taxId} no encontrado`);
     }
 
     // Regla de negocio clave: los impuestos globales (isGlobal: true) se aplican
@@ -40,7 +41,7 @@ export class ProductTaxesService {
     // Asignarlos manualmente a un producto específico sería redundante y confuso.
     if (tax.isGlobal) {
       throw new BadRequestException(
-        'A global tax cannot be assigned to a specific product',
+        'Un impuesto global no puede asignarse a un producto específico',
       );
     }
 
@@ -52,7 +53,7 @@ export class ProductTaxesService {
     });
 
     const saved = await this.productTaxRepository.save(productTax);
-
+    void this.shopCacheService.invalidate();
     // A diferencia de TaxesService.create(), aquí se usa "saved" directamente
     // sin re-fetchear, porque ProductTaxEntity no tiene relaciones que necesiten
     // cargarse para construir el DTO de respuesta.
@@ -89,6 +90,7 @@ export class ProductTaxesService {
     const productTax = await this.findEntity(id);
     const merged = this.productTaxRepository.merge(productTax, dto);
     const updated = await this.productTaxRepository.save(merged);
+    void this.shopCacheService.invalidate();
     return new ProductTaxResponseDto(updated);
     // Nótese que update() NO re-valida las reglas de negocio (isGlobal, etc.).
     // UpdateProductTaxDto hereda de PartialType(CreateProductTaxDto), pero en
@@ -102,6 +104,7 @@ export class ProductTaxesService {
     // Soft delete: no borra la fila, solo setea deletedAt. El tax sigue
     // registrado históricamente pero deja de afectar el cálculo de precios.
     await this.productTaxRepository.softDelete(productTax.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ─── PRIVATE ─────────────────────────────────────────────────────────────────
@@ -109,7 +112,7 @@ export class ProductTaxesService {
   private async findEntity(id: number): Promise<ProductTaxEntity> {
     const entity = await this.productTaxRepository.findOne({ where: { id } });
     if (!entity)
-      throw new NotFoundException(`ProductTax with id ${id} not found`);
+      throw new NotFoundException(`Impuesto de producto con id ${id} no encontrado`);
     return entity;
   }
 }

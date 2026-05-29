@@ -183,13 +183,13 @@ async findAll(): Promise<NombreResponseDto[]> {
   return items.map(i => new NombreResponseDto(i));
 }
 
-// findOne — with NotFoundException
+// findOne — with NotFoundException (mensaje en español)
 private async findEntity(id: number): Promise<NombreEntity> {
   const entity = await this.repo.findOne({
     where: { id },
     relations: ['category'],
   });
-  if (!entity) throw new NotFoundException(`Nombre with id ${id} not found`);
+  if (!entity) throw new NotFoundException(`Nombre con id ${id} no encontrado`);
   return entity;
 }
 
@@ -208,10 +208,20 @@ async update(id: number, dto: UpdateNombreDto): Promise<NombreResponseDto> {
   return new NombreResponseDto(merged);
 }
 
-// soft delete
+// soft delete — verificar dependencias activas antes de borrar
 async delete(id: number): Promise<void> {
-  await this.findEntity(id);
-  await this.repo.softDelete(id);
+  const entity = await this.findEntity(id);
+
+  // Si otros registros dependen de este, lanzar ConflictException con un count claro.
+  // Un soft delete esquiva la FK RESTRICT de la DB — hay que validarlo manualmente.
+  const depCount = await this.relatedRepo.count({ where: { entityId: id } });
+  if (depCount > 0) {
+    throw new ConflictException(
+      `No se puede eliminar: tiene ${depCount} registro(s) dependiente(s)`,
+    );
+  }
+
+  await this.repo.softDelete(entity.id);
 }
 ```
 
@@ -263,6 +273,26 @@ findOne({ where: { id, isDeleted: false }, relations: ['category', 'items'] })
 
 ---
 
+## FK Validation Before INSERT
+
+When a service receives a FK id (e.g. `productId`, `locationId`) and the referenced entity is NOT injected as a repository, use `dataSource.getRepository()` to validate existence before the INSERT. This turns a silent DB 500 into a clean 404:
+
+```typescript
+// En create() — antes de crear la entidad principal
+const productRepo = this.dataSource.getRepository(ProductEntity);
+const product = await productRepo.findOne({ where: { id: dto.productId } });
+if (!product) {
+  throw new NotFoundException(`Producto con id ${dto.productId} no encontrado`);
+}
+```
+
+Apply this when:
+- The service doesn't `@InjectRepository(ForeignEntity)` but needs to validate a FK
+- A 500 DB error would leak internal details to the client
+- The FK is from a DTO param, not a URL segment (URL segments are validated by other controllers)
+
+---
+
 ## Common Mistakes
 
 - **Using `findOneBy`**: Always use `findOne({ where: { id } })`.
@@ -272,6 +302,8 @@ findOne({ where: { id, isDeleted: false }, relations: ['category', 'items'] })
 - **Missing FK column**: Always declare `@Column({ name: 'x_id' })` alongside `@ManyToOne`.
 - **Multi-table writes without transaction**: Use `dataSource.transaction()`.
 - **Missing `@Transform` on string fields**: Every text field in a CreateDto needs normalization — identifiers uppercase, free-text trim.
+- **Soft delete without dependency check**: `softDelete()` bypasses FK RESTRICT constraints. Always count active dependents before deleting if other entities reference this one.
+- **English error messages**: All `NotFoundException`, `ConflictException`, `BadRequestException` messages must be in Spanish per project convention.
 
 ---
 
@@ -281,5 +313,7 @@ findOne({ where: { id, isDeleted: false }, relations: ['category', 'items'] })
 |-----------|-----------------|
 | Nullable relation in update | Check `dto.field !== undefined` before reassigning — `null` is valid to clear a relation |
 | Array relation partially not found | Count resolved vs requested IDs, throw `NotFoundException` if mismatch |
+| Soft delete with active dependents | Count dependents first; throw `ConflictException` if > 0 — soft delete bypasses FK RESTRICT |
+| FK from DTO body doesn't exist | Validate with `dataSource.getRepository()` before INSERT — returns 404 instead of 500 |
 | Cascade save (user + profile) | Use `cascade: true` on the owning side OR explicit `manager.save()` in transaction |
 | `quantityAvailable` computed | Use `get` accessor on entity — not a DB column |

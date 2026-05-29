@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { StockLocationEntity } from '../entities/stock-locations.entity';
+import { StockItemEntity } from '../../stock-item/entities/stock-item.entity';
 import { CreateStockLocationDto } from '../dto/create-stock-location.dto';
 import { UpdateStockLocationDto } from '../dto/update-stock-location.dto';
 import { StockLocationResponseDto } from '../dto/stock-location-response.dto';
@@ -13,6 +18,9 @@ export class StockLocationsService {
   constructor(
     @InjectRepository(StockLocationEntity)
     private readonly stockLocationRepository: Repository<StockLocationEntity>,
+
+    @InjectRepository(StockItemEntity)
+    private readonly stockItemRepository: Repository<StockItemEntity>,
   ) {}
 
   // ==========================
@@ -88,6 +96,17 @@ export class StockLocationsService {
 
   async remove(id: number): Promise<void> {
     const location = await this.findEntity(id);
+
+    const stockItemCount = await this.stockItemRepository.count({
+      where: { locationId: id },
+    });
+
+    if (stockItemCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: la ubicación tiene ${stockItemCount} stock item(s) asignado(s)`,
+      );
+    }
+
     await this.stockLocationRepository.softDelete(location.id);
   }
 
@@ -101,7 +120,9 @@ export class StockLocationsService {
     });
 
     if (!location) {
-      throw new NotFoundException(`StockLocation with id ${id} not found`);
+      throw new NotFoundException(
+        `Ubicación de stock con id ${id} no encontrada`,
+      );
     }
 
     return location;

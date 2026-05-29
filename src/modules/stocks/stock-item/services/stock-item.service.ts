@@ -94,7 +94,9 @@ export class StockItemsService {
     });
 
     if (!items.length) {
-      throw new NotFoundException(`No stock found for product ${productId}`);
+      throw new NotFoundException(
+        `No se encontró stock para el producto ${productId}`,
+      );
     }
 
     // devuelve la ubicación con mayor stock disponible
@@ -156,20 +158,36 @@ export class StockItemsService {
   // ==========================
 
   async create(dto: CreateStockItemDto): Promise<StockItemResponseDto> {
+    const productRepo = this.dataSource.getRepository(ProductEntity);
+    const locationRepo = this.dataSource.getRepository(StockLocationEntity);
+
+    const [product, location] = await Promise.all([
+      productRepo.findOne({ where: { id: dto.productId } }),
+      locationRepo.findOne({ where: { id: dto.locationId } }),
+    ]);
+
+    if (!product) {
+      throw new NotFoundException(
+        `Producto con id ${dto.productId} no encontrado`,
+      );
+    }
+    if (!location) {
+      throw new NotFoundException(
+        `Ubicación con id ${dto.locationId} no encontrada`,
+      );
+    }
+
+    this.validateThresholds(dto.stockMin, dto.stockCritical);
+
     const existing = await this.stockItemRepository.findOne({
-      where: {
-        productId: dto.productId,
-        locationId: dto.locationId,
-      },
+      where: { productId: dto.productId, locationId: dto.locationId },
     });
 
     if (existing) {
       throw new ConflictException(
-        'StockItem already exists for this product and location',
+        'Ya existe un stock para este producto en esta ubicación',
       );
     }
-
-    this.validateThresholds(dto.stockMin, dto.stockCritical, dto.stockMax);
 
     const stockItem = this.stockItemRepository.create({
       productId: dto.productId,
@@ -178,17 +196,16 @@ export class StockItemsService {
       quantityReserved: 0,
       stockMin: dto.stockMin,
       stockCritical: dto.stockCritical,
-      stockMax: dto.stockMax ?? null,
     });
 
     const saved = await this.stockItemRepository.save(stockItem);
 
-    const withLocation = await this.stockItemRepository.findOne({
+    const withRelations = await this.stockItemRepository.findOne({
       where: { id: saved.id },
-      relations: ['location'],
+      relations: ['location', 'product'],
     });
 
-    return new StockItemResponseDto(withLocation!);
+    return new StockItemResponseDto(withRelations!);
   }
 
   // ==========================
@@ -201,12 +218,10 @@ export class StockItemsService {
     quantity: number,
   ): Promise<StockItemWithMovementsResponseDto> {
     if (quantity <= 0) {
-      throw new BadRequestException('Quantity must be greater than 0');
+      throw new BadRequestException('La cantidad debe ser mayor a 0');
     }
 
-    let stockItemId: number;
-
-    await this.dataSource.transaction(async (manager) => {
+    const stockItemId = await this.dataSource.transaction(async (manager) => {
       const stockItem = await manager.findOne(StockItemEntity, {
         where: { productId, locationId },
         lock: { mode: 'pessimistic_write' },
@@ -214,7 +229,7 @@ export class StockItemsService {
 
       if (!stockItem) {
         throw new NotFoundException(
-          'StockItem does not exist for this product and location',
+          'No existe stock para este producto en esta ubicación',
         );
       }
 
@@ -230,11 +245,11 @@ export class StockItemsService {
       });
 
       await manager.save(StockMovementEntity, movement);
-      stockItemId = stockItem.id;
+      return stockItem.id;
     });
 
     return new StockItemWithMovementsResponseDto(
-      await this.findEntity(stockItemId!),
+      await this.findEntity(stockItemId),
     );
   }
 
@@ -247,7 +262,7 @@ export class StockItemsService {
     quantity: number,
   ): Promise<StockItemWithMovementsResponseDto> {
     if (quantity <= 0) {
-      throw new BadRequestException('Quantity must be greater than 0');
+      throw new BadRequestException('La cantidad debe ser mayor a 0');
     }
 
     await this.dataSource.transaction(async (manager) => {
@@ -258,13 +273,13 @@ export class StockItemsService {
 
       if (!stockItem) {
         throw new NotFoundException(
-          `StockItem with id ${stockItemId} not found`,
+          `Stock con id ${stockItemId} no encontrado`,
         );
       }
 
       if (stockItem.quantityAvailable < quantity) {
         throw new BadRequestException(
-          `Insufficient available stock — only ${stockItem.quantityAvailable} available (${stockItem.quantityCurrent} current, ${stockItem.quantityReserved} reserved)`,
+          `Stock disponible insuficiente — solo ${stockItem.quantityAvailable} disponibles (${stockItem.quantityCurrent} en depósito, ${stockItem.quantityReserved} reservados)`,
         );
       }
 
@@ -294,7 +309,7 @@ export class StockItemsService {
     dto: CreateStockWriteOffDto,
   ): Promise<StockItemWithMovementsResponseDto> {
     if (dto.quantity <= 0) {
-      throw new BadRequestException('Quantity must be greater than 0');
+      throw new BadRequestException('La cantidad debe ser mayor a 0');
     }
 
     await this.dataSource.transaction(async (manager) => {
@@ -305,13 +320,13 @@ export class StockItemsService {
 
       if (!stockItem) {
         throw new NotFoundException(
-          `StockItem with id ${dto.stockItemId} not found`,
+          `Stock con id ${dto.stockItemId} no encontrado`,
         );
       }
 
       if (stockItem.quantityAvailable < dto.quantity) {
         throw new BadRequestException(
-          `Insufficient available stock — only ${stockItem.quantityAvailable} available (${stockItem.quantityCurrent} current, ${stockItem.quantityReserved} reserved)`,
+          `Stock disponible insuficiente — solo ${stockItem.quantityAvailable} disponibles (${stockItem.quantityCurrent} en depósito, ${stockItem.quantityReserved} reservados)`,
         );
       }
 
@@ -358,19 +373,16 @@ export class StockItemsService {
     });
 
     if (!stockItem) {
-      throw new NotFoundException(`StockItem with id ${id} not found`);
+      throw new NotFoundException(`Stock con id ${id} no encontrado`);
     }
 
     const stockMin = dto.stockMin ?? stockItem.stockMin;
     const stockCritical = dto.stockCritical ?? stockItem.stockCritical;
-    const stockMax =
-      dto.stockMax !== undefined ? dto.stockMax : stockItem.stockMax;
 
-    this.validateThresholds(stockMin, stockCritical, stockMax);
+    this.validateThresholds(stockMin, stockCritical);
 
     stockItem.stockMin = stockMin;
     stockItem.stockCritical = stockCritical;
-    stockItem.stockMax = stockMax ?? null;
 
     const saved = await this.stockItemRepository.save(stockItem);
 
@@ -397,12 +409,12 @@ export class StockItemsService {
 
     if (!stockItem)
       throw new NotFoundException(
-        `StockItem not found for product ${productId}`,
+        `Stock no encontrado para el producto ${productId}`,
       );
 
     if (stockItem.quantityCurrent - stockItem.quantityReserved < quantity) {
       throw new BadRequestException(
-        `Insufficient available stock for product ${productId}`,
+        `Stock disponible insuficiente para el producto ${productId}`,
       );
     }
 
@@ -437,18 +449,18 @@ export class StockItemsService {
 
       if (!stockItem)
         throw new NotFoundException(
-          `StockItem not found for product ${productId}`,
+          `Stock no encontrado para el producto ${productId}`,
         );
 
       if (stockItem.quantityReserved < quantity) {
         throw new BadRequestException(
-          `Cannot dispatch ${quantity} units — only ${stockItem.quantityReserved} reserved for product ${productId}`,
+          `No se pueden despachar ${quantity} unidades — solo ${stockItem.quantityReserved} reservadas para el producto ${productId}`,
         );
       }
 
       if (stockItem.quantityCurrent < quantity) {
         throw new BadRequestException(
-          `Cannot dispatch ${quantity} units — only ${stockItem.quantityCurrent} in stock for product ${productId}`,
+          `No se pueden despachar ${quantity} unidades — solo ${stockItem.quantityCurrent} en depósito para el producto ${productId}`,
         );
       }
 
@@ -507,12 +519,12 @@ export class StockItemsService {
 
       if (!stockItem)
         throw new NotFoundException(
-          `StockItem not found for product ${productId}`,
+          `Stock no encontrado para el producto ${productId}`,
         );
 
       if (stockItem.quantityReserved < quantity) {
         throw new BadRequestException(
-          `Cannot release ${quantity} units — only ${stockItem.quantityReserved} reserved for product ${productId}`,
+          `No se pueden liberar ${quantity} unidades — solo ${stockItem.quantityReserved} reservadas para el producto ${productId}`,
         );
       }
 
@@ -577,32 +589,21 @@ export class StockItemsService {
     });
 
     if (!stockItem) {
-      throw new NotFoundException(`StockItem with id ${id} not found`);
+      throw new NotFoundException(`Stock con id ${id} no encontrado`);
     }
 
     return stockItem;
   }
 
-  private validateThresholds(
-    stockMin: number,
-    stockCritical: number,
-    stockMax?: number | null,
-  ): void {
-    if (stockMin < 0 || stockCritical < 0) {
-      throw new BadRequestException(
-        'stockMin and stockCritical must be non-negative',
-      );
-    }
-    if (stockMax != null && stockMax < 0) {
-      throw new BadRequestException('stockMax must be non-negative');
+  private validateThresholds(stockMin: number, stockCritical: number): void {
+    if (stockCritical < 0) {
+      throw new BadRequestException('stockCritical no puede ser negativo');
     }
 
     if (stockCritical >= stockMin) {
-      throw new BadRequestException('stockCritical must be less than stockMin');
-    }
-
-    if (stockMax != null && stockMax <= stockMin) {
-      throw new BadRequestException('stockMax must be greater than stockMin');
+      throw new BadRequestException(
+        'stockCritical debe ser menor que stockMin',
+      );
     }
   }
 }

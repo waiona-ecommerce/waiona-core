@@ -90,7 +90,7 @@ export class ComboImageController {
         } else {
           cb(
             new BadRequestException(
-              'Only image files are allowed (jpeg, png, webp, gif)',
+              'Solo se permiten imágenes (jpeg, png, webp, gif)',
             ),
             false,
           );
@@ -102,7 +102,7 @@ export class ComboImageController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadComboImageDto,
   ): Promise<ComboImageResponseDto> {
-    if (!file) throw new BadRequestException('file is required');
+    if (!file) throw new BadRequestException('El archivo es requerido');
     return this.comboImageService.uploadImage(file, dto);
   }
 

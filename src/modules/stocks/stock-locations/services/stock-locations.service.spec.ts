@@ -1,14 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 
 import { StockLocationsService } from './stock-locations.service';
 import { StockLocationEntity } from '../entities/stock-locations.entity';
+import { StockItemEntity } from '../../stock-item/entities/stock-item.entity';
 import { StockLocationType } from '../enums/stock-location-type.enum';
 
 describe('StockLocationsService', () => {
   let service: StockLocationsService;
   let repo: any;
+  let stockItemRepo: any;
 
   const mockRepo = () => ({
     findAndCount: jest.fn(),
@@ -17,6 +19,8 @@ describe('StockLocationsService', () => {
     save: jest.fn(),
     softDelete: jest.fn(),
   });
+
+  const mockStockItemRepo = () => ({ count: jest.fn() });
 
   const mockLocation = (overrides = {}): StockLocationEntity => ({
     id: 1,
@@ -37,10 +41,15 @@ describe('StockLocationsService', () => {
           provide: getRepositoryToken(StockLocationEntity),
           useFactory: mockRepo,
         },
+        {
+          provide: getRepositoryToken(StockItemEntity),
+          useFactory: mockStockItemRepo,
+        },
       ],
     }).compile();
     service = module.get<StockLocationsService>(StockLocationsService);
     repo = module.get(getRepositoryToken(StockLocationEntity));
+    stockItemRepo = module.get(getRepositoryToken(StockItemEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -124,11 +133,18 @@ describe('StockLocationsService', () => {
   // ==========================
 
   describe('remove', () => {
-    it('soft deletes a location', async () => {
+    it('soft deletes a location with no stock items', async () => {
       repo.findOne.mockResolvedValue(mockLocation());
+      stockItemRepo.count.mockResolvedValue(0);
       repo.softDelete.mockResolvedValue(undefined);
       await service.remove(1);
       expect(repo.softDelete).toHaveBeenCalledWith(1);
+    });
+
+    it('throws ConflictException when location has active stock items', async () => {
+      repo.findOne.mockResolvedValue(mockLocation());
+      stockItemRepo.count.mockResolvedValue(3);
+      await expect(service.remove(1)).rejects.toThrow(ConflictException);
     });
 
     it('throws NotFoundException when not found', async () => {
