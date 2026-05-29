@@ -35,6 +35,7 @@ describe('StockItemsController', () => {
   const mockItemResponse = (overrides = {}) => ({
     id: 1,
     productId: 1,
+    productName: 'CAFÉ TOSTADO',
     locationId: 1,
     locationName: 'Depósito',
     quantityCurrent: 20,
@@ -42,7 +43,6 @@ describe('StockItemsController', () => {
     quantityAvailable: 15,
     stockMin: 5,
     stockCritical: 2,
-    stockMax: 100,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -168,7 +168,7 @@ describe('StockItemsController', () => {
 
   describe('updateThresholds', () => {
     it('delegates to service.updateThresholds', async () => {
-      const dto = { stockMin: 10, stockCritical: 3, stockMax: 200 };
+      const dto = { stockMin: 10, stockCritical: 3 };
       const item = mockItemResponse(dto);
       service.updateThresholds.mockResolvedValue(item);
       const result = await controller.updateThresholds(1, dto);

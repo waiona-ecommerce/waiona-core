@@ -44,7 +44,7 @@ export class StockMovementService {
     });
 
     if (!movement) {
-      throw new NotFoundException(`StockMovement with id ${id} not found`);
+      throw new NotFoundException(`Movimiento de stock con id ${id} no encontrado`);
     }
 
     return new StockMovementResponseDto(movement);

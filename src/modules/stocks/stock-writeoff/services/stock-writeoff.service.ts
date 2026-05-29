@@ -88,7 +88,7 @@ export class StockWriteOffService {
     });
 
     if (!writeOff) {
-      throw new NotFoundException(`StockWriteOff with id ${id} not found`);
+      throw new NotFoundException(`Baja de stock con id ${id} no encontrada`);
     }
 
     return writeOff;

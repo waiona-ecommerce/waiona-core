@@ -11,6 +11,7 @@ import { CategoryService } from '../../../products/categories/services/category.
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('CategoryService', () => {
   let service: CategoryService;
@@ -29,6 +30,7 @@ describe('CategoryService', () => {
   });
 
   const mockCountRepo = () => ({ count: jest.fn() });
+  const mockShopCacheService = { invalidate: jest.fn() };
 
   const mockCategory = (overrides = {}): CategoryEntity => ({
     id: 1,
@@ -56,6 +58,7 @@ describe('CategoryService', () => {
           useFactory: mockCountRepo,
         },
         { provide: getRepositoryToken(ComboEntity), useFactory: mockCountRepo },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 
@@ -129,6 +132,7 @@ describe('CategoryService', () => {
       });
 
       expect(result.name).toBe('Bebidas');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if parentId not found', async () => {
@@ -156,6 +160,7 @@ describe('CategoryService', () => {
       const result = await service.update(1, { name: 'Gaseosas' });
 
       expect(result.name).toBe('Gaseosas');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if category is its own parent', async () => {
@@ -189,6 +194,7 @@ describe('CategoryService', () => {
       await service.delete(1);
 
       expect(categoryRepository.softDelete).toHaveBeenCalledWith(1);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw ConflictException if category has active products', async () => {

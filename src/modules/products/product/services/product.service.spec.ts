@@ -1,16 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 
 import { ProductService } from './product.service';
 import { ProductEntity } from '../entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('ProductService', () => {
   let service: ProductService;
@@ -27,6 +24,7 @@ describe('ProductService', () => {
   });
 
   const mockCategoryRepository = () => ({ findOne: jest.fn() });
+  const mockShopCacheService = { invalidate: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -40,6 +38,7 @@ describe('ProductService', () => {
           provide: getRepositoryToken(CategoryEntity),
           useFactory: mockCategoryRepository,
         },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 
@@ -168,6 +167,7 @@ describe('ProductService', () => {
       });
       expect(result.sku).toBe('SPRITE-500');
       expect(result.categoryName).toBe('Bebidas');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw ConflictException if SKU already exists', async () => {
@@ -202,9 +202,10 @@ describe('ProductService', () => {
         name: 'Coca Cola 1L',
       });
       expect(result.name).toBe('Coca Cola 1L');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if new SKU already exists', async () => {
+    it('should throw ConflictException if new SKU already exists', async () => {
       const original = mockProduct({ sku: 'COCA-500' });
       const existingSku = mockProduct({ id: 2, sku: 'SPRITE-500' });
 
@@ -214,7 +215,7 @@ describe('ProductService', () => {
 
       await expect(
         service.update(1, { sku: 'sprite-500' } as any),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should throw NotFoundException if product not found', async () => {
@@ -240,6 +241,7 @@ describe('ProductService', () => {
       await service.delete(1);
 
       expect(productRepository.softDelete).toHaveBeenCalledWith(product.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if product not found', async () => {

@@ -34,9 +34,10 @@ describe('StockItemsService', () => {
       quantityReserved: 5,
       stockMin: 5,
       stockCritical: 2,
-      stockMax: 100,
       deletedAt: null,
       movements: [],
+      location: { id: 1, name: 'Depósito Central' },
+      product: { id: 1, name: 'CAFÉ TOSTADO' },
       createdAt: new Date(),
       updatedAt: new Date(),
       get quantityAvailable() {
@@ -70,9 +71,11 @@ describe('StockItemsService', () => {
 
     mockDataSource = {
       transaction: jest.fn().mockImplementation((fn: any) => fn(mockManager)),
-      getRepository: jest
-        .fn()
-        .mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
+      getRepository: jest.fn().mockReturnValue({
+        findOne: jest
+          .fn()
+          .mockResolvedValue({ id: 1, name: 'Mock Entity' }),
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -208,18 +211,35 @@ describe('StockItemsService', () => {
       locationId: 1,
       stockMin: 5,
       stockCritical: 2,
-      stockMax: 100,
     };
 
     it('creates a new stock item', async () => {
       const item = mockStockItem();
       stockRepo.findOne
         .mockResolvedValueOnce(null) // conflict check → no existing item
-        .mockResolvedValueOnce(item); // reload with location relation
+        .mockResolvedValueOnce(item); // reload with relations
       stockRepo.create.mockReturnValue(item);
       stockRepo.save.mockResolvedValue(item);
       const result = await service.create(dto);
       expect(result.id).toBe(1);
+    });
+
+    it('throws NotFoundException when product not found', async () => {
+      mockDataSource.getRepository.mockReturnValueOnce({
+        findOne: jest.fn().mockResolvedValue(null), // product not found
+      }).mockReturnValueOnce({
+        findOne: jest.fn().mockResolvedValue({ id: 1 }), // location found
+      });
+      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws NotFoundException when location not found', async () => {
+      mockDataSource.getRepository.mockReturnValueOnce({
+        findOne: jest.fn().mockResolvedValue({ id: 1 }), // product found
+      }).mockReturnValueOnce({
+        findOne: jest.fn().mockResolvedValue(null), // location not found
+      });
+      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
     });
 
     it('throws ConflictException when already exists', async () => {
@@ -349,12 +369,11 @@ describe('StockItemsService', () => {
       const item = mockStockItem();
       stockRepo.findOne.mockResolvedValue(item);
       stockRepo.save.mockResolvedValue(
-        mockStockItem({ stockMin: 10, stockCritical: 3, stockMax: 200 }),
+        mockStockItem({ stockMin: 10, stockCritical: 3 }),
       );
       const result = await service.updateThresholds(1, {
         stockMin: 10,
         stockCritical: 3,
-        stockMax: 200,
       });
       expect(stockRepo.save).toHaveBeenCalled();
       expect(result.id).toBe(1);

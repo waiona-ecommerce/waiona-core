@@ -12,12 +12,15 @@ import { CreateTaxTypeDto } from '../dto/create-tax-type.dto';
 import { UpdateTaxTypeDto } from '../dto/update-tax-type.dto';
 import { TaxTypeResponseDto } from '../dto/tax-type-response.dto';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class TaxTypesService {
   constructor(
     @InjectRepository(TaxTypeEntity)
     private taxTypeRepository: Repository<TaxTypeEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   async findAll(
@@ -47,7 +50,7 @@ export class TaxTypesService {
 
     const newEntity = this.taxTypeRepository.create(dto);
     const saved = await this.taxTypeRepository.save(newEntity);
-
+    void this.shopCacheService.invalidate();
     return TaxTypeResponseDto.fromEntity(saved);
   }
 
@@ -63,7 +66,7 @@ export class TaxTypesService {
 
     const merged = this.taxTypeRepository.merge(entity, changes);
     const saved = await this.taxTypeRepository.save(merged);
-
+    void this.shopCacheService.invalidate();
     return TaxTypeResponseDto.fromEntity(saved);
   }
 
@@ -71,6 +74,7 @@ export class TaxTypesService {
     const entity = await this.findEntity(id);
 
     await this.taxTypeRepository.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   private async findEntity(id: number): Promise<TaxTypeEntity> {
@@ -79,7 +83,7 @@ export class TaxTypesService {
     });
 
     if (!entity) {
-      throw new NotFoundException(`Tax type with id ${id} not found`);
+      throw new NotFoundException(`Tipo de impuesto con id ${id} no encontrado`);
     }
 
     return entity;
@@ -92,7 +96,7 @@ export class TaxTypesService {
 
     if (existing) {
       throw new BadRequestException(
-        `Tax type with code "${code}" already exists`,
+        `Ya existe un tipo de impuesto con el código "${code}"`,
       );
     }
   }

@@ -53,6 +53,7 @@ Le permite al negocio tener control total del inventario sin errores manuales. S
 |---|---|---|
 | Depósito | Almacén central, sin atención al público | "Depósito Central Norte" |
 | Sucursal | Local de venta o punto de entrega | "Sucursal Palermo" |
+| Virtual | Ubicación lógica sin espacio físico propio | "Stock en tránsito" |
 
 ---
 
@@ -77,12 +78,12 @@ Le permite al negocio tener control total del inventario sin errores manuales. S
 |---|---|
 | Crear una ubicación | Registrar un nuevo depósito o sucursal con nombre y dirección |
 | Modificar una ubicación | Actualizar el nombre, tipo o dirección de una ubicación existente |
-| Eliminar una ubicación | Dar de baja una ubicación (queda en el historial, no se borra definitivamente) |
+| Eliminar una ubicación | Dar de baja una ubicación (solo si no tiene productos asignados) |
 | Registrar un producto en una ubicación | Crear el ítem de stock con los niveles de alerta correspondientes |
 | Cargar mercadería | Agregar unidades al stock de un producto en una ubicación |
 | Registrar una baja simple | Descontar unidades por un ajuste de inventario |
 | Registrar una baja por daño | Descontar unidades dañadas, vencidas o perdidas con motivo y adjuntos |
-| Actualizar niveles de alerta | Cambiar los umbrales mínimo, crítico y máximo para las notificaciones |
+| Actualizar niveles de alerta | Cambiar los umbrales mínimo y crítico para las notificaciones |
 | Ver el historial de movimientos | Consultar todas las entradas y salidas de un producto |
 | Ver el historial de bajas | Consultar todas las bajas registradas con sus motivos |
 
@@ -92,13 +93,12 @@ Todas las acciones requieren acceso de administrador. Los clientes no pueden ver
 
 ## Niveles de alerta de stock
 
-Cada ítem de stock tiene tres umbrales configurables:
+Cada ítem de stock tiene dos umbrales configurables:
 
 | Nivel | Qué significa |
 |---|---|
-| **Stock mínimo** | Por debajo de este número se considera que el stock es bajo. El crítico siempre debe ser menor que este. |
-| **Stock crítico** | Nivel de emergencia — hay muy pocas unidades disponibles. Siempre menor que el mínimo. |
-| **Stock máximo** | Referencia del tope de capacidad del depósito. Opcional. Siempre mayor que el mínimo. |
+| **Stock mínimo** | Por debajo de este número se considera que el stock es bajo. El crítico siempre debe ser menor que este. Valor mínimo configurado: 1. |
+| **Stock crítico** | Nivel de emergencia — hay muy pocas unidades disponibles. Siempre menor que el mínimo. Cuando se llega a este nivel, el sistema envía una alerta por correo al administrador. |
 
 ---
 
@@ -122,9 +122,10 @@ Cada ítem de stock tiene tres umbrales configurables:
 - **La reserva no es el descuento.** Cuando se confirma un pedido, el stock se reserva pero no se descuenta hasta que el administrador lo despacha.
 - **Si se cancela un pedido, las unidades vuelven a estar disponibles** automáticamente — no es necesario hacer ningún ajuste manual.
 - **Un producto puede estar en varias ubicaciones.** El sistema gestiona cada combinación de producto + ubicación por separado.
+- **No se puede eliminar una ubicación si tiene productos asignados.** Primero hay que reasignar o dar de baja el stock de esa ubicación antes de poder eliminarla.
 - **Cada movimiento queda registrado para siempre** — no se puede borrar el historial. Esto permite auditar cualquier cambio.
 - **Una baja por daño siempre necesita un motivo.** El sistema no acepta bajas sin clasificación.
-- **Los niveles de alerta no bloquean automáticamente la venta**, son referencia para que el administrador tome acción.
+- **Los niveles de alerta no bloquean automáticamente la venta**, son referencia para que el administrador tome acción. Cuando el stock baja del nivel crítico, el sistema envía una alerta por correo automáticamente.
 
 ---
 
@@ -142,10 +143,14 @@ Cada ítem de stock tiene tres umbrales configurables:
 
 ---
 
+> El administrador quiere cerrar una sucursal. Antes de eliminarla del sistema, el sistema le avisa que todavía tiene productos asignados. Primero tiene que transferir o dar de baja ese stock, y recién después puede eliminar la ubicación.
+
+---
+
 > El administrador quiere revisar qué pasó con el stock de un producto el mes pasado. Entra al historial de movimientos y ve todas las entradas, salidas y ajustes con fecha, cantidad y origen (si fue por un pedido o manual).
 
 ---
 
 ## ¿Cómo se conecta con el resto del sistema?
 
-El módulo de stocks trabaja en conjunto con el módulo de productos (para saber de qué producto se trata), con el módulo de órdenes (que le indica cuándo reservar, despachar o liberar stock) y con la tienda online (que consulta la disponibilidad en tiempo real para mostrársela al cliente). Cuando un cliente ve "En stock" en la tienda, es este módulo el que responde.
+El módulo de stocks trabaja en conjunto con el módulo de productos (para saber de qué producto se trata), con el módulo de órdenes (que le indica cuándo reservar, despachar o liberar stock) y con la tienda online (que consulta la disponibilidad en tiempo real para mostrársela al cliente). Cuando un cliente ve "En stock" en la tienda, es este módulo el que responde. Además, cuando el stock de un producto baja del nivel crítico configurado, el sistema envía automáticamente un correo de alerta al administrador principal.

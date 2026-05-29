@@ -65,7 +65,7 @@ export class ShopService {
       maxPrice !== undefined &&
       minPrice > maxPrice
     ) {
-      throw new BadRequestException('minPrice cannot be greater than maxPrice');
+      throw new BadRequestException('minPrice no puede ser mayor que maxPrice');
     }
 
     const skip = (page - 1) * limit;
@@ -174,7 +174,7 @@ export class ShopService {
     type: 'product' | 'combo',
   ): Promise<ShopDetailResponseDto> {
     if (!type) {
-      throw new BadRequestException('type is required (product | combo)');
+      throw new BadRequestException('El parámetro type es requerido (product | combo)');
     }
 
     const cacheKey = `detail:${type}:${id}`;
@@ -185,7 +185,7 @@ export class ShopService {
     let result: ShopDetailResponseDto;
     if (type === 'product') result = await this.buildProductDetail(id);
     else if (type === 'combo') result = await this.buildComboDetail(id);
-    else throw new BadRequestException('Invalid type');
+    else throw new BadRequestException('Tipo inválido');
 
     await this.shopCacheService.set(cacheKey, result);
     return result;
@@ -269,11 +269,11 @@ export class ShopService {
       relations: ['images'],
     });
 
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) throw new NotFoundException('Producto no encontrado');
 
     const priceData = await this.safeCalculateProduct(id);
     if (!priceData)
-      throw new NotFoundException('Product has no pricing configured');
+      throw new NotFoundException('El producto no tiene precio configurado');
 
     const stock = await this.safeGetStockByProduct(id);
 
@@ -310,11 +310,11 @@ export class ShopService {
       relations: ['images', 'items', 'items.product'],
     });
 
-    if (!combo) throw new NotFoundException('Combo not found');
+    if (!combo) throw new NotFoundException('Combo no encontrado');
 
     const priceData = await this.safeCalculateCombo(id);
     if (!priceData)
-      throw new NotFoundException('Combo has no pricing configured');
+      throw new NotFoundException('El combo no tiene precio configurado');
 
     const comboStock = await this.safeGetStockByCombo(id);
     const images =

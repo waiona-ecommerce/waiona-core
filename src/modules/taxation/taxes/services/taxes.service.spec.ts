@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { TaxesService } from './taxes.service';
 import { TaxEntity } from '../entities/tax.entity';
 import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
@@ -115,10 +115,10 @@ describe('TaxesService', () => {
       expect(result.value).toBe(21);
     });
 
-    it('should throw BadRequestException if taxType not found', async () => {
+    it('should throw NotFoundException if taxType not found', async () => {
       taxTypeRepo.findOne.mockResolvedValue(null);
       await expect(service.create(999, { value: 21 })).rejects.toThrow(
-        BadRequestException,
+        NotFoundException,
       );
     });
   });

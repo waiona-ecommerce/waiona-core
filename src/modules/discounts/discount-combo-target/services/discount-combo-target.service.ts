@@ -10,6 +10,7 @@ import { DiscountComboTargetEntity } from '../entities/discount-combo-target.ent
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { CreateDiscountComboTargetDto } from '../dto/create-discount-combo-target.dto';
 import { DiscountComboTargetResponseDto } from '../dto/discount-combo-target.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class DiscountComboTargetService {
@@ -18,6 +19,7 @@ export class DiscountComboTargetService {
     private readonly repo: Repository<DiscountComboTargetEntity>,
     @InjectRepository(DiscountEntity)
     private readonly discountRepository: Repository<DiscountEntity>,
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -40,7 +42,7 @@ export class DiscountComboTargetService {
     });
 
     const saved = await this.repo.save(entity);
-
+    void this.shopCacheService.invalidate();
     return new DiscountComboTargetResponseDto(saved);
   }
 
@@ -71,11 +73,12 @@ export class DiscountComboTargetService {
 
     if (!entity) {
       throw new NotFoundException(
-        `Combo target ${comboId} not found for discount ${discountId}`,
+        `El combo ${comboId} no está asignado al descuento ${discountId}`,
       );
     }
 
     await this.repo.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -88,7 +91,7 @@ export class DiscountComboTargetService {
     });
 
     if (!discount) {
-      throw new NotFoundException(`Discount with id ${discountId} not found`);
+      throw new NotFoundException(`Descuento con id ${discountId} no encontrado`);
     }
 
     return discount;
@@ -104,7 +107,7 @@ export class DiscountComboTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Combo ${comboId} is already a target of discount ${discountId}`,
+        `El combo ${comboId} ya es un target del descuento ${discountId}`,
       );
     }
   }
@@ -119,7 +122,7 @@ export class DiscountComboTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Combo ${comboId} already has an active discount assigned`,
+        `El combo ${comboId} ya tiene un descuento activo asignado`,
       );
     }
   }

@@ -5,7 +5,7 @@
 El módulo de stocks gestiona el inventario físico de productos en la plataforma. Se compone de cuatro sub-módulos:
 
 - **StockLocations** — depósitos, sucursales y cualquier ubicación física donde se almacenan productos.
-- **StockItems** — unidad de inventario que representa un producto en una ubicación concreta. Lleva los contadores de stock (`quantityCurrent`, `quantityReserved`) y los umbrales de alerta (`stockMin`, `stockCritical`, `stockMax`).
+- **StockItems** — unidad de inventario que representa un producto en una ubicación concreta. Lleva los contadores de stock (`quantityCurrent`, `quantityReserved`) y los umbrales de alerta (`stockMin`, `stockCritical`).
 - **StockMovements** — log inmutable de cada operación que modificó el stock (entrada, salida, ajuste, despacho, etc.).
 - **StockWriteOffs** — registro de bajas por daño, vencimiento u otras causas, siempre ligadas a un movimiento.
 
@@ -45,7 +45,7 @@ quantityAvailable = quantityCurrent - quantityReserved   (calculado como getter,
 {
   id:        number;             // PK autoincremental — tabla 'stock_locations'
   name:      string;             // varchar(120), not null — índice en 'name'
-  type:      StockLocationType;  // enum: 'WAREHOUSE' | 'STORE'
+  type:      StockLocationType;  // enum: 'WAREHOUSE' | 'STORE' | 'VIRTUAL'
   address?:  string | null;      // varchar(255), nullable — null si no aplica
   createdAt: Date;
   updatedAt: Date;
@@ -57,15 +57,14 @@ quantityAvailable = quantityCurrent - quantityReserved   (calculado como getter,
 
 ```typescript
 {
-  id:                number;              // PK autoincremental — tabla 'stock_items'
-  productId:         number;              // FK → products; unique compuesto (productId, locationId)
-  locationId:        number;              // FK → stock_locations
-  quantityCurrent:   number;             // int — stock físico total
-  quantityReserved:  number;             // int — reservado por órdenes pendientes
-  quantityAvailable: number;             // getter: quantityCurrent - quantityReserved (no persiste)
-  stockMin:          number;             // umbral mínimo de alerta
-  stockCritical:     number;             // umbral crítico (debe ser < stockMin)
-  stockMax?:         number | null;      // umbral máximo opcional (debe ser > stockMin)
+  id:                number;               // PK autoincremental — tabla 'stock_items'
+  productId:         number;               // FK → products; unique compuesto (productId, locationId)
+  locationId:        number;               // FK → stock_locations
+  quantityCurrent:   number;              // int — stock físico total
+  quantityReserved:  number;              // int — reservado por órdenes pendientes
+  quantityAvailable: number;              // getter: quantityCurrent - quantityReserved (no persiste en DB)
+  stockMin:          number;              // umbral mínimo de alerta (>= 1)
+  stockCritical:     number;              // umbral crítico — siempre < stockMin
   movements:         StockMovementEntity[]; // OneToMany — historial de movimientos
   createdAt:         Date;
   updatedAt:         Date;
@@ -112,8 +111,8 @@ quantityAvailable = quantityCurrent - quantityReserved   (calculado como getter,
 
 ```typescript
 {
-  name:      string;             // requerido, 3–120 caracteres
-  type:      StockLocationType;  // requerido, 'WAREHOUSE' | 'STORE'
+  name:      string;             // requerido, 3–120 caracteres — normalizado a MAYÚSCULAS
+  type:      StockLocationType;  // requerido, 'WAREHOUSE' | 'STORE' | 'VIRTUAL'
   address?:  string;             // opcional, máx 255 caracteres
 }
 ```
@@ -138,9 +137,8 @@ Todos los campos son opcionales. `address` acepta `null` para limpiar el campo.
 {
   productId:     number;   // requerido, >= 1
   locationId:    number;   // requerido, >= 1
-  stockMin:      number;   // requerido, >= 0
+  stockMin:      number;   // requerido, >= 1 — el servicio valida que la ubicación y el producto existen
   stockCritical: number;   // requerido, >= 0, debe ser < stockMin
-  stockMax?:     number;   // opcional, debe ser > stockMin si se envía
 }
 ```
 
@@ -148,9 +146,8 @@ Todos los campos son opcionales. `address` acepta `null` para limpiar el campo.
 
 ```typescript
 {
-  stockMin?:      number;  // opcional, >= 0
+  stockMin?:      number;  // opcional, >= 1
   stockCritical?: number;  // opcional, >= 0, debe ser < stockMin efectivo
-  stockMax?:      number;  // opcional, >= 0, debe ser > stockMin efectivo
 }
 ```
 
@@ -216,6 +213,7 @@ Todos los campos son opcionales. `address` acepta `null` para limpiar el campo.
 {
   id:                number;
   productId:         number;
+  productName:       string;   // nombre del producto — cargado por relación
   locationId:        number;
   locationName:      string;   // nombre de la ubicación — cargado por relación
   quantityCurrent:   number;
@@ -223,7 +221,6 @@ Todos los campos son opcionales. `address` acepta `null` para limpiar el campo.
   quantityAvailable: number;   // calculado al mapear: quantityCurrent - quantityReserved
   stockMin:          number;
   stockCritical:     number;
-  stockMax?:         number;   // undefined si null en DB
   createdAt:         Date;
   updatedAt:         Date;
 }
@@ -275,10 +272,12 @@ Igual a `StockItemResponseDto` más:
 
 ```typescript
 {
-  data:  T[];     // StockLocationResponseDto | StockItemResponseDto | StockMovementResponseDto | StockWriteOffResponseDto
-  total: number;
-  page:  number;
-  limit: number;
+  data:        T[];     // StockLocationResponseDto | StockItemResponseDto | StockMovementResponseDto | StockWriteOffResponseDto
+  total:       number;
+  page:        number;
+  limit:       number;
+  totalPages:  number;
+  hasNextPage: boolean;
 }
 ```
 
@@ -288,21 +287,12 @@ Igual a `StockItemResponseDto` más:
 
 ### `POST /stock-locations` — Crear ubicación
 
-| Campo | Valor |
-|---|---|
-| Auth | JWT + ADMIN o SUPER_ADMIN |
-| Body | `CreateStockLocationDto` |
-| Respuesta | `201 StockLocationResponseDto` |
-
 **Request:**
 ```json
 { "name": "Depósito Central", "type": "WAREHOUSE" }
 ```
 
-**Response:**
-```json
-{ "id": 1, "name": "Depósito Central", "type": "WAREHOUSE", "createdAt": "...", "updatedAt": "..." }
-```
+**Response 201:** `StockLocationResponseDto`
 
 **Errores posibles:**
 - `400` — falta `name` o `type`, nombre muy corto (< 3), tipo inválido
@@ -311,21 +301,15 @@ Igual a `StockItemResponseDto` más:
 
 ### `GET /stock-locations` — Listar ubicaciones
 
-| Campo | Valor |
-|---|---|
-| Auth | JWT + ADMIN o SUPER_ADMIN |
-| Query | `page` (default 1), `limit` (default 20) |
-| Respuesta | `200 PaginatedResponseDto<StockLocationResponseDto>` |
+Query: `page` (default 1), `limit` (default 20)
+
+**Response 200:** `PaginatedResponseDto<StockLocationResponseDto>`
 
 ---
 
 ### `GET /stock-locations/:id` — Obtener ubicación
 
-| Campo | Valor |
-|---|---|
-| Respuesta | `200 StockLocationResponseDto` |
-
-**Errores:** `404` — no encontrada o soft-deleted
+**Response 200:** `StockLocationResponseDto` | **404** — no encontrada
 
 ---
 
@@ -333,54 +317,51 @@ Igual a `StockItemResponseDto` más:
 
 Todos los campos del body son opcionales. Enviar `address: null` limpia la dirección.
 
-**Errores:** `400` — validación, `404` — no encontrada
+**Errores:** `400` — validación | `404` — no encontrada
 
 ---
 
 ### `DELETE /stock-locations/:id` — Eliminar ubicación (soft)
 
-| Respuesta | `204 No Content` |
-|---|---|
-| **Errores** | `404` — no encontrada |
+**Response 204**
+
+**Errores:**
+- `404` — no encontrada
+- `409` — la ubicación tiene stock items activos asignados
 
 ---
 
 ### `POST /stock-items` — Crear stock item
 
-| Campo | Valor |
-|---|---|
-| Auth | JWT + ADMIN o SUPER_ADMIN |
-| Body | `CreateStockItemDto` |
-| Respuesta | `201 StockItemResponseDto` (quantityCurrent = 0) |
+Crea el registro de stock (en 0 unidades). Luego usar `add-stock` para cargar unidades.
 
 **Request:**
 ```json
-{ "productId": 1, "locationId": 1, "stockMin": 5, "stockCritical": 2, "stockMax": 100 }
+{ "productId": 1, "locationId": 1, "stockMin": 5, "stockCritical": 2 }
 ```
 
+**Response 201:** `StockItemResponseDto` (quantityCurrent = 0)
+
 **Errores posibles:**
-- `400` — `stockCritical >= stockMin`, `stockMax <= stockMin`, valores negativos
+- `404` — producto o ubicación no encontrados
 - `409` — ya existe un StockItem para ese `productId + locationId`
+- `400` — `stockCritical >= stockMin`, `stockMin < 1`, valores negativos
 
 ---
 
 ### `GET /stock-items` — Listar stock items
 
-| Query | `page`, `limit` |
-|---|---|
-| Respuesta | `200 PaginatedResponseDto<StockItemResponseDto>` |
+Carga las relaciones `location` y `product` para incluir `locationName` y `productName`.
 
-Carga las relaciones `location` y `product` para incluir `locationName`.
+**Response 200:** `PaginatedResponseDto<StockItemResponseDto>`
 
 ---
 
 ### `GET /stock-items/:id` — Obtener stock item con movimientos
 
-| Respuesta | `200 StockItemWithMovementsResponseDto` |
-|---|---|
-| **Errores** | `404` — no encontrado |
-
 Carga `location`, `product` y `movements` (ordenados por `createdAt DESC`).
+
+**Response 200:** `StockItemWithMovementsResponseDto` | **404** — no encontrado
 
 ---
 
@@ -393,9 +374,9 @@ Crea un movimiento `ENTRY / INBOUND / MANUAL` y suma `quantity` a `quantityCurre
 { "productId": 1, "locationId": 1, "quantity": 50 }
 ```
 
-**Response:** `201 StockItemWithMovementsResponseDto`
+**Response 201:** `StockItemWithMovementsResponseDto`
 
-**Errores:** `400` — quantity <= 0, `404` — StockItem no existe
+**Errores:** `400` — quantity <= 0 | `404` — StockItem no existe para esa combinación
 
 ---
 
@@ -403,13 +384,18 @@ Crea un movimiento `ENTRY / INBOUND / MANUAL` y suma `quantity` a `quantityCurre
 
 Resta `quantity` de `quantityCurrent`. Crea movimiento `ADJUSTMENT / OUTBOUND / MANUAL`. Requiere que `quantityAvailable >= quantity`.
 
-**Errores:** `400` — stock insuficiente o quantity inválida, `404` — no encontrado
+**Request:**
+```json
+{ "stockItemId": 1, "quantity": 5 }
+```
+
+**Errores:** `400` — stock insuficiente o quantity inválida | `404` — no encontrado
 
 ---
 
 ### `POST /stock-items/write-off-damage` — Baja por daño
 
-Igual que write-off simple pero además crea un registro en `StockWriteOffEntity` con motivo, descripción y adjuntos. Crea movimiento `DAMAGE / OUTBOUND / MANUAL`.
+Igual que write-off simple pero además crea un registro en `StockWriteOffEntity`. Crea movimiento `DAMAGE / OUTBOUND / MANUAL`.
 
 **Request:**
 ```json
@@ -420,7 +406,7 @@ Igual que write-off simple pero además crea un registro en `StockWriteOffEntity
 }
 ```
 
-**Errores:** `400` — stock insuficiente, `404` — no encontrado
+**Errores:** `400` — stock insuficiente | `404` — no encontrado
 
 ---
 
@@ -428,7 +414,7 @@ Igual que write-off simple pero además crea un registro en `StockWriteOffEntity
 
 Descuenta `quantityCurrent` y `quantityReserved`. Crea movimiento `EXIT / OUTBOUND / ORDER`. Requiere que `quantityReserved >= quantity` y `quantityCurrent >= quantity`.
 
-**Errores:** `400` — reserva o stock insuficiente, `404` — no encontrado
+**Errores:** `400` — reserva o stock insuficiente | `404` — no encontrado
 
 ---
 
@@ -436,61 +422,48 @@ Descuenta `quantityCurrent` y `quantityReserved`. Crea movimiento `EXIT / OUTBOU
 
 Resta `quantityReserved` sin tocar `quantityCurrent`. Crea movimiento `RETURN / INBOUND / ORDER`.
 
-**Errores:** `400` — reserva insuficiente, `404` — no encontrado
+**Errores:** `400` — reserva insuficiente | `404` — no encontrado
 
 ---
 
 ### `PATCH /stock-items/:id/thresholds` — Actualizar umbrales
 
-Todos los campos son opcionales. Valida reglas de umbrales sobre los valores resultantes (actuales + enviados).
+Todos los campos son opcionales. Valida reglas de umbrales sobre los valores resultantes.
 
-**Errores:** `400` — reglas de umbrales violadas, `404` — no encontrado
+**Request:**
+```json
+{ "stockMin": 20, "stockCritical": 5 }
+```
+
+**Response 200:** `StockItemResponseDto` | **400** — reglas violadas | **404** — no encontrado
 
 ---
 
 ### `GET /stock-movements` — Listar movimientos
 
-| Respuesta | `200 PaginatedResponseDto<StockMovementResponseDto>` |
-|---|---|
-
----
+**Response 200:** `PaginatedResponseDto<StockMovementResponseDto>`
 
 ### `GET /stock-movements/stock-item/:stockItemId` — Movimientos de un item
 
-| Respuesta | `200 StockMovementResponseDto[]` |
-|---|---|
-
----
+**Response 200:** `StockMovementResponseDto[]`
 
 ### `GET /stock-movements/:id` — Obtener movimiento
 
-| Respuesta | `200 StockMovementResponseDto` |
-|---|---|
-| **Errores** | `404` — no encontrado |
+**Response 200:** `StockMovementResponseDto` | **404**
 
 ---
 
 ### `GET /stock-write-offs` — Listar write-offs
 
-| Respuesta | `200 PaginatedResponseDto<StockWriteOffResponseDto>` |
-|---|---|
-
----
+**Response 200:** `PaginatedResponseDto<StockWriteOffResponseDto>`
 
 ### `GET /stock-write-offs/stock-item/:stockItemId` — Write-offs de un item
 
-| Respuesta | `200 StockWriteOffResponseDto[]` |
-|---|---|
-
----
+**Response 200:** `StockWriteOffResponseDto[]`
 
 ### `GET /stock-write-offs/:id` — Obtener write-off
 
-| Respuesta | `200 StockWriteOffResponseDto` |
-|---|---|
-| **Errores** | `404` — no encontrado |
-
----
+**Response 200:** `StockWriteOffResponseDto` | **404**
 
 ### `PATCH /stock-write-offs/:id` — Actualizar write-off
 
@@ -505,7 +478,9 @@ Solo permite modificar `reason`, `description` y `attachments`. No se puede camb
 | Regla | Dónde se aplica |
 |---|---|
 | `stockCritical < stockMin` siempre | `validateThresholds()` en service — create y update thresholds |
-| `stockMax > stockMin` si se define | `validateThresholds()` en service |
+| `stockMin >= 1` — el DTO lo valida con `@Min(1)` | `CreateStockItemDto` y `UpdateStockThresholdsDto` |
+| `productId` y `locationId` deben existir al crear | `create()` — usa `dataSource.getRepository()` para validar antes del INSERT |
+| No se puede eliminar una ubicación con stock items activos | `remove()` de `StockLocationsService` — verifica count antes del softDelete |
 | Un producto puede tener stock en múltiples ubicaciones | Unique index compuesto `(productId, locationId)` — un StockItem por combinación |
 | `reserveStock` no descuenta stock físico | Suma a `quantityReserved`; el descuento real ocurre en `dispatchStock` |
 | `dispatchStock` requiere reserva previa | Valida `quantityReserved >= quantity` antes de descontar |
@@ -521,20 +496,20 @@ Solo permite modificar `reason`, `description` y `attachments`. No se puede camb
 
 **Alta de mercadería en depósito:**
 ```json
-// POST /stock-items/add-stock
+POST /stock-items/add-stock
 { "productId": 5, "locationId": 2, "quantity": 200 }
 // → 201 StockItemWithMovementsResponseDto con movimiento ENTRY
 ```
 
 **Despacho de una orden (llamado interno desde OrdersModule):**
 ```json
-// POST /stock-items/dispatch
+POST /stock-items/dispatch
 { "productId": 5, "locationId": 2, "quantity": 3, "orderId": 88 }
 ```
 
 **Baja por vencimiento:**
 ```json
-// POST /stock-items/write-off-damage
+POST /stock-items/write-off-damage
 {
   "stockItemId": 7, "quantity": 12, "reason": "EXPIRED",
   "description": "Lote vencido 2026-04", "reportedBy": 3
@@ -543,8 +518,8 @@ Solo permite modificar `reason`, `description` y `attachments`. No se puede camb
 
 **Ajustar umbral de alerta:**
 ```json
-// PATCH /stock-items/4/thresholds
-{ "stockMin": 20, "stockCritical": 5, "stockMax": 500 }
+PATCH /stock-items/4/thresholds
+{ "stockMin": 20, "stockCritical": 5 }
 ```
 
 ---
@@ -556,14 +531,18 @@ Solo permite modificar `reason`, `description` y `attachments`. No se puede camb
 | Guards a nivel de clase (controller) | ✅ | `@Roles` + `@UseGuards(AuthGuard('jwt'), RolesGuard)` en todos los controllers |
 | Rutas específicas antes de genéricas | ✅ | `add-stock`, `write-off`, `dispatch`, `release` declaradas antes de `:id` |
 | Services devuelven DTOs, nunca entidades | ✅ | Todos los métodos públicos retornan ResponseDto |
-| `findEntity()` privado reutilizable | ✅ | Presente en StockLocationsService y StockItemsService |
+| `findEntity()` privado reutilizable | ✅ | Presente en StockLocationsService, StockItemsService, StockWriteOffService |
 | Transacciones con `dataSource.transaction()` | ✅ | `addStock`, `writeOff`, `writeOffDamage`, `dispatchStock`, `releaseReservation` |
-| Lock `pessimistic_write` en operaciones críticas | ✅ | Todas las operaciones de conteo de stock |
-| Soft delete con `softDelete()` | ✅ | StockLocations; movimientos usan BaseAuditEntity sin soft delete (inmutables) |
+| Lock `pessimistic_write` en operaciones críticas | ✅ | Todas las operaciones de conteo de stock dentro de transacciones |
+| Soft delete con `softDelete()` | ✅ | StockLocations y StockItems; movimientos usan BaseAuditEntity (inmutables) |
+| Validar existencia de FK antes del INSERT | ✅ | `create()` de StockItemsService valida productId y locationId con 404 claro |
+| Validar dependencias activas antes del soft delete | ✅ | `remove()` de StockLocationsService valida stock items activos con 409 |
+| `productName` y `locationName` en responses | ✅ | Ambos DTOs de StockItem exponen nombre del producto y de la ubicación |
+| Mensajes de error en español | ✅ | Todos los servicios del módulo |
 | `@ApiProperty` en todos los DTOs | ✅ | Todos los DTOs tienen decoradores Swagger |
 | `PartialType` / `PickType` para updates | ✅ | UpdateStockWriteOffDto usa `PartialType(PickType(...))` |
-| `UpdateStockLocationDto` manual (excepción documentada) | ✅ | `address?: string \| null` no es asignable al tipo base — comentario en el DTO |
-| `PG_UNIQUE_VIOLATION` en ConflictException | ✅ | Usado en `create()` de StockItemsService |
+| `UpdateStockLocationDto` manual (excepción documentada) | ✅ | `address?: string \| null` no es asignable al tipo base |
+| `ConflictException` en create cuando ya existe | ✅ | Usado en `create()` de StockItemsService |
 
 ---
 
@@ -572,19 +551,21 @@ Solo permite modificar `reason`, `description` y `attachments`. No se puede camb
 ### Unit tests
 
 ```bash
-npx jest --testPathPattern="stocks"
+npx jest --testPathPattern="stocks" --no-coverage
 ```
 
 | Suite | Tests | Qué cubre |
 |---|---|---|
-| `stock-item.service.spec.ts` | 32 | create, addStock, writeOff, writeOffDamage, updateThresholds, reserveStock, dispatchStock, releaseReservation, findByProduct, findByCombo, validaciones de umbrales, race condition con lock pessimistic |
+| `stock-item.service.spec.ts` | 43 | create (incluyendo 404 para product/location), addStock, writeOff, writeOffDamage, updateThresholds, reserveStock, dispatchStock, releaseReservation, findByProduct, findByCombo, validaciones de umbrales |
 | `stock-item.controller.spec.ts` | 9 | Delegación de todos los endpoints al service |
-| `stock-locations.service.spec.ts` | 9 | CRUD completo, soft delete, null en address |
+| `stock-locations.service.spec.ts` | 11 | CRUD completo, soft delete, null en address, 409 cuando tiene stock items activos |
 | `stock-locations.controller.spec.ts` | 5 | Delegación de los 5 endpoints |
 | `stock-movement.service.spec.ts` | 5 | findAll, findByStockItemId, findById, 404 |
 | `stock-movement.controller.spec.ts` | 3 | Delegación de los 3 endpoints |
 | `stock-writeoff.service.spec.ts` | 7 | findAll, findByStockItemId, findById, update, 404 |
 | `stock-writeoff.controller.spec.ts` | 4 | Delegación de los 4 endpoints |
+
+**Total: 87 tests en 8 suites.**
 
 ### E2E tests
 
@@ -597,7 +578,7 @@ npx jest --config test/jest-e2e.json --testPathPattern="stocks"
 | Suite | Tests | Caso cubierto |
 |---|---|---|
 | `stock-locations.e2e-spec.ts` | 14 | POST 201, POST 400 (missing name, invalid type, name corto), GET all, GET :id 200, GET :id 404, PATCH name, PATCH null address, PATCH 404, DELETE 204→404, DELETE 404 |
-| `stock-items.e2e-spec.ts` | 19 | POST 201, POST 409, POST 400 thresholds, GET all, GET :id, GET :id 404, add-stock 201, add-stock 400, add-stock 404, write-off 201, write-off 400, thresholds 200, thresholds 400, thresholds 404, movements GET all, movements GET by item, movements GET :id, movements GET :id 404 |
+| `stock-items.e2e-spec.ts` | 19 | POST 201, POST 409, POST 400 thresholds, POST 404 (product/location inexistentes), GET all (con productName), GET :id, GET :id 404, add-stock 201, add-stock 400, add-stock 404, write-off 201, write-off 400, thresholds 200, thresholds 400, thresholds 404 |
 
 > **Nota:** `dispatchStock`, `releaseReservation` y `writeOffDamage` están cubiertos únicamente en unit tests porque dependen de flujo de órdenes completo y se invocan internamente desde `OrdersModule`.
 
@@ -609,15 +590,16 @@ npx jest --config test/jest-e2e.json --testPathPattern="stocks"
 ProductsModule
   └── ProductEntity ──────────────────────────────┐
                                                    ▼
-                                          StockItemsModule
-                                          ├── StockLocationsModule
-                                          ├── StockMovementsModule
-                                          └── StockWriteOffsModule
+                                          StocksModule
+                                          ├── StockLocationsService
+                                          ├── StockMovementService
+                                          ├── StockItemsService ◄── exportado
+                                          └── StockWriteOffService
                                                    │
                           ┌────────────────────────┼────────────────────────┐
                           ▼                         ▼                        ▼
-                   OrdersModule              ShopModule              (futuro: alertas)
-                   reserveStock()          findByProduct()
-                   dispatchStock()         findByCombo()
+                   OrdersModule              ShopModule              MailModule
+                   reserveStock()          findByProduct()          sendStockAlertEmail()
+                   dispatchStock()         findByCombo()            (cuando qty <= stockCritical)
                    releaseReservation()
 ```

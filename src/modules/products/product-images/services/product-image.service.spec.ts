@@ -5,6 +5,7 @@ import { ProductImageService } from '../../../products/product-images/services/p
 import { ProductImageEntity } from '../../../products/product-images/entities/product-image.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { StorageService } from '../../../storage/storage.service';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('ProductImageService', () => {
   let service: ProductImageService;
@@ -22,6 +23,7 @@ describe('ProductImageService', () => {
     upload: jest.fn(),
     delete: jest.fn(),
   };
+  const mockShopCacheService = { invalidate: jest.fn() };
 
   const mockImage = (overrides = {}): ProductImageEntity =>
     ({
@@ -49,6 +51,7 @@ describe('ProductImageService', () => {
           useValue: mockProductRepo,
         },
         { provide: StorageService, useValue: mockStorageService },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
     service = module.get<ProductImageService>(ProductImageService);
@@ -67,6 +70,7 @@ describe('ProductImageService', () => {
         position: 1,
       });
       expect(result.url).toBe('https://img.com/1.jpg');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if product not found', async () => {
@@ -107,6 +111,7 @@ describe('ProductImageService', () => {
       mockImageRepo.save.mockResolvedValue(updated);
       const result = await service.update(1, { position: 2 });
       expect(result.position).toBe(2);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException', async () => {
@@ -125,6 +130,7 @@ describe('ProductImageService', () => {
       await service.remove(1);
       expect(mockStorageService.delete).not.toHaveBeenCalled();
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should delete from Cloudinary before soft delete when publicId exists', async () => {
@@ -137,6 +143,7 @@ describe('ProductImageService', () => {
         'waiona/products/abc123',
       );
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException', async () => {
@@ -174,6 +181,7 @@ describe('ProductImageService', () => {
         'waiona/products',
       );
       expect(result.url).toBe('https://res.cloudinary.com/x/img.jpg');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if product not found', async () => {

@@ -14,6 +14,7 @@ import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductService {
@@ -23,6 +24,8 @@ export class ProductService {
 
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -74,7 +77,7 @@ export class ProductService {
     });
 
     if (existingSku) {
-      throw new ConflictException(`Product with SKU ${dto.sku} already exists`);
+      throw new ConflictException(`Ya existe un producto con el SKU ${dto.sku}`);
     }
 
     const product = this.productRepository.create({
@@ -84,7 +87,7 @@ export class ProductService {
     });
 
     const saved = await this.productRepository.save(product);
-
+    void this.shopCacheService.invalidate();
     return new ProductResponseDto(await this.findOne(saved.id));
   }
 
@@ -110,8 +113,8 @@ export class ProductService {
       });
 
       if (existingSku) {
-        throw new BadRequestException(
-          `Product with SKU ${changes.sku} already exists`,
+        throw new ConflictException(
+          `Ya existe un producto con el SKU ${changes.sku}`,
         );
       }
 
@@ -121,7 +124,7 @@ export class ProductService {
     const merged = this.productRepository.merge(product, changes);
 
     await this.productRepository.save(merged);
-
+    void this.shopCacheService.invalidate();
     return new ProductResponseDto(await this.findOne(merged.id));
   }
 
@@ -133,6 +136,7 @@ export class ProductService {
     const product = await this.findOne(id);
 
     await this.productRepository.softDelete(product.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -145,7 +149,7 @@ export class ProductService {
     });
 
     if (!category) {
-      throw new BadRequestException(`Category with id ${categoryId} not found`);
+      throw new BadRequestException(`Categoría con id ${categoryId} no encontrada`);
     }
   }
 
@@ -158,7 +162,7 @@ export class ProductService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with id ${id} not found`);
+      throw new NotFoundException(`Producto con id ${id} no encontrado`);
     }
 
     return product;

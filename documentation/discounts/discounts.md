@@ -433,7 +433,7 @@ DELETE /discounts/1/targets/products/7
 ```json
 POST /discounts/2/targets/products
 { "productId": 7 }
-→ 409 Conflict: "Product 7 already has an active discount assigned"
+→ 409 Conflict: "El producto 7 ya tiene un descuento activo asignado"
 ```
 
 ---

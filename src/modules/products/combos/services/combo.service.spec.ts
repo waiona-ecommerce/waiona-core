@@ -8,6 +8,7 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('ComboService', () => {
   let service: ComboService;
@@ -52,6 +53,7 @@ describe('ComboService', () => {
   const mockItemRepo = { find: jest.fn() };
   const mockProductRepo = { findOne: jest.fn(), findBy: jest.fn() };
   const mockCategoryRepo = { findOne: jest.fn() };
+  const mockShopCacheService = { invalidate: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -71,6 +73,7 @@ describe('ComboService', () => {
           useValue: mockCategoryRepo,
         },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 
@@ -149,6 +152,7 @@ describe('ComboService', () => {
 
       expect(result.name).toBe('Combo Coca x3');
       expect(result.categoryName).toBe('Combos');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException for duplicate productId', async () => {
@@ -206,6 +210,7 @@ describe('ComboService', () => {
 
       expect(result.name).toBe('Nuevo nombre');
       expect(result.categoryName).toBe('Combos');
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should replace items if dto.items is provided', async () => {
@@ -254,6 +259,7 @@ describe('ComboService', () => {
       await service.delete(1);
 
       expect(mockComboRepo.softDelete).toHaveBeenCalledWith(combo.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if not found', async () => {

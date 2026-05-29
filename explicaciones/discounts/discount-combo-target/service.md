@@ -9,6 +9,10 @@ export class DiscountComboTargetService {
     // antes de cualquier operación, igual que en DiscountProductTargetService.
     @InjectRepository(DiscountEntity)
     private readonly discountRepository: Repository<DiscountEntity>,
+
+    // Invalida la caché cuando se asigna o quita un combo de un descuento,
+    // porque eso cambia qué precio ve el cliente en el shop.
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ─── CREATE ──────────────────────────────────────────────────────────────────
@@ -37,7 +41,7 @@ export class DiscountComboTargetService {
     });
 
     const saved = await this.repo.save(entity);
-
+    void this.shopCacheService.invalidate();
     return new DiscountComboTargetResponseDto(saved);
   }
 
@@ -68,11 +72,12 @@ export class DiscountComboTargetService {
 
     if (!entity) {
       throw new NotFoundException(
-        `Combo target ${comboId} not found for discount ${discountId}`,
+        `El combo ${comboId} no está asignado al descuento ${discountId}`,
       );
     }
 
     await this.repo.softDelete(entity.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────────
@@ -83,7 +88,7 @@ export class DiscountComboTargetService {
     });
 
     if (!discount) {
-      throw new NotFoundException(`Discount with id ${discountId} not found`);
+      throw new NotFoundException(`Descuento con id ${discountId} no encontrado`);
     }
 
     return discount;
@@ -100,7 +105,7 @@ export class DiscountComboTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Combo ${comboId} is already a target of discount ${discountId}`,
+        `El combo ${comboId} ya es un target del descuento ${discountId}`,
       );
     }
   }
@@ -116,7 +121,7 @@ export class DiscountComboTargetService {
 
     if (existing) {
       throw new ConflictException(
-        `Combo ${comboId} already has an active discount assigned`,
+        `El combo ${comboId} ya tiene un descuento activo asignado`,
       );
     }
   }

@@ -87,14 +87,6 @@ export class StockItemEntity extends BaseEntity {
   })
   stockCritical: number;
 
-  @Column({
-    name: 'stock_max',
-    type: 'int',
-    nullable: true,
-    default: null,
-  })
-  stockMax?: number | null;
-
   // =============================
   // RELATIONS
   // =============================

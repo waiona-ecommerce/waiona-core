@@ -4,6 +4,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { DiscountProductTargetService } from '../../discount-product-target/services/discount-product-target.service';
 import { DiscountProductTargetEntity } from '../../discount-product-target/entities/discount-product-target.entity';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 describe('DiscountProductTargetService', () => {
   let service: DiscountProductTargetService;
@@ -18,6 +19,7 @@ describe('DiscountProductTargetService', () => {
     softDelete: jest.fn(),
   });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
+  const mockShopCacheService = { invalidate: jest.fn() };
 
   const mockDiscount = () => ({ id: 1, name: 'Promo', deletedAt: null });
   const mockTarget = (overrides = {}) => ({
@@ -42,6 +44,7 @@ describe('DiscountProductTargetService', () => {
           provide: getRepositoryToken(DiscountEntity),
           useFactory: mockDiscountRepo,
         },
+        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
     service = module.get<DiscountProductTargetService>(
@@ -65,6 +68,7 @@ describe('DiscountProductTargetService', () => {
       expect((await service.create(1, { productId: 1 } as any)).productId).toBe(
         1,
       );
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if discount not found', async () => {
@@ -114,6 +118,7 @@ describe('DiscountProductTargetService', () => {
       repo.softDelete.mockResolvedValue(undefined);
       await service.remove(1, 1);
       expect(repo.softDelete).toHaveBeenCalledWith(target.id);
+      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if not found', async () => {

@@ -90,7 +90,7 @@ export class ProductImageController {
         } else {
           cb(
             new BadRequestException(
-              'Only image files are allowed (jpeg, png, webp, gif)',
+              'Solo se permiten imágenes (jpeg, png, webp, gif)',
             ),
             false,
           );
@@ -102,7 +102,7 @@ export class ProductImageController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadProductImageDto,
   ): Promise<ProductImageResponseDto> {
-    if (!file) throw new BadRequestException('file is required');
+    if (!file) throw new BadRequestException('El archivo es requerido');
     return this.productImageService.uploadImage(file, dto);
   }
 

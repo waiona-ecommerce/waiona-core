@@ -16,6 +16,7 @@ import { CreateComboDto } from '../dto/create-combo.dto';
 import { UpdateComboDto } from '../dto/update-combo.dto';
 import { ComboResponseDto } from '../dto/combo-response.dto';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class ComboService {
@@ -33,6 +34,8 @@ export class ComboService {
     private readonly categoryRepository: Repository<CategoryEntity>,
 
     private readonly dataSource: DataSource,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -75,7 +78,7 @@ export class ComboService {
   async create(dto: CreateComboDto): Promise<ComboResponseDto> {
     await this.validateCategoryExists(dto.categoryId);
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       await this.validateItems(dto.items);
 
       const combo = manager.create(ComboEntity, {
@@ -104,6 +107,9 @@ export class ComboService {
 
       return new ComboResponseDto(fullCombo!);
     });
+
+    void this.shopCacheService.invalidate();
+    return result;
   }
 
   // ==========================
@@ -115,13 +121,13 @@ export class ComboService {
       await this.validateCategoryExists(dto.categoryId);
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const combo = await manager.findOne(ComboEntity, {
         where: { id },
       });
 
       if (!combo) {
-        throw new NotFoundException(`Combo with id ${id} not found`);
+        throw new NotFoundException(`Combo con id ${id} no encontrado`);
       }
 
       manager.merge(ComboEntity, combo, {
@@ -156,6 +162,9 @@ export class ComboService {
 
       return new ComboResponseDto(fullCombo!);
     });
+
+    void this.shopCacheService.invalidate();
+    return result;
   }
 
   // ==========================
@@ -168,10 +177,11 @@ export class ComboService {
     });
 
     if (!combo) {
-      throw new NotFoundException(`Combo with id ${id} not found`);
+      throw new NotFoundException(`Combo con id ${id} no encontrado`);
     }
 
     await this.comboRepository.softDelete(combo.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -185,7 +195,7 @@ export class ComboService {
     });
 
     if (!combo) {
-      throw new NotFoundException(`Combo with id ${id} not found`);
+      throw new NotFoundException(`Combo con id ${id} no encontrado`);
     }
 
     return combo;
@@ -199,7 +209,7 @@ export class ComboService {
     const seen = new Set<number>();
     for (const id of ids) {
       if (seen.has(id)) {
-        throw new BadRequestException(`Duplicate productId ${id} in combo`);
+        throw new BadRequestException(`Producto con id ${id} duplicado en el combo`);
       }
       seen.add(id);
     }
@@ -209,7 +219,7 @@ export class ComboService {
     if (found.length !== ids.length) {
       const foundIds = new Set(found.map((p) => p.id));
       const missing = ids.find((id) => !foundIds.has(id));
-      throw new BadRequestException(`Product with id ${missing} not found`);
+      throw new BadRequestException(`Producto con id ${missing} no encontrado`);
     }
   }
 
@@ -219,7 +229,7 @@ export class ComboService {
     });
 
     if (!category) {
-      throw new BadRequestException(`Category with id ${categoryId} not found`);
+      throw new BadRequestException(`Categoría con id ${categoryId} no encontrada`);
     }
   }
 }

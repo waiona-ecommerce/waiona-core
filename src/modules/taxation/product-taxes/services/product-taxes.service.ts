@@ -13,6 +13,7 @@ import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
 import { CreateProductTaxDto } from '../dto/create-product-tax.dto';
 import { UpdateProductTaxDto } from '../dto/update-product-tax.dto';
 import { ProductTaxResponseDto } from '../dto/product-tax-response.dto';
+import { ShopCacheService } from 'src/common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductTaxesService {
@@ -22,6 +23,8 @@ export class ProductTaxesService {
 
     @InjectRepository(TaxEntity)
     private readonly taxRepository: Repository<TaxEntity>,
+
+    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -36,12 +39,12 @@ export class ProductTaxesService {
     });
 
     if (!tax) {
-      throw new NotFoundException(`Tax with id ${dto.taxId} not found`);
+      throw new NotFoundException(`Impuesto con id ${dto.taxId} no encontrado`);
     }
 
     if (tax.isGlobal) {
       throw new BadRequestException(
-        'A global tax cannot be assigned to a specific product',
+        'Un impuesto global no puede asignarse a un producto específico',
       );
     }
 
@@ -60,6 +63,7 @@ export class ProductTaxesService {
     });
 
     const saved = await this.productTaxRepository.save(productTax);
+    void this.shopCacheService.invalidate();
     return new ProductTaxResponseDto(saved);
   }
 
@@ -95,6 +99,7 @@ export class ProductTaxesService {
     const productTax = await this.findEntity(id);
     const merged = this.productTaxRepository.merge(productTax, dto);
     const updated = await this.productTaxRepository.save(merged);
+    void this.shopCacheService.invalidate();
     return new ProductTaxResponseDto(updated);
   }
 
@@ -105,6 +110,7 @@ export class ProductTaxesService {
   async remove(id: number): Promise<void> {
     const productTax = await this.findEntity(id);
     await this.productTaxRepository.softDelete(productTax.id);
+    void this.shopCacheService.invalidate();
   }
 
   // ==========================
@@ -114,7 +120,7 @@ export class ProductTaxesService {
   private async findEntity(id: number): Promise<ProductTaxEntity> {
     const entity = await this.productTaxRepository.findOne({ where: { id } });
     if (!entity)
-      throw new NotFoundException(`ProductTax with id ${id} not found`);
+      throw new NotFoundException(`Impuesto de producto con id ${id} no encontrado`);
     return entity;
   }
 }
