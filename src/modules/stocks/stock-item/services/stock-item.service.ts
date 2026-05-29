@@ -177,6 +177,8 @@ export class StockItemsService {
       );
     }
 
+    this.validateThresholds(dto.stockMin, dto.stockCritical);
+
     const existing = await this.stockItemRepository.findOne({
       where: { productId: dto.productId, locationId: dto.locationId },
     });
@@ -186,8 +188,6 @@ export class StockItemsService {
         'Ya existe un stock para este producto en esta ubicación',
       );
     }
-
-    this.validateThresholds(dto.stockMin, dto.stockCritical);
 
     const stockItem = this.stockItemRepository.create({
       productId: dto.productId,

@@ -1,3 +1,4 @@
+import { ShopCacheService } from '../../src/common/cache/shop-cache.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
@@ -54,6 +55,7 @@ describe('Categories (e2e)', () => {
           useFactory: mockCountRepo,
         },
         { provide: getRepositoryToken(ComboEntity), useFactory: mockCountRepo },
+        { provide: ShopCacheService, useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() } },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))

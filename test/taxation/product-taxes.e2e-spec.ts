@@ -1,3 +1,4 @@
+import { ShopCacheService } from '../../src/common/cache/shop-cache.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
@@ -62,7 +63,10 @@ describe('ProductTaxes (e2e)', () => {
         TypeOrmModule.forFeature([ProductTaxEntity, TaxEntity]),
       ],
       controllers: [ProductTaxesController],
-      providers: [ProductTaxesService],
+      providers: [
+        ProductTaxesService,
+        { provide: ShopCacheService, useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() } },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

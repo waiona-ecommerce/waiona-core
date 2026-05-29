@@ -1,3 +1,4 @@
+import { ShopCacheService } from '../../src/common/cache/shop-cache.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
@@ -67,7 +68,10 @@ describe('Combos (e2e)', () => {
         ]),
       ],
       controllers: [ComboController],
-      providers: [ComboService],
+      providers: [
+        ComboService,
+        { provide: ShopCacheService, useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() } },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })
