@@ -70,7 +70,10 @@ describe('Combos (e2e)', () => {
       controllers: [ComboController],
       providers: [
         ComboService,
-        { provide: ShopCacheService, useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() } },
+        {
+          provide: ShopCacheService,
+          useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() },
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))

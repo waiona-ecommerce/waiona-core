@@ -68,7 +68,10 @@ describe('ProductImages (e2e)', () => {
             delete: jest.fn().mockResolvedValue(undefined),
           },
         },
-        { provide: ShopCacheService, useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() } },
+        {
+          provide: ShopCacheService,
+          useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() },
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))

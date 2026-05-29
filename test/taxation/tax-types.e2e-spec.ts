@@ -43,7 +43,10 @@ describe('TaxTypes (e2e)', () => {
       controllers: [TaxTypesController],
       providers: [
         TaxTypesService,
-        { provide: ShopCacheService, useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() } },
+        {
+          provide: ShopCacheService,
+          useValue: { get: jest.fn(), set: jest.fn(), invalidate: jest.fn() },
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))
