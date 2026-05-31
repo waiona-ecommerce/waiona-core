@@ -109,9 +109,7 @@ describe('Coupons (e2e)', () => {
       .post('/v1/coupons')
       .send({
         code: 'FIXED100',
-        value: 100,
-        isPercentage: false,
-        currency: 'ARS',
+        value: 20,
         isGlobal: false,
       })
       .expect(201);
@@ -119,7 +117,7 @@ describe('Coupons (e2e)', () => {
 
     const globalRes = await request(app.getHttpServer())
       .post('/v1/coupons')
-      .send({ code: 'GLOBAL5', value: 5, isPercentage: true, isGlobal: true })
+      .send({ code: 'GLOBAL5', value: 5, isGlobal: true })
       .expect(201);
     globalCouponId = globalRes.body.id;
   }, 30000);
@@ -134,22 +132,16 @@ describe('Coupons (e2e)', () => {
   // =============================================
 
   describe('POST /coupons', () => {
-    it('201 — crea cupón con porcentaje', async () => {
+    it('201 — crea cupón porcentual', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({
-          code: 'PERCENT10',
-          value: 10,
-          isPercentage: true,
-          isGlobal: false,
-        })
+        .send({ code: 'PERCENT10', value: 10, isGlobal: false })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.code).toBe('PERCENT10');
       expect(res.body.status).toBe('active');
-      expect(res.body.isPercentage).toBe(true);
-      expect(res.body.currency).toBeUndefined();
+      expect(res.body.value).toBe(10);
     });
 
     it('201 — crea cupón con usageLimit y fechas', async () => {
@@ -157,9 +149,7 @@ describe('Coupons (e2e)', () => {
         .post('/v1/coupons')
         .send({
           code: 'LIMITED',
-          value: 200,
-          isPercentage: false,
-          currency: 'ARS',
+          value: 15,
           isGlobal: false,
           usageLimit: 5,
           startsAt: new Date(Date.now() - 86400000).toISOString(),
@@ -178,40 +168,24 @@ describe('Coupons (e2e)', () => {
         .expect(400);
     });
 
-    it('400 — porcentaje mayor a 100', async () => {
+    it('400 — value mayor a 100', async () => {
       await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({
-          code: 'OVER100',
-          value: 101,
-          isPercentage: true,
-          isGlobal: false,
-        })
+        .send({ code: 'OVER100', value: 101, isGlobal: false })
         .expect(400);
     });
 
-    it('400 — cupón fijo sin currency', async () => {
+    it('400 — value menor a 0.01', async () => {
       await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({
-          code: 'NOCURR',
-          value: 50,
-          isPercentage: false,
-          isGlobal: false,
-        })
+        .send({ code: 'ZERO', value: 0, isGlobal: false })
         .expect(400);
     });
 
-    it('400 — porcentaje con currency enviada', async () => {
+    it('400 — campo forbidden (isPercentage ya no existe)', async () => {
       await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({
-          code: 'BADPERC',
-          value: 10,
-          isPercentage: true,
-          currency: 'ARS',
-          isGlobal: false,
-        })
+        .send({ code: 'BADFIELD', value: 10, isGlobal: false, isPercentage: true })
         .expect(400);
     });
 
@@ -221,7 +195,6 @@ describe('Coupons (e2e)', () => {
         .send({
           code: 'BADDATE',
           value: 10,
-          isPercentage: true,
           isGlobal: false,
           startsAt: new Date(Date.now() + 86400000).toISOString(),
           endsAt: new Date(Date.now() - 86400000).toISOString(),
@@ -232,13 +205,7 @@ describe('Coupons (e2e)', () => {
     it('409 — código duplicado', async () => {
       await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({
-          code: 'FIXED100',
-          value: 50,
-          isPercentage: false,
-          currency: 'ARS',
-          isGlobal: false,
-        })
+        .send({ code: 'FIXED100', value: 20, isGlobal: false })
         .expect(409);
     });
   });
@@ -324,12 +291,7 @@ describe('Coupons (e2e)', () => {
     beforeAll(async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({
-          code: 'TODELETE',
-          value: 5,
-          isPercentage: true,
-          isGlobal: false,
-        })
+        .send({ code: 'TODELETE', value: 5, isGlobal: false })
         .expect(201);
       deleteId = res.body.id;
     });

@@ -152,11 +152,11 @@ describe('ComboPricing (e2e)', () => {
     expect(res.body.marginId).toBe(marginId);
   });
 
-  it('POST /combo-pricing -> 400 si el combo ya tiene pricing', async () => {
+  it('POST /combo-pricing -> 409 si el combo ya tiene pricing', async () => {
     await request(app.getHttpServer())
       .post('/v1/combo-pricing')
       .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1300 })
-      .expect(400);
+      .expect(409);
   });
 
   it('POST /combo-pricing -> 400 si faltan campos', async () => {

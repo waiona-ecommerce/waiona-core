@@ -157,11 +157,11 @@ describe('ProductPricing (e2e)', () => {
     expect(res.body.marginId).toBe(marginId);
   });
 
-  it('POST /product-pricing -> 400 si el producto ya tiene pricing', async () => {
+  it('POST /product-pricing -> 409 si el producto ya tiene pricing', async () => {
     await request(app.getHttpServer())
       .post('/v1/product-pricing')
       .send({ productId, currency: CurrencyCode.ARS, unitPrice: 600 })
-      .expect(400);
+      .expect(409);
   });
 
   it('POST /product-pricing -> 400 si faltan campos', async () => {
