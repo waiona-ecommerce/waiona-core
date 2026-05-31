@@ -52,20 +52,20 @@ export class PaymentsService {
         lock: { mode: 'pessimistic_write' },
       });
 
-      if (!locked) throw new NotFoundException('Order not found');
+      if (!locked) throw new NotFoundException('Orden no encontrada');
 
       const order = await manager.findOne(OrderEntity, {
         where: { id: dto.orderId },
       });
 
-      if (!order) throw new NotFoundException('Order not found');
+      if (!order) throw new NotFoundException('Orden no encontrada');
 
       if (role === RoleType.CLIENT && order.userId !== userId) {
-        throw new ForbiddenException('Access denied');
+        throw new ForbiddenException('Acceso denegado');
       }
 
       if (order.status !== OrderStatus.PENDING) {
-        throw new BadRequestException('Order is not in a payable state');
+        throw new BadRequestException('La orden no está en estado pagable');
       }
 
       const existingPayment = await manager.findOne(PaymentEntity, {
@@ -73,7 +73,7 @@ export class PaymentsService {
       });
 
       if (existingPayment) {
-        throw new BadRequestException('Order already has a pending payment');
+        throw new BadRequestException('La orden ya tiene un pago pendiente');
       }
 
       let externalId: string | null = null;
@@ -171,7 +171,10 @@ export class PaymentsService {
             order.status = OrderStatus.CONFIRMED;
             orderChanged = true;
           }
-        } else if (mpStatus === 'reverted' || mpStatus === 'charged_back') {
+        } else if (
+          mpStatus === 'reverted' ||
+          mpStatus === 'refunded' // merchant_order devuelve 'refunded', payment normaliza a 'reverted'
+        ) {
           payment.status = PaymentStatus.CANCELLED;
           if (cancellable) {
             order.status = OrderStatus.CANCELLED;
@@ -217,9 +220,9 @@ export class PaymentsService {
   ): Promise<PaymentResponseDto[]> {
     if (role === RoleType.CLIENT) {
       const order = await this.orderRepo.findOne({ where: { id: orderId } });
-      if (!order) throw new NotFoundException('Order not found');
+      if (!order) throw new NotFoundException('Orden no encontrada');
       if (order.userId !== userId)
-        throw new ForbiddenException('Access denied');
+        throw new ForbiddenException('Acceso denegado');
     }
 
     const payments = await this.paymentRepo.find({
@@ -242,9 +245,9 @@ export class PaymentsService {
       where: { id },
       relations: role === RoleType.CLIENT ? ['order'] : [],
     });
-    if (!payment) throw new NotFoundException('Payment not found');
+    if (!payment) throw new NotFoundException('Pago no encontrado');
     if (role === RoleType.CLIENT && payment.order?.userId !== userId) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException('Acceso denegado');
     }
     return new PaymentResponseDto(payment);
   }

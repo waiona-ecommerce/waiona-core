@@ -80,10 +80,15 @@ export class PaymentsController {
     @Query() query: any,
     @Headers() headers: Record<string, string>,
   ) {
-    // 🔥 verificar firma de MercadoPago
-    this.verifyMercadoPagoSignature(headers, query);
+    // Verificación de firma dentro de try/catch — si la firma es inválida
+    // se ignora la notificación pero siempre se devuelve 200.
+    // MP reintenta indefinidamente ante cualquier respuesta != 200.
+    try {
+      this.verifyMercadoPagoSignature(headers, query);
+    } catch {
+      return { received: true };
+    }
 
-    // siempre retornar 200 — el error se swallow en el service
     await this.paymentsService.handleMercadoPagoWebhook(body, query);
     return { received: true };
   }
@@ -144,7 +149,9 @@ export class PaymentsController {
     const xRequestId = headers['x-request-id'];
 
     if (!xSignature || !xRequestId) {
-      throw new UnauthorizedException('Missing MercadoPago signature headers');
+      throw new UnauthorizedException(
+        'Faltan los headers de firma de MercadoPago',
+      );
     }
 
     // x-signature tiene formato: ts=<timestamp>,v1=<hash>
@@ -153,7 +160,9 @@ export class PaymentsController {
     const v1Part = parts.find((p) => p.startsWith('v1='));
 
     if (!tsPart || !v1Part) {
-      throw new UnauthorizedException('Invalid MercadoPago signature format');
+      throw new UnauthorizedException(
+        'Formato de firma de MercadoPago inválido',
+      );
     }
 
     const ts = tsPart.split('=')[1];
@@ -167,7 +176,7 @@ export class PaymentsController {
       .digest('hex');
 
     if (expected !== v1) {
-      throw new UnauthorizedException('Invalid MercadoPago signature');
+      throw new UnauthorizedException('Firma de MercadoPago inválida');
     }
   }
 }

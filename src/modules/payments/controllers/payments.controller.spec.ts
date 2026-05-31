@@ -92,12 +92,13 @@ describe('PaymentsController', () => {
       ).resolves.not.toThrow();
     });
 
-    it('should throw UnauthorizedException if secret set but headers missing', async () => {
+    it('should return 200 even if signature headers are missing (MP requiere siempre 200)', async () => {
       configGetMock.mockReturnValue('my_secret');
       service.handleMercadoPagoWebhook.mockResolvedValue(undefined);
-      await expect(
-        controller.handleMercadoPagoWebhook({}, {}, {}),
-      ).rejects.toThrow(UnauthorizedException);
+      const result = await controller.handleMercadoPagoWebhook({}, {}, {});
+      expect(result).toEqual({ received: true });
+      // El service NO debe llamarse — se descartó por firma inválida
+      expect(service.handleMercadoPagoWebhook).not.toHaveBeenCalled();
     });
 
     it('should validate correct MP signature', async () => {
