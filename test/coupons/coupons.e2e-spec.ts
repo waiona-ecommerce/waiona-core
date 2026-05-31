@@ -185,7 +185,12 @@ describe('Coupons (e2e)', () => {
     it('400 — campo forbidden (isPercentage ya no existe)', async () => {
       await request(app.getHttpServer())
         .post('/v1/coupons')
-        .send({ code: 'BADFIELD', value: 10, isGlobal: false, isPercentage: true })
+        .send({
+          code: 'BADFIELD',
+          value: 10,
+          isGlobal: false,
+          isPercentage: true,
+        })
         .expect(400);
     });
 
