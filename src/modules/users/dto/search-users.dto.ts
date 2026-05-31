@@ -1,11 +1,15 @@
-import { IsOptional, IsString, IsEmail, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 export class SearchUsersDto extends PaginationQueryDto {
-  @ApiProperty({ example: 'juan@example.com', required: false })
+  @ApiProperty({
+    example: 'juan',
+    required: false,
+    description: 'Búsqueda parcial por email (ILIKE)',
+  })
   @IsOptional()
-  @IsEmail()
+  @IsString()
   @MaxLength(255)
   email?: string;
 

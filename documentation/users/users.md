@@ -108,7 +108,7 @@ Usado por `POST /auth/register` — no hay endpoint `POST /users`.
 {
   page?:  number;  // default: 1, mín: 1
   limit?: number;  // default: 20, mín: 1, máx: 100
-  email?: string;  // búsqueda parcial con ILIKE
+  email?: string;  // búsqueda parcial con ILIKE — acepta fragmento de email (ej: "juan", "test@")
   name?:  string;  // busca en name Y lastName con ILIKE (OR)
 }
 ```
@@ -315,6 +315,7 @@ Authorization: Bearer <jwt-con-sub=1>
 | `ProfileEntity` no inyectada como repo (cascade via `UserEntity`) | ✅ |
 | `findEntity()` privado para búsquedas internas | ✅ |
 | `FindOptionsWhere<UserEntity>` en lugar de `any` | ✅ |
+| `SearchUsersDto.email` usa `@IsString()` (no `@IsEmail()`) — permite búsqueda parcial | ✅ |
 | `GuardsModule` no importado en el módulo | ✅ |
 | Swagger — `@ApiTags`, `@ApiBearerAuth` en controller | ✅ |
 | Swagger — `@ApiOperation`, `@ApiResponse`, `@ApiParam` por endpoint | ✅ |
