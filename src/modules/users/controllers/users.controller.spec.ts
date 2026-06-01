@@ -6,6 +6,7 @@ import { Reflector } from '@nestjs/core';
 import { UsersController } from './users.controller';
 import { UsersService } from '../services/users.service';
 import { RolesGuard } from '../../../common/guards/roles.guard';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -43,7 +44,7 @@ describe('UsersController', () => {
     hasNextPage: false,
   });
 
-  const mockRequest = (sub: number) => ({ user: { sub } }) as any;
+  const mockJwt = (sub: number) => ({ sub, role: RoleType.CLIENT });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -98,13 +99,13 @@ describe('UsersController', () => {
   describe('findOne', () => {
     it('should return own user', async () => {
       service.findOne.mockResolvedValue(mockUserDto() as any);
-      const result = await controller.findOne(1, mockRequest(1));
+      const result = await controller.findOne(1, mockJwt(1));
       expect(service.findOne).toHaveBeenCalledWith(1);
       expect(result.id).toBe(1);
     });
 
     it('should throw ForbiddenException if accessing another user', () => {
-      expect(() => controller.findOne(2, mockRequest(1))).toThrow(
+      expect(() => controller.findOne(2, mockJwt(1))).toThrow(
         ForbiddenException,
       );
     });
@@ -122,14 +123,14 @@ describe('UsersController', () => {
       });
       service.update.mockResolvedValue(updated as any);
 
-      const result = await controller.update(1, mockRequest(1), dto);
+      const result = await controller.update(1, mockJwt(1), dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result.profile.name).toBe('Carlos');
     });
 
     it('should throw ForbiddenException if updating another user', () => {
-      expect(() => controller.update(2, mockRequest(1), {} as any)).toThrow(
+      expect(() => controller.update(2, mockJwt(1), {} as any)).toThrow(
         ForbiddenException,
       );
     });
@@ -142,12 +143,12 @@ describe('UsersController', () => {
   describe('remove', () => {
     it('should remove own user', async () => {
       service.remove.mockResolvedValue(undefined);
-      await controller.remove(1, mockRequest(1));
+      await controller.remove(1, mockJwt(1));
       expect(service.remove).toHaveBeenCalledWith(1);
     });
 
     it('should throw ForbiddenException if removing another user', () => {
-      expect(() => controller.remove(2, mockRequest(1))).toThrow(
+      expect(() => controller.remove(2, mockJwt(1))).toThrow(
         ForbiddenException,
       );
     });

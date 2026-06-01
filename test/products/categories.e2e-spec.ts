@@ -10,7 +10,7 @@ import { DataSource } from 'typeorm';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../src/common/guards/roles.guard';
 
 import { CategoryController } from '../../src/modules/products/categories/controllers/category.controller';
 import { CategoryService } from '../../src/modules/products/categories/services/category.service';

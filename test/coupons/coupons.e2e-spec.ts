@@ -9,7 +9,7 @@ import { DataSource } from 'typeorm';
 import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../src/common/guards/roles.guard';
 
 import { CouponController } from '../../src/modules/coupons/coupon/controllers/coupon.controller';
 import { CouponService } from '../../src/modules/coupons/coupon/services/coupon.service';
