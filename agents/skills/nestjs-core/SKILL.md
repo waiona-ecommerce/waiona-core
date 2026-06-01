@@ -51,6 +51,7 @@ src/
 ├── env.model.ts                     # Env interface (typed ConfigService)
 ├── common/
 │   ├── decorators/roles.decorator.ts
+│   ├── decorators/current-user.decorator.ts  # @CurrentUser() → JwtPayload { sub, role }
 │   ├── entities/base.entity.ts      # id, createdAt, updatedAt, deletedAt
 │   ├── enums/
 │   │   ├── role-type.enum.ts        # SUPER_ADMIN | ADMIN | CLIENT
@@ -125,6 +126,11 @@ export class NombreController {
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 409, description: 'Ya existe' })
   create(@Body() dto: CreateNombreDto) { return this.service.create(dto); }
+
+  // Para leer el usuario autenticado — SIEMPRE usar @CurrentUser(), nunca @Req()
+  // import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+  // import type { JwtPayload } from '../../../common/decorators/current-user.decorator';
+  // create(@CurrentUser() user: JwtPayload, @Body() dto: CreateNombreDto) { ... }
 
   @Get()
   @ApiOperation({ summary: 'Listar nombres paginados' })
@@ -330,5 +336,5 @@ export interface Env {
 |-----------|-----------------|
 | Service depends on multiple repos | Add each with `getRepositoryToken(Entity)` in spec providers |
 | Service uses `DataSource` | Mock with `{ transaction: jest.fn(cb => cb(mockEntityManager)) }` |
-| Controller reads `req.user` | Pass mock request `{ user: { sub: 1, role: RoleType.CLIENT } }` |
+| Controller uses `@CurrentUser()` | Pass `{ sub: 1, role: RoleType.CLIENT }` directly — decorator doesn't run in unit tests |
 | `ConfigService` needed in spec | `{ provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('value') } }` |
