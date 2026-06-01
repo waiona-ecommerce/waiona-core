@@ -11,7 +11,6 @@ import {
   Query,
   Headers,
   UnauthorizedException,
-  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -24,13 +23,13 @@ import {
 } from '@nestjs/swagger';
 import { createHmac } from 'crypto';
 import { SkipThrottle } from '@nestjs/throttler';
-import type { Request } from 'express';
 import { Env } from '../../../env.model';
 
 import { PaymentsService } from '../services/payments.service';
 import { CreatePaymentDto } from '../dto/create-payment.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
-import { RoleType } from '../../../common/enums/role-type.enum';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import type { JwtPayload } from '../../../common/decorators/current-user.decorator';
 import type { MercadoPagoWebhookBody } from '../dto/mercadopago-webhook.dto';
 
 @ApiTags('Payments')
@@ -58,11 +57,10 @@ export class PaymentsController {
   @UseGuards(AuthGuard('jwt'))
   @Post()
   create(
-    @Req() req: Request,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreatePaymentDto,
   ): Promise<PaymentResponseDto> {
-    const payload = req.user as { sub: number; role: RoleType };
-    return this.paymentsService.create(payload.sub, payload.role, dto);
+    return this.paymentsService.create(user.sub, user.role, dto);
   }
 
   // ==========================
@@ -108,10 +106,9 @@ export class PaymentsController {
   @Get('order/:orderId')
   findByOrder(
     @Param('orderId', ParseIntPipe) orderId: number,
-    @Req() req: Request,
+    @CurrentUser() user: JwtPayload,
   ): Promise<PaymentResponseDto[]> {
-    const payload = req.user as { sub: number; role: RoleType };
-    return this.paymentsService.findByOrder(orderId, payload.sub, payload.role);
+    return this.paymentsService.findByOrder(orderId, user.sub, user.role);
   }
 
   // ==========================
@@ -128,10 +125,9 @@ export class PaymentsController {
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request,
+    @CurrentUser() user: JwtPayload,
   ): Promise<PaymentResponseDto> {
-    const payload = req.user as { sub: number; role: RoleType };
-    return this.paymentsService.findOne(id, payload.sub, payload.role);
+    return this.paymentsService.findOne(id, user.sub, user.role);
   }
 
   // ==========================

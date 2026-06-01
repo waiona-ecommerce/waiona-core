@@ -9,7 +9,6 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  Req,
   ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -22,7 +21,6 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
 
 import { OrdersService } from '../services/orders.service';
 import { OrderResponseDto } from '../dto/order-response.dto';
@@ -33,6 +31,8 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../common/enums/role-type.enum';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { IdempotencyInterceptor } from '../../../common/interceptors/idempotency.interceptor';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import type { JwtPayload } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -51,9 +51,8 @@ export class OrdersController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @Post()
-  create(@Req() req: Request, @Body() dto: CreateOrderDto) {
-    const payload = req.user as { sub: number };
-    return this.ordersService.create(payload.sub, dto);
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateOrderDto) {
+    return this.ordersService.create(user.sub, dto);
   }
 
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
@@ -77,14 +76,11 @@ export class OrdersController {
   @Get('user/:userId')
   findByUser(
     @Param('userId', ParseIntPipe) userId: number,
-    @Req() req: Request,
+    @CurrentUser() user: JwtPayload,
   ) {
-    const payload = req.user as { sub: number; role: RoleType };
-
-    if (payload.role === RoleType.CLIENT && payload.sub !== userId) {
+    if (user.role === RoleType.CLIENT && user.sub !== userId) {
       throw new ForbiddenException('Access denied');
     }
-
     return this.ordersService.findByUser(userId);
   }
 
@@ -95,10 +91,12 @@ export class OrdersController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    const payload = req.user as { sub: number; role: RoleType };
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
     const order = await this.ordersService.findOne(id);
-    if (payload.role === RoleType.CLIENT && order.userId !== payload.sub) {
+    if (user.role === RoleType.CLIENT && order.userId !== user.sub) {
       throw new ForbiddenException('Access denied');
     }
     return order;
