@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DiscountProductTargetController } from './discount-product-target.controller';
 import { DiscountProductTargetService } from '../services/discount-product-target.service';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
 
 describe('DiscountProductTargetController', () => {

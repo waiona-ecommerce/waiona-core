@@ -1,6 +1,6 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 
-import { BaseAuditEntity } from 'src/common/entities/base.audit.entity';
+import { BaseAuditEntity } from '../../../../common/entities/base.audit.entity';
 import { StockItemEntity } from '../../stock-item/entities/stock-item.entity';
 
 import { StockOperationType } from '../enums/stock-operation-type.enum';

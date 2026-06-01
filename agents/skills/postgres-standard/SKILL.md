@@ -42,13 +42,9 @@ TypeOrmModule.forRoot({
 })
 ```
 
-`DB_SYNCHRONIZE=true` is set in `docker-compose.yaml` for the `api` service so that Docker local dev always runs with sync enabled — even though the Dockerfile sets `NODE_ENV=production` (required for the production build/logger).
-
 **Day-to-day workflow in dev:**
 1. Modify the entity (add column, relation, index)
-2. Restart the app:
-   - Local: `npm run start:dev`
-   - Docker: `docker compose up -d --build api`
+2. Restart the app: `npm run start:dev`
 3. TypeORM applies the change automatically
 
 **⚠️ Never set `DB_SYNCHRONIZE=true` or `NODE_ENV !== 'production'` in a real production environment.** Synchronize can drop columns if you rename them.
@@ -147,18 +143,23 @@ UPDATE products SET category_id = 1 WHERE category_id IS NULL;
 
 ## Migraciones (producción)
 
-En producción, usar migraciones en lugar de `synchronize`. Generar desde los cambios en entidades:
+En producción, usar migraciones en lugar de `synchronize`. Los scripts ya están configurados — usan un wrapper (`migration.js`) que registra ts-node + tsconfig-paths correctamente.
 
 ```bash
-# generar migración
-npx typeorm migration:generate src/database/migrations/AddCategoryToProduct -d src/database/ormconfig.ts
+# generar migración desde cambios en entidades (requiere DB disponible)
+npm run migration:generate -- src/database/migrations/NombreCambio
 
-# correr migraciones
-npx typeorm migration:run -d src/database/ormconfig.ts
+# aplicar migraciones en dev
+npm run migration:run
+
+# aplicar en producción (usa dist/ compilado — sin ts-node)
+npm run migration:run:prod
 
 # revertir última migración
-npx typeorm migration:revert -d src/database/ormconfig.ts
+npm run migration:revert
 ```
+
+El `entrypoint.sh` del contenedor corre `migration:run:prod` automáticamente antes de levantar la app.
 
 ---
 

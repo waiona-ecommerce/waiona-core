@@ -24,12 +24,12 @@ import { ProductService } from '../services/product.service';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
 @ApiTags('Products')
 @ApiBearerAuth()

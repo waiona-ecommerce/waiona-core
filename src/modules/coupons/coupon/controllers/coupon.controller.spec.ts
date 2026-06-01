@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { CouponController } from '../../../coupons/coupon/controllers/coupon.controller';
 import { CouponService } from '../../../coupons/coupon/services/coupon.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
 
 describe('CouponController', () => {

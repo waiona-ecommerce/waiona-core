@@ -4,9 +4,9 @@ import { Reflector } from '@nestjs/core';
 
 import { ProductController } from './product.controller';
 import { ProductService } from '../services/product.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 describe('ProductController', () => {
   let controller: ProductController;

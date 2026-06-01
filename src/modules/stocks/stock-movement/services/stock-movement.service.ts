@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 
 import { StockMovementEntity } from '../entities/stock-movement.entity';
 import { StockMovementResponseDto } from '../dto/stock-movement-respose.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class StockMovementService {

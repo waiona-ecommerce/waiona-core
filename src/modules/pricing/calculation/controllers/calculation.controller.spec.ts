@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { CalculationController } from '../../calculation/controllers/calculation.controller';
 import { CalculationService } from '../../calculation/services/calculation.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 describe('CalculationController', () => {
   let controller: CalculationController;

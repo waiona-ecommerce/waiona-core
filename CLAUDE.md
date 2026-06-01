@@ -30,6 +30,7 @@ El sistema permite a clientes ver productos, hacer pedidos y pagar con MercadoPa
 src/
 ├── common/
 │   ├── decorators/roles.decorator.ts     → @Roles(RoleType.ADMIN)
+│   ├── decorators/current-user.decorator.ts → @CurrentUser() — extrae JwtPayload del JWT
 │   ├── entities/base.entity.ts           → id, createdAt, updatedAt, isDeleted
 │   ├── entities/base.audit.entity.ts     → sin isDeleted, solo auditoría
 │   ├── enums/currency-code.enum.ts
@@ -168,6 +169,7 @@ JWT payload: `{ sub: userId, role: RoleType }`
 - Guards a nivel de clase cuando todos los endpoints requieren el mismo acceso
 - `@Roles()` + `@UseGuards(AuthGuard('jwt'), RolesGuard)` para endpoints de admin
 - Rutas específicas (ej: `GET /user/:userId`) siempre ANTES de rutas genéricas (ej: `GET /:id`)
+- `@CurrentUser() user: JwtPayload` para leer el usuario autenticado — nunca `@Req() req: any`
 
 ### DTOs
 - `class-validator` para validación
@@ -183,6 +185,7 @@ JWT payload: `{ sub: userId, role: RoleType }`
 - Factory functions `mockEntity(overrides = {})` para datos de prueba
 - `jest.clearAllMocks()` en `afterEach`
 - `overrideGuard` para saltar autenticación en controller specs
+- En controller specs, pasar `{ sub: 1, role: RoleType.CLIENT }` directo donde va `@CurrentUser()` — el decorator no se ejecuta en unit tests
 
 ---
 
@@ -222,13 +225,18 @@ npx jest --coverage
 
 # Build
 npm run build
+
+# Migraciones (requiere DB disponible)
+npm run migration:generate -- src/database/migrations/NombreCambio  # genera desde cambios en entidades
+npm run migration:run                                                # aplica en dev
+npm run migration:run:prod                                           # aplica en prod (usa dist/)
 ```
 
 ---
 
 ## Notas Importantes
 
-- `synchronize: true` está activo en desarrollo — TypeORM sincroniza el schema automáticamente. **NO usar en producción.**
+- `synchronize: true` está activo en desarrollo (`NODE_ENV !== 'production'`) — TypeORM sincroniza el schema automáticamente. En producción usa migraciones (`npm run migration:run:prod`) — el `entrypoint.sh` las corre automáticamente al arrancar el contenedor.
 - El logo del email (`EMAIL_THEME.logo`) apunta a `API_URL/email/logo.png`. En desarrollo usar Cloudinary u otra URL pública.
 - El webhook de MercadoPago siempre debe responder 200 — el service swallow errores internamente.
 - `forbidNonWhitelisted: true` en el `ValidationPipe` — campos extra en el body generan 400.

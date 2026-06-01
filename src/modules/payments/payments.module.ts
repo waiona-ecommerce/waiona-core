@@ -3,8 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 
 import { PaymentEntity } from './entities/payment.entity';
-import { OrderEntity } from 'src/modules/orders/entities/order.entity';
-import { OrdersModule } from 'src/modules/orders/orders.module';
+import { OrderEntity } from '../orders/entities/order.entity';
+import { OrdersModule } from '../orders/orders.module';
 
 import { PaymentsService } from './services/payments.service';
 import { MercadoPagoProvider } from './services/providers/mercadopago.provider';

@@ -3,9 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ProductPricingService } from './../services/product-pricing.service';
 import { ProductPricingEntity } from './../entities/product-pricing.entity';
-import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { MarginEntity } from '../../margins/entities/margin.entity';
+import { CurrencyCode } from '../../../common/enums/currency-code.enum';
+import { ShopCacheService } from '../../../common/cache/shop-cache.service';
 
 describe('ProductPricingService', () => {
   let service: ProductPricingService;

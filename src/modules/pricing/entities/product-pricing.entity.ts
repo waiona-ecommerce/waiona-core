@@ -1,7 +1,7 @@
-import { BaseEntity } from 'src/common/entities/base.entity';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
-import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
-import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
+import { BaseEntity } from '../../../common/entities/base.entity';
+import { CurrencyCode } from '../../../common/enums/currency-code.enum';
+import { ProductEntity } from '../../products/product/entities/product.entity';
+import { MarginEntity } from '../../margins/entities/margin.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 @Entity('product_pricing')

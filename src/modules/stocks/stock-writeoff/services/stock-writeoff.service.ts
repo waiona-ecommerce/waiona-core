@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { StockWriteOffEntity } from '../entities/stock-writeoff.entity';
 import { UpdateStockWriteOffDto } from '../dto/update-stock-writeoff.dto';
 import { StockWriteOffResponseDto } from '../dto/stock-writeoff-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class StockWriteOffService {

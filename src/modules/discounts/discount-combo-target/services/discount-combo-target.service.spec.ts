@@ -4,7 +4,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { DiscountComboTargetService } from './discount-combo-target.service';
 import { DiscountComboTargetEntity } from '../entities/discount-combo-target.entity';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('DiscountComboTargetService', () => {
   let service: DiscountComboTargetService;

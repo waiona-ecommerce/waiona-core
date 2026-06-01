@@ -10,7 +10,7 @@ import { UpdateProductImageDto } from '../dto/update-product-image.dto';
 import { UploadProductImageDto } from '../dto/upload-product-image.dto';
 import { ProductImageResponseDto } from '../dto/product-image-response.dto';
 import { StorageService } from '../../../storage/storage.service';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductImageService {

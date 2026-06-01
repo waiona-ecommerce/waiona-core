@@ -10,7 +10,7 @@ import { UpdateComboImageDto } from '../dto/update-combo-image.dto';
 import { UploadComboImageDto } from '../dto/upload-combo-image.dto';
 import { ComboImageResponseDto } from '../dto/combo-image-response.dto';
 import { StorageService } from '../../../storage/storage.service';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ComboImageService {

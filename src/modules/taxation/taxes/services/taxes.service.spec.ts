@@ -4,7 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { TaxesService } from './taxes.service';
 import { TaxEntity } from '../entities/tax.entity';
 import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('TaxesService', () => {
   let service: TaxesService;

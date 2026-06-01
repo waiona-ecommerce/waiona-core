@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { DiscountComboTargetController } from './discount-combo-target.controller';
 import { DiscountComboTargetService } from '../services/discount-combo-target.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 describe('DiscountComboTargetController', () => {
   let controller: DiscountComboTargetController;

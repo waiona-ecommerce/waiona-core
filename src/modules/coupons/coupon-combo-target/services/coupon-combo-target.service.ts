@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 
 import { CouponComboTargetEntity } from '../entities/coupon-combo-target.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
-import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
+import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { CreateCouponComboTargetDto } from '../dto/create-coupon-combo-target.dto';
 import { CouponComboTargetResponseDto } from '../dto/coupon-combo-target-response.dto';
 

@@ -7,9 +7,9 @@ import { ShopController } from './controllers/shop.controller';
 import { ProductEntity } from '../product/entities/product.entity';
 import { ComboEntity } from '../combos/entities/combo.entity';
 
-import { CalculationModule } from 'src/modules/pricing/calculation/calculation.module';
+import { CalculationModule } from '../../pricing/calculation/calculation.module';
 
-import { StocksModule } from 'src/modules/stocks/stocks.module';
+import { StocksModule } from '../../stocks/stocks.module';
 
 @Module({
   imports: [

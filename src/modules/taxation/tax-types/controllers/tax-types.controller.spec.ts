@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TaxTypesController } from './tax-types.controller';
 import { TaxTypesService } from '../services/tax-types.service';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 describe('TaxTypesController', () => {
   let controller: TaxTypesController;

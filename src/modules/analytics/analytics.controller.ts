@@ -6,9 +6,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { RoleType } from '../../common/enums/role-type.enum';
 import { AnalyticsService } from './analytics.service';
 
 @ApiTags('analytics')

@@ -3,9 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ComboPricingService } from './../services/combo-pricing.service';
 import { ComboPricingEntity } from './../entities/combo-pricing.entity';
-import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { MarginEntity } from '../../margins/entities/margin.entity';
+import { CurrencyCode } from '../../../common/enums/currency-code.enum';
+import { ShopCacheService } from '../../../common/cache/shop-cache.service';
 
 describe('ComboPricingService', () => {
   let service: ComboPricingService;

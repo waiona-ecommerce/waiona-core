@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ProductPricingEntity } from './entities/product-pricing.entity';
 import { ComboPricingEntity } from './entities/combo-pricing.entity';
-import { MarginEntity } from 'src/modules/margins/entities/margin.entity';
+import { MarginEntity } from '../margins/entities/margin.entity';
 
 import { ProductPricingService } from './services/product-pricing.service';
 import { ComboPricingService } from './services/combo-pricing.service';

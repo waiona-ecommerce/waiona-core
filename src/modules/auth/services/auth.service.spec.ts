@@ -20,11 +20,11 @@ jest.mock('crypto', () => {
 
 import { AuthService } from './auth.service';
 import { UsersService } from '../../users/services/users.service';
-import { MailService } from 'src/modules/mail/services/mail.service';
-import { TokenEntity } from 'src/modules/mail/entities/token.entity';
+import { MailService } from '../../mail/services/mail.service';
+import { TokenEntity } from '../../mail/entities/token.entity';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
-import { TokenType } from 'src/modules/mail/enum/token-type.enum';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { TokenType } from '../../mail/enum/token-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 import { UserEntity } from '../../users/entities/user.entity';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 

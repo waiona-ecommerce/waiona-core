@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
-import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
-import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
-import { BaseEntity } from 'src/common/entities/base.entity';
+import { ProductEntity } from '../../../products/product/entities/product.entity';
+import { TaxEntity } from '../../taxes/entities/tax.entity';
+import { BaseEntity } from '../../../../common/entities/base.entity';
 
 @Entity('product_taxes')
 @Index(['productId', 'taxId'], { unique: true })

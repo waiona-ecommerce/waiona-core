@@ -3,8 +3,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { DiscountsController } from '../../discount/controllers/discounts.controller';
 import { DiscountsService } from '../../discount/services/discounts.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { DiscountResponseDto } from '../dto/response-discount.dto';
 
 describe('DiscountsController', () => {

@@ -1,5 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { BaseEntity } from 'src/common/entities/base.entity';
+import { BaseEntity } from '../../../../common/entities/base.entity';
 
 import { StockItemEntity } from '../../stock-item/entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';

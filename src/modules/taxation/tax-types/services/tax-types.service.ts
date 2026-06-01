@@ -11,8 +11,8 @@ import { TaxTypeEntity } from '../entities/tax-types.entity';
 import { CreateTaxTypeDto } from '../dto/create-tax-type.dto';
 import { UpdateTaxTypeDto } from '../dto/update-tax-type.dto';
 import { TaxTypeResponseDto } from '../dto/tax-type-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class TaxTypesService {

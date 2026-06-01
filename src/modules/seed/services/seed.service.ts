@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 
-import { UserEntity } from 'src/modules/users/entities/user.entity';
-import { RoleEntity } from 'src/modules/users/entities/role.entity';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { Env } from 'src/env.model';
+import { UserEntity } from '../../users/entities/user.entity';
+import { RoleEntity } from '../../users/entities/role.entity';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { Env } from '../../../env.model';
 
 @Injectable()
 export class SeedService implements OnApplicationBootstrap {

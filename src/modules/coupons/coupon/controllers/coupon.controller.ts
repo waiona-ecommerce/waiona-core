@@ -25,11 +25,11 @@ import { CouponService } from '../services/coupon.service';
 import { CreateCouponDto } from '../dto/create-coupon.dto';
 import { UpdateCouponDto } from '../dto/update-coupon.dto';
 import { CouponResponseDto } from '../dto/coupon-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
 @ApiTags('Coupons')
 @ApiBearerAuth()

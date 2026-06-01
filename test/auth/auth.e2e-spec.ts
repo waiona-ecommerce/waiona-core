@@ -13,18 +13,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
-import { AuthController } from 'src/modules/auth/controllers/auth.controller';
-import { AuthService } from 'src/modules/auth/services/auth.service';
-import { LocalStrategy } from 'src/modules/auth/strategies/local.strategy';
-import { JwtStrategy } from 'src/modules/auth/strategies/jwt.strategy';
-import { UsersService } from 'src/modules/users/services/users.service';
-import { MailService } from 'src/modules/mail/services/mail.service';
-import { UserEntity } from 'src/modules/users/entities/user.entity';
-import { ProfileEntity } from 'src/modules/users/entities/profile.entity';
-import { RoleEntity } from 'src/modules/users/entities/role.entity';
-import { TokenEntity } from 'src/modules/mail/entities/token.entity';
-import { RefreshTokenEntity } from 'src/modules/auth/entities/refresh-token.entity';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { AuthController } from '../../src/modules/auth/controllers/auth.controller';
+import { AuthService } from '../../src/modules/auth/services/auth.service';
+import { LocalStrategy } from '../../src/modules/auth/strategies/local.strategy';
+import { JwtStrategy } from '../../src/modules/auth/strategies/jwt.strategy';
+import { UsersService } from '../../src/modules/users/services/users.service';
+import { MailService } from '../../src/modules/mail/services/mail.service';
+import { UserEntity } from '../../src/modules/users/entities/user.entity';
+import { ProfileEntity } from '../../src/modules/users/entities/profile.entity';
+import { RoleEntity } from '../../src/modules/users/entities/role.entity';
+import { TokenEntity } from '../../src/modules/mail/entities/token.entity';
+import { RefreshTokenEntity } from '../../src/modules/auth/entities/refresh-token.entity';
+import { RoleType } from '../../src/common/enums/role-type.enum';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;

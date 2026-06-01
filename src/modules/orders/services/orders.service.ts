@@ -9,20 +9,20 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 
 import { OrderEntity } from '../entities/order.entity';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
 import { OrderItemEntity } from '../entities/order-item.entity';
-import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
-import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
-import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
-import { CouponUsageEntity } from 'src/modules/coupons/usage/entities/coupon-usage.entity';
-import { CouponProductTargetEntity } from 'src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from 'src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
-import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
-import { UserEntity } from 'src/modules/users/entities/user.entity';
+import { ProductEntity } from '../../products/product/entities/product.entity';
+import { ComboEntity } from '../../products/combos/entities/combo.entity';
+import { CouponEntity } from '../../coupons/coupon/entities/coupon.entity';
+import { CouponUsageEntity } from '../../coupons/usage/entities/coupon-usage.entity';
+import { CouponProductTargetEntity } from '../../coupons/coupon-product-target/entities/coupon-product-target.entity';
+import { CouponComboTargetEntity } from '../../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
+import { StockItemEntity } from '../../stocks/stock-item/entities/stock-item.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 
-import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
-import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
-import { MailService } from 'src/modules/mail/services/mail.service';
+import { StockItemsService } from '../../stocks/stock-item/services/stock-item.service';
+import { CalculationService } from '../../pricing/calculation/services/calculation.service';
+import { MailService } from '../../mail/services/mail.service';
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';

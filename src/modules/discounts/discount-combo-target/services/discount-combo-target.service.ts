@@ -10,7 +10,7 @@ import { DiscountComboTargetEntity } from '../entities/discount-combo-target.ent
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { CreateDiscountComboTargetDto } from '../dto/create-discount-combo-target.dto';
 import { DiscountComboTargetResponseDto } from '../dto/discount-combo-target.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class DiscountComboTargetService {

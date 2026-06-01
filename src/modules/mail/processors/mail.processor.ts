@@ -3,7 +3,7 @@ import type { Job } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
-import { Env } from 'src/env.model';
+import { Env } from '../../../env.model';
 import { activationTemplate } from '../templates/activation.template';
 import { resetPasswordTemplate } from '../templates/reset-password.template';
 import { orderConfirmedTemplate } from '../templates/order-confirmed.template';

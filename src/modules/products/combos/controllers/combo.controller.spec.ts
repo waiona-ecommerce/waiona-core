@@ -3,8 +3,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { ComboController } from '../../../products/combos/controllers/combo.controller';
 import { ComboService } from '../../../products/combos/services/combo.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 describe('ComboController', () => {
   let controller: ComboController;

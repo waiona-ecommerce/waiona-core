@@ -11,7 +11,7 @@ import { StockItemEntity } from '../../stock-item/entities/stock-item.entity';
 import { CreateStockLocationDto } from '../dto/create-stock-location.dto';
 import { UpdateStockLocationDto } from '../dto/update-stock-location.dto';
 import { StockLocationResponseDto } from '../dto/stock-location-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class StockLocationsService {

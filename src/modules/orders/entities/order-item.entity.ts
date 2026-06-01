@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from 'src/common/entities/base.entity';
+import { BaseEntity } from '../../../common/entities/base.entity';
 import { OrderEntity } from './order.entity';
-import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
-import { ComboEntity } from 'src/modules/products/combos/entities/combo.entity';
+import { ProductEntity } from '../../products/product/entities/product.entity';
+import { ComboEntity } from '../../products/combos/entities/combo.entity';
 
 @Entity('order_items')
 export class OrderItemEntity extends BaseEntity {

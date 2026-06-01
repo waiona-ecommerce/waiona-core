@@ -5,9 +5,9 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ShopService } from '../../../products/shop/services/shop.service';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
-import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
-import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { CalculationService } from '../../../pricing/calculation/services/calculation.service';
+import { StockItemsService } from '../../../stocks/stock-item/services/stock-item.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ShopService', () => {
   let service: ShopService;

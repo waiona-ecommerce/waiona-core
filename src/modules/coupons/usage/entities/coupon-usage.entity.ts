@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../../../common/entities/base.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
-import { UserEntity } from 'src/modules/users/entities/user.entity';
-import { OrderEntity } from 'src/modules/orders/entities/order.entity';
+import { UserEntity } from '../../../users/entities/user.entity';
+import { OrderEntity } from '../../../orders/entities/order.entity';
 
 @Entity('coupon_usages')
 @Index(['couponId'])

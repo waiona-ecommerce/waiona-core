@@ -1,4 +1,4 @@
-import { EMAIL_THEME } from 'src/common/theme/email-theme';
+import { EMAIL_THEME } from '../../../common/theme/email-theme';
 
 export function orderDeliveredTemplate(
   name: string,

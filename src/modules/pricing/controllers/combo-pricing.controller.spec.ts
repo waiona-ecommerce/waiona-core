@@ -3,8 +3,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { ComboPricingController } from './../controllers/combo-pricing.controller';
 import { ComboPricingService } from './../services/combo-pricing.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { CurrencyCode } from '../../../common/enums/currency-code.enum';
 
 describe('ComboPricingController', () => {
   let controller: ComboPricingController;

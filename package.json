@@ -18,11 +18,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "migration:generate": "npx typeorm migration:generate -d src/database/ormconfig.ts",
-    "migration:run": "npx typeorm migration:run -d src/database/ormconfig.ts",
+    "migration:generate": "node migration.js migration:generate -d src/database/ormconfig.ts",
+    "migration:run": "node migration.js migration:run -d src/database/ormconfig.ts",
     "migration:run:prod": "typeorm migration:run -d dist/database/ormconfig.js",
-    "migration:revert": "npx typeorm migration:revert -d src/database/ormconfig.ts",
-    "migration:show": "npx typeorm migration:show -d src/database/ormconfig.ts"
+    "migration:revert": "node migration.js migration:revert -d src/database/ormconfig.ts",
+    "migration:show": "node migration.js migration:show -d src/database/ormconfig.ts"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.4",
@@ -94,6 +94,10 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.59.4"
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"],
+    "transpileOnly": true
   },
   "jest": {
     "moduleFileExtensions": [

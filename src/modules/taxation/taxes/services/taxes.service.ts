@@ -9,7 +9,7 @@ import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
 import { TaxResponseDto } from '../dto/tax-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class TaxesService {

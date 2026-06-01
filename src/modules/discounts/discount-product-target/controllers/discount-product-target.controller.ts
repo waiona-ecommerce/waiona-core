@@ -21,10 +21,10 @@ import {
 import { DiscountProductTargetService } from '../services/discount-product-target.service';
 import { CreateDiscountProductTargetDto } from '../dto/create-discount-product-target.dto';
 import { DiscountProductTargetResponseDto } from '../dto/discount-target-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @ApiTags('Discounts — Product Targets')
 @ApiBearerAuth()

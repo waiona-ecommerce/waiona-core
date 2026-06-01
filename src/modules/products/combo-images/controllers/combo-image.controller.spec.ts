@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { ComboImageController } from '../../../products/combo-images/controllers/combo-image.controller';
 import { ComboImageService } from '../../../products/combo-images/services/combo-image.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 describe('ComboImageController', () => {
   let controller: ComboImageController;

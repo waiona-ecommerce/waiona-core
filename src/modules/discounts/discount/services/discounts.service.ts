@@ -13,8 +13,8 @@ import { DiscountComboTargetEntity } from '../../discount-combo-target/entities/
 import { CreateDiscountDto } from '../dto/create-discount.dto';
 import { UpdateDiscountDto } from '../dto/update-discount.dto';
 import { DiscountResponseDto } from '../dto/response-discount.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class DiscountsService {

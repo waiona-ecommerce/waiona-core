@@ -8,12 +8,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ProductTaxEntity } from '../entities/product-taxes.entity';
-import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
+import { TaxEntity } from '../../taxes/entities/tax.entity';
 
 import { CreateProductTaxDto } from '../dto/create-product-tax.dto';
 import { UpdateProductTaxDto } from '../dto/update-product-tax.dto';
 import { ProductTaxResponseDto } from '../dto/product-tax-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductTaxesService {

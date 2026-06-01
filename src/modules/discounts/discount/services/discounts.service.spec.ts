@@ -5,7 +5,7 @@ import { DiscountsService } from '../../discount/services/discounts.service';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { DiscountProductTargetEntity } from '../../discount-product-target/entities/discount-product-target.entity';
 import { DiscountComboTargetEntity } from '../../discount-combo-target/entities/discount-combo-target.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('DiscountsService', () => {
   let service: DiscountsService;

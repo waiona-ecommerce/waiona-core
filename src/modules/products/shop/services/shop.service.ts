@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, FindOptionsWhere } from 'typeorm';
 
 import { ProductEntity } from '../../product/entities/product.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
@@ -18,11 +18,11 @@ import {
   ComboItemShopDto,
 } from '../dto/shop-detail-response.dto';
 
-import { CalculationService } from 'src/modules/pricing/calculation/services/calculation.service';
-import { StockItemsService } from 'src/modules/stocks/stock-item/services/stock-item.service';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
-import { PriceBreakdownDto } from 'src/modules/pricing/calculation/dto/price-breakdown.dto';
-import { StockItemEntity } from 'src/modules/stocks/stock-item/entities/stock-item.entity';
+import { CalculationService } from '../../../pricing/calculation/services/calculation.service';
+import { StockItemsService } from '../../../stocks/stock-item/services/stock-item.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
+import { PriceBreakdownDto } from '../../../pricing/calculation/dto/price-breakdown.dto';
+import { StockItemEntity } from '../../../stocks/stock-item/entities/stock-item.entity';
 
 const PRICE_FILTER_SCAN_LIMIT = 500;
 
@@ -78,7 +78,7 @@ export class ShopService {
     const candidates: Candidate[] = [];
 
     if (!type || type === 'product') {
-      const where: any = { isActive: true };
+      const where: FindOptionsWhere<ProductEntity> = { isActive: true };
       if (search) where.name = ILike(`%${search}%`);
       if (categoryId) where.categoryId = categoryId;
       const products = await this.productRepository.find({
@@ -92,7 +92,7 @@ export class ShopService {
     }
 
     if (!type || type === 'combo') {
-      const where: any = { isActive: true };
+      const where: FindOptionsWhere<ComboEntity> = { isActive: true };
       if (search) where.name = ILike(`%${search}%`);
       if (categoryId) where.categoryId = categoryId;
       const combos = await this.comboRepository.find({

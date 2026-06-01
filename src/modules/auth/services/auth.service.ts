@@ -11,16 +11,16 @@ import { randomBytes, createHash } from 'crypto';
 
 import { UsersService } from '../../users/services/users.service';
 import { UserEntity } from '../../users/entities/user.entity';
-import { TokenEntity } from 'src/modules/mail/entities/token.entity';
+import { TokenEntity } from '../../mail/entities/token.entity';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 
-import { MailService } from 'src/modules/mail/services/mail.service';
+import { MailService } from '../../mail/services/mail.service';
 import { Payload } from '../models/payload.model';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
-import { ResetPasswordDto } from 'src/modules/mail/dto/reset-password.dto';
-import { TokenType } from 'src/modules/mail/enum/token-type.enum';
+import { ResetPasswordDto } from '../../mail/dto/reset-password.dto';
+import { TokenType } from '../../mail/enum/token-type.enum';
 
 const REFRESH_TOKEN_TTL_DAYS = 30;
 

@@ -6,9 +6,9 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { BaseEntity } from 'src/common/entities/base.entity';
-import { UserEntity } from 'src/modules/users/entities/user.entity';
-import { CouponEntity } from 'src/modules/coupons/coupon/entities/coupon.entity';
+import { BaseEntity } from '../../../common/entities/base.entity';
+import { UserEntity } from '../../users/entities/user.entity';
+import { CouponEntity } from '../../coupons/coupon/entities/coupon.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { DeliveryType } from '../enums/delivery-type.enum';
 import { OrderItemEntity } from './order-item.entity';

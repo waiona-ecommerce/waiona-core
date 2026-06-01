@@ -8,7 +8,7 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ComboService', () => {
   let service: ComboService;

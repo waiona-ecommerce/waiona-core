@@ -25,10 +25,10 @@ import { ComboPricingService } from '../services/combo-pricing.service';
 import { CreateComboPricingDto } from '../dto/create-combo-pricing.dto';
 import { UpdateComboPricingDto } from '../dto/update-combo-pricing.dto';
 import { ComboPricingResponseDto } from '../dto/combo-pricing-response.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../common/guards/roles.guard';
 
 @ApiTags('Combo Pricing')
 @ApiBearerAuth()

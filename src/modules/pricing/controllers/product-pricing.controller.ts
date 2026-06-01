@@ -25,10 +25,10 @@ import { ProductPricingService } from '../services/product-pricing.service';
 import { CreateProductPricingDto } from '../dto/create-product-pricing.dto';
 import { UpdateProductPricingDto } from '../dto/update-product-pricing.dto';
 import { ProductPricingResponseDto } from '../dto/product-pricing-response.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../common/guards/roles.guard';
 
 @ApiTags('Product Pricing')
 @ApiBearerAuth()

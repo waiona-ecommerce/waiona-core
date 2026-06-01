@@ -9,7 +9,7 @@ import {
 
 import { BaseEntity } from '../../../../common/entities/base.entity';
 import { StockLocationEntity } from '../../stock-locations/entities/stock-locations.entity';
-import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
+import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
 
 @Entity('stock_items')

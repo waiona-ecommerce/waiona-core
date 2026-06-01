@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -180,7 +180,7 @@ describe('AuthController', () => {
   describe('changePassword', () => {
     it('should change password and return message', async () => {
       service.changePassword.mockResolvedValue(undefined);
-      const req = { user: { sub: 1, role: RoleType.CLIENT } } as any;
+      const req = { sub: 1, role: RoleType.CLIENT };
       const dto = { currentPassword: 'OldPass1!', newPassword: 'NewPass1!' };
 
       const result = await controller.changePassword(req, dto);
@@ -197,7 +197,7 @@ describe('AuthController', () => {
   describe('logoutAll', () => {
     it('should call logoutAll with userId from JWT', async () => {
       service.logoutAll.mockResolvedValue(undefined);
-      const req = { user: { sub: 1, role: RoleType.CLIENT } } as any;
+      const req = { sub: 1, role: RoleType.CLIENT };
 
       await controller.logoutAll(req);
 

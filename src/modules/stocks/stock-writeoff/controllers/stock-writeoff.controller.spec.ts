@@ -4,7 +4,7 @@ import { Reflector } from '@nestjs/core';
 
 import { StockWriteOffController } from './stock-writeoff.controller';
 import { StockWriteOffService } from '../services/stock-writeoff.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { StockWriteOffReason } from '../enums/stock-writeoff-reason.enum';
 
 describe('StockWriteOffController', () => {

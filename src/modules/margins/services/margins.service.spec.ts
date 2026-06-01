@@ -2,10 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MarginsService } from './margins.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { MarginEntity } from '../entities/margin.entity';
-import { ProductPricingEntity } from 'src/modules/pricing/entities/product-pricing.entity';
-import { ComboPricingEntity } from 'src/modules/pricing/entities/combo-pricing.entity';
+import { ProductPricingEntity } from '../../pricing/entities/product-pricing.entity';
+import { ComboPricingEntity } from '../../pricing/entities/combo-pricing.entity';
 import { NotFoundException, ConflictException } from '@nestjs/common';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../common/cache/shop-cache.service';
 
 describe('MarginsService', () => {
   let service: MarginsService;

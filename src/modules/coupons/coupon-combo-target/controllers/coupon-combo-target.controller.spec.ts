@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { CouponComboTargetController } from '../../../coupons/coupon-combo-target/controllers/coupon-combo-target.controller';
 import { CouponComboTargetService } from '../../../coupons/coupon-combo-target/services/coupon-combo-target.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 describe('CouponComboTargetController', () => {
   let controller: CouponComboTargetController;

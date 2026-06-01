@@ -7,7 +7,7 @@ import { ProductService } from './product.service';
 import { ProductEntity } from '../entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ProductService', () => {
   let service: ProductService;

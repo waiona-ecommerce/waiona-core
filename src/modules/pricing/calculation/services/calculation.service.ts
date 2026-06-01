@@ -4,11 +4,11 @@ import { In, Repository } from 'typeorm';
 
 import { ProductPricingEntity } from '../../entities/product-pricing.entity';
 import { ComboPricingEntity } from '../../entities/combo-pricing.entity';
-import { ProductTaxEntity } from 'src/modules/taxation/product-taxes/entities/product-taxes.entity';
-import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
-import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
-import { DiscountProductTargetEntity } from 'src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
-import { DiscountComboTargetEntity } from 'src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
+import { ProductTaxEntity } from '../../../taxation/product-taxes/entities/product-taxes.entity';
+import { TaxEntity } from '../../../taxation/taxes/entities/tax.entity';
+import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
+import { DiscountProductTargetEntity } from '../../../discounts/discount-product-target/entities/discount-product-target.entity';
+import { DiscountComboTargetEntity } from '../../../discounts/discount-combo-target/entities/discount-combo-target.entity';
 
 import { CalculatePreviewDto } from '../dto/calculate-preview.dto';
 import { CalculateProductDto } from '../dto/calculate-product.dto';

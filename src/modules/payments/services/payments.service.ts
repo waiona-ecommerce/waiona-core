@@ -8,18 +8,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 
 import { PaymentEntity } from '../entities/payment.entity';
-import { OrderEntity } from 'src/modules/orders/entities/order.entity';
+import { OrderEntity } from '../../orders/entities/order.entity';
 import { MercadoPagoProvider } from './providers/mercadopago.provider';
 import { MerchantOrder, Payment } from 'mercadopago';
 
 import { CreatePaymentDto } from '../dto/create-payment.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
+import { MercadoPagoWebhookBody } from '../dto/mercadopago-webhook.dto';
 
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
-import { OrderStatus } from 'src/modules/orders/enums/order-status.enum';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { OrdersService } from 'src/modules/orders/services/orders.service';
+import { OrderStatus } from '../../orders/enums/order-status.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { OrdersService } from '../../orders/services/orders.service';
 
 @Injectable()
 export class PaymentsService {
@@ -104,9 +105,12 @@ export class PaymentsService {
   // WEBHOOK MERCADOPAGO
   // ==========================
 
-  async handleMercadoPagoWebhook(body: any, query: any): Promise<void> {
-    const topic = query.topic ?? body.type;
-    const id = query.id ?? body.data?.id;
+  async handleMercadoPagoWebhook(
+    body: MercadoPagoWebhookBody,
+    query: Record<string, string>,
+  ): Promise<void> {
+    const topic = query['topic'] ?? body.type;
+    const id = query['id'] ?? body.data?.id;
 
     if (!id) return;
     if (topic !== 'payment' && topic !== 'merchant_order') return;

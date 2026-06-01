@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { SeedService } from './seed.service';
-import { UserEntity } from 'src/modules/users/entities/user.entity';
-import { RoleEntity } from 'src/modules/users/entities/role.entity';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { UserEntity } from '../../users/entities/user.entity';
+import { RoleEntity } from '../../users/entities/role.entity';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 describe('SeedService', () => {
   let service: SeedService;

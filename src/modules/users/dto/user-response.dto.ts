@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserEntity } from '../entities/user.entity';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 export class ProfileResponseDto {
   @ApiProperty({ example: 1 })

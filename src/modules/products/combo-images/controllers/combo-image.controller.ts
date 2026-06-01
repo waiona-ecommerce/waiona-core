@@ -31,10 +31,10 @@ import { CreateComboImageDto } from '../dto/create-combo-image.dto';
 import { UpdateComboImageDto } from '../dto/update-combo-image.dto';
 import { UploadComboImageDto } from '../dto/upload-combo-image.dto';
 import { ComboImageResponseDto } from '../dto/combo-image-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = [

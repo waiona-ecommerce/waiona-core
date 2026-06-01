@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
-import { BaseEntity } from 'src/common/entities/base.entity';
-import { UserEntity } from 'src/modules/users/entities/user.entity';
+import { BaseEntity } from '../../../common/entities/base.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 import { TokenType } from '../enum/token-type.enum';
 
 @Entity('tokens')

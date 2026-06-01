@@ -7,7 +7,7 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from '../services/payments.service';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 describe('PaymentsController', () => {
   let controller: PaymentsController;
@@ -65,8 +65,10 @@ describe('PaymentsController', () => {
     it('should create a payment', async () => {
       service.create.mockResolvedValue(mockResponse());
       const dto = { orderId: 1, provider: PaymentProvider.MERCADOPAGO };
-      const req = { user: { sub: 99, role: RoleType.CLIENT } } as any;
-      const result = await controller.create(req, dto);
+      const result = await controller.create(
+        { sub: 99, role: RoleType.CLIENT },
+        dto,
+      );
       expect(service.create).toHaveBeenCalledWith(99, RoleType.CLIENT, dto);
       expect(result.checkoutUrl).toBe('https://mp.com/checkout');
     });
@@ -129,8 +131,10 @@ describe('PaymentsController', () => {
   describe('findByOrder', () => {
     it('should return payments by orderId', async () => {
       service.findByOrder.mockResolvedValue([mockResponse()]);
-      const req = { user: { sub: 99, role: RoleType.ADMIN } } as any;
-      const result = await controller.findByOrder(1, req);
+      const result = await controller.findByOrder(1, {
+        sub: 99,
+        role: RoleType.ADMIN,
+      });
       expect(service.findByOrder).toHaveBeenCalledWith(1, 99, RoleType.ADMIN);
       expect(result).toHaveLength(1);
     });
@@ -143,8 +147,10 @@ describe('PaymentsController', () => {
   describe('findOne', () => {
     it('should return a payment by id', async () => {
       service.findOne.mockResolvedValue(mockResponse());
-      const req = { user: { sub: 99, role: RoleType.ADMIN } } as any;
-      const result = await controller.findOne(1, req);
+      const result = await controller.findOne(1, {
+        sub: 99,
+        role: RoleType.ADMIN,
+      });
       expect(service.findOne).toHaveBeenCalledWith(1, 99, RoleType.ADMIN);
       expect(result.id).toBe(1);
     });

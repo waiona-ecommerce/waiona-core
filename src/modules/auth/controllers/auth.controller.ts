@@ -18,11 +18,12 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
 import { UserEntity } from '../../users/entities/user.entity';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
-import { ForgotPasswordDto } from 'src/modules/mail/dto/forgot-password.dto';
-import { ResetPasswordDto } from 'src/modules/mail/dto/reset-password.dto';
+import { ForgotPasswordDto } from '../../mail/dto/forgot-password.dto';
+import { ResetPasswordDto } from '../../mail/dto/reset-password.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
-import { Payload } from '../models/payload.model';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import type { JwtPayload } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('Auth')
 @Controller({ version: '1', path: 'auth' })
@@ -191,11 +192,10 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   async changePassword(
-    @Req() req: Request,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
   ): Promise<{ message: string }> {
-    const payload = (req as any).user as Payload;
-    await this.authService.changePassword(payload.sub, dto);
+    await this.authService.changePassword(user.sub, dto);
     return { message: 'Password changed successfully' };
   }
 
@@ -209,8 +209,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Cerrar sesión en todos los dispositivos' })
   @ApiResponse({ status: 204, description: 'Todas las sesiones cerradas' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
-  async logoutAll(@Req() req: Request): Promise<void> {
-    const payload = (req as any).user as Payload;
-    await this.authService.logoutAll(payload.sub);
+  async logoutAll(@CurrentUser() user: JwtPayload): Promise<void> {
+    await this.authService.logoutAll(user.sub);
   }
 }

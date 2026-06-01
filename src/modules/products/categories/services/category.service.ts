@@ -14,9 +14,9 @@ import { ComboEntity } from '../../combos/entities/combo.entity';
 import { CreateCategoryDto } from '../dto/create-category.dto';
 import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { CategoryResponseDto } from '../dto/category-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { CategoryTreeResponseDto } from '../dto/category-tree-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class CategoryService {

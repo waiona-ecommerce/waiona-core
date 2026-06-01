@@ -9,7 +9,7 @@ import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../src/common/guards/roles.guard';
 
 import { TaxesController } from '../../src/modules/taxation/taxes/controllers/taxes.controller';
 import { TaxesService } from '../../src/modules/taxation/taxes/services/taxes.service';

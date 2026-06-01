@@ -9,7 +9,7 @@ import { Repository, DataSource } from 'typeorm';
 import { CouponUsageEntity } from '../entities/coupon-usage.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
 import { CouponUsageResponseDto } from '../dto/coupon-usage-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
 
 @Injectable()

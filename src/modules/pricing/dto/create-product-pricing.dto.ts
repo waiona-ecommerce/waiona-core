@@ -1,6 +1,6 @@
 import { IsInt, IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { CurrencyCode } from '../../../common/enums/currency-code.enum';
 
 export class CreateProductPricingDto {
   @ApiProperty({ example: 1 })

@@ -3,7 +3,7 @@ import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 
-import { Env } from 'src/env.model';
+import { Env } from '../../../env.model';
 import {
   MAIL_QUEUE,
   MailJobType,

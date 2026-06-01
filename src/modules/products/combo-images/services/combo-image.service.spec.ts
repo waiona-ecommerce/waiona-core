@@ -5,7 +5,7 @@ import { ComboImageService } from '../../../products/combo-images/services/combo
 import { ComboImageEntity } from '../../../products/combo-images/entities/combo-image.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { StorageService } from '../../../storage/storage.service';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ComboImageService', () => {
   let service: ComboImageService;

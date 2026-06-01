@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ProductPricingEntity } from '../entities/product-pricing.entity';
-import { CurrencyCode } from 'src/common/enums/currency-code.enum';
+import { CurrencyCode } from '../../../common/enums/currency-code.enum';
 
 export class ProductPricingResponseDto {
   @ApiProperty({ example: 1 })

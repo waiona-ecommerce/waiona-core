@@ -5,7 +5,7 @@ import { ProductImageService } from '../../../products/product-images/services/p
 import { ProductImageEntity } from '../../../products/product-images/entities/product-image.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { StorageService } from '../../../storage/storage.service';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ProductImageService', () => {
   let service: ProductImageService;

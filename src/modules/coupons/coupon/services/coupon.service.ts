@@ -12,7 +12,7 @@ import { CouponEntity } from '../entities/coupon.entity';
 import { CreateCouponDto } from '../dto/create-coupon.dto';
 import { UpdateCouponDto } from '../dto/update-coupon.dto';
 import { CouponResponseDto } from '../dto/coupon-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class CouponService {

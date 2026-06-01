@@ -6,7 +6,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserEntity } from '../entities/user.entity';
 import { RoleEntity } from '../entities/role.entity';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 describe('UsersService', () => {
   let service: UsersService;

@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { BaseEntity } from 'src/common/entities/base.entity';
-import { OrderEntity } from 'src/modules/orders/entities/order.entity';
+import { BaseEntity } from '../../../common/entities/base.entity';
+import { OrderEntity } from '../../orders/entities/order.entity';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 

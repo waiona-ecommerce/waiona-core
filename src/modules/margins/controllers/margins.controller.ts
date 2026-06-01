@@ -25,11 +25,11 @@ import { MarginsService } from '../services/margins.service';
 import { CreateMarginDto } from '../dto/create-margin.dto';
 import { UpdateMarginDto } from '../dto/update-margin.dto';
 import { MarginResponseDto } from '../dto/response-margin.dto';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 @ApiTags('Margins')
 @ApiBearerAuth()

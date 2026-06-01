@@ -18,7 +18,7 @@ import {
 } from '@nestjs/swagger';
 
 import { StockItemsService } from '../services/stock-item.service';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
 import { CreateStockItemDto } from '../dto/create-stock-item.dto';
 import { UpdateStockThresholdsDto } from '../dto/update-stock-thresholds.dto';
@@ -33,9 +33,9 @@ import { StockDispatchDto } from '../dto/stock-item-dispatch.dto';
 import { StockReleaseDto } from '../dto/stock-item-release.dto';
 
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 
 @ApiTags('Stock Items')
 @ApiBearerAuth()

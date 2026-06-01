@@ -9,13 +9,13 @@ import { MerchantOrder, Payment } from 'mercadopago';
 
 import { PaymentsService } from './payments.service';
 import { PaymentEntity } from '../entities/payment.entity';
-import { OrderEntity } from 'src/modules/orders/entities/order.entity';
+import { OrderEntity } from '../../orders/entities/order.entity';
 import { MercadoPagoProvider } from './providers/mercadopago.provider';
-import { OrdersService } from 'src/modules/orders/services/orders.service';
+import { OrdersService } from '../../orders/services/orders.service';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
-import { OrderStatus } from 'src/modules/orders/enums/order-status.enum';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { OrderStatus } from '../../orders/enums/order-status.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 jest.mock('mercadopago', () => ({
   MerchantOrder: jest.fn(),

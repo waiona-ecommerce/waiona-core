@@ -12,23 +12,23 @@ import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
 import { StockWriteOffEntity } from '../../stock-writeoff/entities/stock-writeoff.entity';
 import { StockLocationEntity } from '../../stock-locations/entities/stock-locations.entity';
-import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
-import { ProductEntity } from 'src/modules/products/product/entities/product.entity';
+import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
+import { ProductEntity } from '../../../products/product/entities/product.entity';
 
 import { CreateStockItemDto } from '../dto/create-stock-item.dto';
 import { UpdateStockThresholdsDto } from '../dto/update-stock-thresholds.dto';
 import { CreateStockWriteOffDto } from '../../stock-writeoff/dto/create-stock-writeoff.dto';
 
 import { StockItemResponseDto } from '../dto/stock-item-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { StockItemWithMovementsResponseDto } from '../dto/stock-item-with-movements-response.dto';
 
 import { StockOperationType } from '../../stock-movement/enums/stock-operation-type.enum';
 import { StockFlow } from '../../stock-movement/enums/stock-flow.enum';
 import { StockReferenceType } from '../../stock-movement/enums/stock-reference.enum';
-import { MailService } from 'src/modules/mail/services/mail.service';
+import { MailService } from '../../../mail/services/mail.service';
 import { ConfigService } from '@nestjs/config';
-import { Env } from 'src/env.model';
+import { Env } from '../../../../env.model';
 
 @Injectable()
 export class StockItemsService {

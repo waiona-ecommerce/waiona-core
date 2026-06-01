@@ -22,9 +22,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { DiscountComboTargetService } from '../services/discount-combo-target.service';
 import { CreateDiscountComboTargetDto } from '../dto/create-discount-combo-target.dto';
 import { DiscountComboTargetResponseDto } from '../dto/discount-combo-target.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @ApiTags('Discounts — Combo Targets')
 @ApiBearerAuth()

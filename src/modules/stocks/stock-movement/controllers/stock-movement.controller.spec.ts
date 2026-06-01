@@ -4,7 +4,7 @@ import { Reflector } from '@nestjs/core';
 
 import { StockMovementController } from './stock-movement.controller';
 import { StockMovementService } from '../services/stock-movement.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { StockOperationType } from '../enums/stock-operation-type.enum';
 import { StockFlow } from '../enums/stock-flow.enum';
 import { StockReferenceType } from '../enums/stock-reference.enum';

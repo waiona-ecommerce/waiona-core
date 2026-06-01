@@ -22,9 +22,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { CouponProductTargetService } from '../services/coupon-product-target.service';
 import { CreateCouponProductTargetDto } from '../dto/create-coupon-product-target.dto';
 import { CouponProductTargetResponseDto } from '../dto/coupon-product-target-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @ApiTags('Coupons — Product Targets')
 @ApiBearerAuth()

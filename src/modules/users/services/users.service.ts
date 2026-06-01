@@ -14,8 +14,8 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { SearchUsersDto } from '../dto/search-users.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class UsersService {

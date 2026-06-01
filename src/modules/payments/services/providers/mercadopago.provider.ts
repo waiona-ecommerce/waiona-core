@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
-import { Env } from 'src/env.model';
-import { OrderEntity } from 'src/modules/orders/entities/order.entity';
+import { Env } from '../../../../env.model';
+import { OrderEntity } from '../../../orders/entities/order.entity';
 
 @Injectable()
 export class MercadoPagoProvider {

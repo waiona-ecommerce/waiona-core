@@ -5,9 +5,9 @@ import { CalculationService } from '../services/calculation.service';
 import { CalculatePreviewDto } from '../dto/calculate-preview.dto';
 import { CalculateProductDto } from '../dto/calculate-product.dto';
 import { CalculateComboDto } from '../dto/calculate-combo.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @Controller({ version: '1', path: 'pricing/calculate' })
 export class CalculationController {

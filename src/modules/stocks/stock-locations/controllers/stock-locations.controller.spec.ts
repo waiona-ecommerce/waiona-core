@@ -4,7 +4,7 @@ import { Reflector } from '@nestjs/core';
 
 import { StockLocationsController } from './stock-locations.controller';
 import { StockLocationsService } from '../services/stock-locations.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { StockLocationType } from '../enums/stock-location-type.enum';
 
 describe('StockLocationsController', () => {

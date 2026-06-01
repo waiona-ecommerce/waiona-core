@@ -1,4 +1,4 @@
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RoleType } from '../../../common/enums/role-type.enum';
 
 export interface Payload {
   sub: number;

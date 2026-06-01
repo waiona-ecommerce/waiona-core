@@ -11,7 +11,7 @@ import { CategoryService } from '../../../products/categories/services/category.
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('CategoryService', () => {
   let service: CategoryService;

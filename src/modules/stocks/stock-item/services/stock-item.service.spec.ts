@@ -12,9 +12,9 @@ import { StockItemsService } from './stock-item.service';
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
 import { StockWriteOffEntity } from '../../stock-writeoff/entities/stock-writeoff.entity';
-import { ComboItemEntity } from 'src/modules/products/combos/entities/combo-item.entity';
+import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
 import { StockWriteOffReason } from '../../stock-writeoff/enums/stock-writeoff-reason.enum';
-import { MailService } from 'src/modules/mail/services/mail.service';
+import { MailService } from '../../../mail/services/mail.service';
 
 describe('StockItemsService', () => {
   let service: StockItemsService;

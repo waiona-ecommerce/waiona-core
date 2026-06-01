@@ -14,7 +14,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 import { TokenEntity } from '../mail/entities/token.entity';
 import { RefreshTokenEntity } from './entities/refresh-token.entity';
-import { Env } from 'src/env.model';
+import { Env } from '../../env.model';
 
 @Module({
   imports: [

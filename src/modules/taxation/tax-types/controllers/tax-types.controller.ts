@@ -20,14 +20,14 @@ import {
 } from '@nestjs/swagger';
 
 import { TaxTypesService } from '../services/tax-types.service';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 import { CreateTaxTypeDto } from '../dto/create-tax-type.dto';
 import { UpdateTaxTypeDto } from '../dto/update-tax-type.dto';
 import { TaxTypeResponseDto } from '../dto/tax-type-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @ApiTags('Tax Types')
 @ApiBearerAuth()

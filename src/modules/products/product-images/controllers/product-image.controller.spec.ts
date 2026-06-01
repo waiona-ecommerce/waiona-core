@@ -3,7 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { ProductImageController } from '../../../products/product-images/controllers/product-image.controller';
 import { ProductImageService } from '../../../products/product-images/services/product-image.service';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 describe('ProductImageController', () => {
   let controller: ProductImageController;

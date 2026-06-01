@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MarginsController } from './margins.controller';
 import { MarginsService } from '../services/margins.service';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
 
 describe('MarginsController', () => {

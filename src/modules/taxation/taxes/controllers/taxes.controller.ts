@@ -23,10 +23,10 @@ import { TaxesService } from '../services/taxes.service';
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
 import { TaxResponseDto } from '../dto/tax-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @ApiTags('Taxes')
 @ApiBearerAuth()

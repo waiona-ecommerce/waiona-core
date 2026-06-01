@@ -13,8 +13,8 @@ import { CategoryEntity } from '../../categories/entities/category.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductService {

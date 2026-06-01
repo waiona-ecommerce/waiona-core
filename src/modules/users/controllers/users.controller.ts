@@ -8,7 +8,6 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
-  Req,
   ForbiddenException,
   HttpCode,
   HttpStatus,
@@ -21,15 +20,16 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
 
 import { UsersService } from '../services/users.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { SearchUsersDto } from '../dto/search-users.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../common/enums/role-type.enum';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import type { JwtPayload } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -61,9 +61,11 @@ export class UsersController {
   @ApiResponse({ status: 200, type: UserResponseDto })
   @ApiResponse({ status: 403, description: 'Acceso denegado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
-  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    const payload = req.user as { sub: number };
-    if (payload.sub !== id) throw new ForbiddenException('Acceso denegado');
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (user.sub !== id) throw new ForbiddenException('Acceso denegado');
     return this.usersService.findOne(id);
   }
 
@@ -80,11 +82,10 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'No encontrado' })
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateUserDto,
   ) {
-    const payload = req.user as { sub: number };
-    if (payload.sub !== id) throw new ForbiddenException('Acceso denegado');
+    if (user.sub !== id) throw new ForbiddenException('Acceso denegado');
     return this.usersService.update(id, dto);
   }
 
@@ -100,9 +101,11 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'Eliminado' })
   @ApiResponse({ status: 403, description: 'Acceso denegado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
-  remove(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    const payload = req.user as { sub: number };
-    if (payload.sub !== id) throw new ForbiddenException('Acceso denegado');
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (user.sub !== id) throw new ForbiddenException('Acceso denegado');
     return this.usersService.remove(id);
   }
 }

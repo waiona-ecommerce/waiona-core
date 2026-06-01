@@ -21,15 +21,15 @@ import {
 } from '@nestjs/swagger';
 
 import { CategoryService } from '../services/category.service';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 import { CreateCategoryDto } from '../dto/create-category.dto';
 import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { CategoryResponseDto } from '../dto/category-response.dto';
 import { CategoryTreeResponseDto } from '../dto/category-tree-response.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 
 @ApiTags('Categories')
 @ApiBearerAuth()

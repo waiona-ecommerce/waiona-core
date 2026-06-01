@@ -15,8 +15,8 @@ import { CategoryEntity } from '../../categories/entities/category.entity';
 import { CreateComboDto } from '../dto/create-combo.dto';
 import { UpdateComboDto } from '../dto/update-combo.dto';
 import { ComboResponseDto } from '../dto/combo-response.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ComboService {

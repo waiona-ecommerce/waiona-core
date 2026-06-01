@@ -24,12 +24,12 @@ import { ComboService } from '../services/combo.service';
 import { CreateComboDto } from '../dto/create-combo.dto';
 import { UpdateComboDto } from '../dto/update-combo.dto';
 import { ComboResponseDto } from '../dto/combo-response.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { RoleType } from 'src/common/enums/role-type.enum';
+import { Roles } from '../../../../common/decorators/roles.decorator';
+import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { RolesGuard } from '../../../../common/guards/roles.guard';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 
 @ApiTags('Combos')
 @ApiBearerAuth()

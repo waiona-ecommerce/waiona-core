@@ -7,13 +7,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { MarginEntity } from '../entities/margin.entity';
-import { ProductPricingEntity } from 'src/modules/pricing/entities/product-pricing.entity';
-import { ComboPricingEntity } from 'src/modules/pricing/entities/combo-pricing.entity';
+import { ProductPricingEntity } from '../../pricing/entities/product-pricing.entity';
+import { ComboPricingEntity } from '../../pricing/entities/combo-pricing.entity';
 import { CreateMarginDto } from '../dto/create-margin.dto';
 import { UpdateMarginDto } from '../dto/update-margin.dto';
 import { MarginResponseDto } from '../dto/response-margin.dto';
-import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
+import { ShopCacheService } from '../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class MarginsService {

@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { ProductTaxesService } from './product-taxes.service';
 import { ProductTaxEntity } from '../entities/product-taxes.entity';
-import { TaxEntity } from 'src/modules/taxation/taxes/entities/tax.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { TaxEntity } from '../../taxes/entities/tax.entity';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ProductTaxesService', () => {
   let service: ProductTaxesService;

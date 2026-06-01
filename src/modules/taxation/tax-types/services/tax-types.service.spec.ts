@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TaxTypesService } from './tax-types.service';
 import { TaxTypeEntity } from '../entities/tax-types.entity';
-import { ShopCacheService } from 'src/common/cache/shop-cache.service';
+import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('TaxTypesService', () => {
   let service: TaxTypesService;
