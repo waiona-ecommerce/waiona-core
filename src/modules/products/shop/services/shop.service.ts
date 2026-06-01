@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, FindOptionsWhere } from 'typeorm';
 
 import { ProductEntity } from '../../product/entities/product.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
@@ -78,7 +78,7 @@ export class ShopService {
     const candidates: Candidate[] = [];
 
     if (!type || type === 'product') {
-      const where: any = { isActive: true };
+      const where: FindOptionsWhere<ProductEntity> = { isActive: true };
       if (search) where.name = ILike(`%${search}%`);
       if (categoryId) where.categoryId = categoryId;
       const products = await this.productRepository.find({
@@ -92,7 +92,7 @@ export class ShopService {
     }
 
     if (!type || type === 'combo') {
-      const where: any = { isActive: true };
+      const where: FindOptionsWhere<ComboEntity> = { isActive: true };
       if (search) where.name = ILike(`%${search}%`);
       if (categoryId) where.categoryId = categoryId;
       const combos = await this.comboRepository.find({

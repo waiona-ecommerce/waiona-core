@@ -31,6 +31,7 @@ import { PaymentsService } from '../services/payments.service';
 import { CreatePaymentDto } from '../dto/create-payment.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
 import { RoleType } from 'src/common/enums/role-type.enum';
+import type { MercadoPagoWebhookBody } from '../dto/mercadopago-webhook.dto';
 
 @ApiTags('Payments')
 @ApiBearerAuth()
@@ -76,8 +77,8 @@ export class PaymentsController {
   @Post('webhook/mercadopago')
   @HttpCode(HttpStatus.OK)
   async handleMercadoPagoWebhook(
-    @Body() body: any,
-    @Query() query: any,
+    @Body() body: MercadoPagoWebhookBody,
+    @Query() query: Record<string, string>,
     @Headers() headers: Record<string, string>,
   ) {
     // Verificación de firma dentro de try/catch — si la firma es inválida

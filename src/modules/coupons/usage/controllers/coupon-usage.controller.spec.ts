@@ -30,8 +30,7 @@ describe('CouponUsageController', () => {
     ...overrides,
   });
 
-  const mockReq = (sub = 1, role = RoleType.ADMIN) =>
-    ({ user: { sub, role } }) as any;
+  const mockJwt = (sub = 1, role = RoleType.ADMIN) => ({ sub, role });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -59,7 +58,7 @@ describe('CouponUsageController', () => {
     const dto = { code: 'DESCUENTO10', orderId: 1 };
     service.create.mockResolvedValue(mockResponse());
 
-    const result = await controller.create(dto, mockReq(1));
+    const result = await controller.create(dto, mockJwt(1));
 
     expect(service.create).toHaveBeenCalledWith({ ...dto, userId: 1 });
     expect(result.couponId).toBe(1);

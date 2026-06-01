@@ -14,6 +14,7 @@ import { MerchantOrder, Payment } from 'mercadopago';
 
 import { CreatePaymentDto } from '../dto/create-payment.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
+import { MercadoPagoWebhookBody } from '../dto/mercadopago-webhook.dto';
 
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentProvider } from '../enums/payment-provider.enum';
@@ -104,9 +105,12 @@ export class PaymentsService {
   // WEBHOOK MERCADOPAGO
   // ==========================
 
-  async handleMercadoPagoWebhook(body: any, query: any): Promise<void> {
-    const topic = query.topic ?? body.type;
-    const id = query.id ?? body.data?.id;
+  async handleMercadoPagoWebhook(
+    body: MercadoPagoWebhookBody,
+    query: Record<string, string>,
+  ): Promise<void> {
+    const topic = query['topic'] ?? body.type;
+    const id = query['id'] ?? body.data?.id;
 
     if (!id) return;
     if (topic !== 'payment' && topic !== 'merchant_order') return;
