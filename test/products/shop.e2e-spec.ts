@@ -9,9 +9,9 @@ import { DataSource } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ShopController } from '../../src/modules/products/shop/controllers/shop.controller';
 import { ShopService } from '../../src/modules/products/shop/services/shop.service';
-import { ShopCacheService } from '../../src/common/cache/shop-cache.service';
 import { ProductEntity } from '../../src/modules/products/product/entities/product.entity';
 import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
 import { ComboEntity } from '../../src/modules/products/combos/entities/combo.entity';
@@ -94,21 +94,14 @@ describe('Shop (e2e)', () => {
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([ProductEntity, ComboEntity]),
+        TypeOrmModule.forFeature([ProductEntity, ComboEntity, CategoryEntity]),
       ],
       controllers: [ShopController],
       providers: [
         ShopService,
         { provide: CalculationService, useValue: mockCalculation },
         { provide: StockItemsService, useValue: mockStock },
-        {
-          provide: ShopCacheService,
-          useValue: {
-            get: jest.fn().mockResolvedValue(null),
-            set: jest.fn(),
-            invalidate: jest.fn(),
-          },
-        },
+        { provide: CACHE_MANAGER, useValue: { get: jest.fn(), set: jest.fn() } },
       ],
     }).compile();
 
