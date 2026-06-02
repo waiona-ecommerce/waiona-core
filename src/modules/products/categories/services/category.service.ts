@@ -28,7 +28,6 @@ export class CategoryService {
 
     @InjectRepository(ComboEntity)
     private readonly comboRepository: Repository<ComboEntity>,
-
   ) {}
 
   // ==========================
@@ -154,7 +153,6 @@ export class CategoryService {
     }
 
     await this.categoryRepository.softDelete(entity.id);
-
   }
 
   // ==========================

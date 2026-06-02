@@ -62,9 +62,7 @@ describe('ProductTaxes (e2e)', () => {
         TypeOrmModule.forFeature([ProductTaxEntity, TaxEntity]),
       ],
       controllers: [ProductTaxesController],
-      providers: [
-        ProductTaxesService,
-      ],
+      providers: [ProductTaxesService],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

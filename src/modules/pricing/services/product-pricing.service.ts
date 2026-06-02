@@ -23,7 +23,6 @@ export class ProductPricingService {
 
     @InjectRepository(MarginEntity)
     private marginRepo: Repository<MarginEntity>,
-
   ) {}
 
   // ==========================
@@ -52,7 +51,7 @@ export class ProductPricingService {
 
     try {
       const saved = await this.repo.save(entity);
-  
+
       return new ProductPricingResponseDto(saved);
     } catch (err: any) {
       if (err.code === PG_UNIQUE_VIOLATION)
@@ -141,7 +140,6 @@ export class ProductPricingService {
   async remove(id: number): Promise<void> {
     const entity = await this.findOneEntity(id);
     await this.repo.softDelete(entity.id);
-
   }
 
   // ==========================

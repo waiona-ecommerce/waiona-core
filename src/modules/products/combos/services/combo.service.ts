@@ -107,7 +107,6 @@ export class ComboService {
       return new ComboResponseDto(fullCombo!);
     });
 
-
     return result;
   }
 
@@ -161,7 +160,6 @@ export class ComboService {
 
       return new ComboResponseDto(fullCombo!);
     });
-
 
     void this.shopCacheService.invalidate();
     return result;

@@ -61,9 +61,7 @@ describe('ProductPricing (e2e)', () => {
         TypeOrmModule.forFeature([ProductPricingEntity, MarginEntity]),
       ],
       controllers: [ProductPricingController],
-      providers: [
-        ProductPricingService,
-      ],
+      providers: [ProductPricingService],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

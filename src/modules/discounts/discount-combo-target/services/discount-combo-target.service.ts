@@ -76,7 +76,6 @@ export class DiscountComboTargetService {
     }
 
     await this.repo.softDelete(entity.id);
-
   }
 
   // ==========================

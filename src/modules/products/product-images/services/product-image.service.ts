@@ -21,7 +21,6 @@ export class ProductImageService {
     private readonly productRepository: Repository<ProductEntity>,
 
     private readonly storageService: StorageService,
-
   ) {}
 
   // ==========================
@@ -125,7 +124,6 @@ export class ProductImageService {
       await this.storageService.delete(image.publicId);
     }
     await this.productImageRepository.softDelete(image.id);
-
   }
 
   // ==========================

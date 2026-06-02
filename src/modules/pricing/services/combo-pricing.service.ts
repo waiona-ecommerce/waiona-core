@@ -23,7 +23,6 @@ export class ComboPricingService {
 
     @InjectRepository(MarginEntity)
     private marginRepo: Repository<MarginEntity>,
-
   ) {}
 
   // ==========================
@@ -50,7 +49,7 @@ export class ComboPricingService {
 
     try {
       const saved = await this.repo.save(entity);
-  
+
       return new ComboPricingResponseDto(saved);
     } catch (err: any) {
       if (err.code === PG_UNIQUE_VIOLATION)
@@ -139,7 +138,6 @@ export class ComboPricingService {
   async remove(id: number): Promise<void> {
     const entity = await this.findOneEntity(id);
     await this.repo.softDelete(entity.id);
-
   }
 
   // ==========================

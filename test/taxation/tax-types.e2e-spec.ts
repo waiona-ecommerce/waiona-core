@@ -40,9 +40,7 @@ describe('TaxTypes (e2e)', () => {
         TypeOrmModule.forFeature([TaxTypeEntity]),
       ],
       controllers: [TaxTypesController],
-      providers: [
-        TaxTypesService,
-      ],
+      providers: [TaxTypesService],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

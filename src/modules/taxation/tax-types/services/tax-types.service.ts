@@ -71,7 +71,6 @@ export class TaxTypesService {
     const entity = await this.findEntity(id);
 
     await this.taxTypeRepository.softDelete(entity.id);
-
   }
 
   private async findEntity(id: number): Promise<TaxTypeEntity> {

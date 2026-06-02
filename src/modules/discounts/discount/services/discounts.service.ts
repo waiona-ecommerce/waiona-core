@@ -26,7 +26,6 @@ export class DiscountsService {
 
     @InjectRepository(DiscountComboTargetEntity)
     private readonly comboTargetRepo: Repository<DiscountComboTargetEntity>,
-
   ) {}
 
   // ==========================
@@ -115,7 +114,6 @@ export class DiscountsService {
     await this.discountRepository.softDelete(discount.id);
     await this.productTargetRepo.softDelete({ discountId: discount.id });
     await this.comboTargetRepo.softDelete({ discountId: discount.id });
-
   }
 
   // ==========================

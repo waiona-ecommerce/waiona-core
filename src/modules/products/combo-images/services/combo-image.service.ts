@@ -21,7 +21,6 @@ export class ComboImageService {
     private readonly comboRepository: Repository<ComboEntity>,
 
     private readonly storageService: StorageService,
-
   ) {}
 
   // ==========================
@@ -121,7 +120,6 @@ export class ComboImageService {
       await this.storageService.delete(image.publicId);
     }
     await this.comboImageRepository.softDelete(image.id);
-
   }
 
   // ==========================

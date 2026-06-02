@@ -78,7 +78,6 @@ export class DiscountProductTargetService {
     }
 
     await this.repo.softDelete(entity.id);
-
   }
 
   // ==========================

@@ -18,7 +18,6 @@ export class TaxesService {
 
     @InjectRepository(TaxTypeEntity)
     private taxTypeRepository: Repository<TaxTypeEntity>,
-
   ) {}
 
   // ==========================
@@ -89,7 +88,6 @@ export class TaxesService {
   async delete(id: number): Promise<void> {
     const entity = await this.findEntity(id);
     await this.taxRepository.softDelete(entity.id);
-
   }
 
   // ==========================

@@ -60,9 +60,7 @@ describe('ComboPricing (e2e)', () => {
         TypeOrmModule.forFeature([ComboPricingEntity, MarginEntity]),
       ],
       controllers: [ComboPricingController],
-      providers: [
-        ComboPricingService,
-      ],
+      providers: [ComboPricingService],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

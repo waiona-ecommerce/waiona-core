@@ -25,7 +25,6 @@ export class MarginsService {
 
     @InjectRepository(ComboPricingEntity)
     private readonly comboPricingRepository: Repository<ComboPricingEntity>,
-
   ) {}
 
   // CREATE
@@ -93,7 +92,6 @@ export class MarginsService {
     }
 
     await this.marginRepository.softDelete(margin.id);
-
   }
 
   // PRIVATE HELPERS
