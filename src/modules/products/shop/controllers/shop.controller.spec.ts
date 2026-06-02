@@ -46,7 +46,10 @@ describe('ShopController', () => {
       controllers: [ShopController],
       providers: [
         { provide: ShopService, useFactory: mockService },
-        { provide: CACHE_MANAGER, useValue: { get: jest.fn(), set: jest.fn() } },
+        {
+          provide: CACHE_MANAGER,
+          useValue: { get: jest.fn(), set: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -65,7 +68,7 @@ describe('ShopController', () => {
   describe('getCategories', () => {
     it('should return category tree from service', async () => {
       const tree = [{ id: 1, name: 'Bebidas', children: [] }];
-      service.getCategories.mockResolvedValue(tree as any);
+      service.getCategories.mockResolvedValue(tree);
 
       const result = await controller.getCategories();
 
