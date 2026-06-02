@@ -37,7 +37,7 @@ src/
 │   ├── enums/role-type.enum.ts           → SUPER_ADMIN | ADMIN | CLIENT
 │   ├── guards/roles.guard.ts             → lee rol del JWT payload, sin DB query
 │   ├── guards/guards.module.ts
-│   ├── cache/shop-cache.service.ts       → Redis cache del shop (invalidado en toda mutation de catálogo)
+│   ├── cache/                            → (vacío — cache manejado vía @nestjs/cache-manager en controllers)
 │   ├── interceptors/idempotency.interceptor.ts → previene POST duplicados (clave = hash del body)
 │   └── theme/email-theme.ts             → colores y logo para templates de email
 │
@@ -57,7 +57,7 @@ src/
 │   │   ├── categories/                   → árbol de categorías padre/hijo
 │   │   ├── product-images/              → imágenes ordenadas por position (Cloudinary)
 │   │   ├── combo-images/                → imágenes de combos (Cloudinary)
-│   │   └── shop/                         → endpoints públicos para el cliente (con Redis cache)
+│   │   └── shop/                         → endpoints públicos para el cliente (GET /shop/categories cacheado con CacheInterceptor oficial)
 │   ├── pricing/
 │   │   ├── (product|combo)-pricing/     → precio base y margen
 │   │   └── calculation/                 → motor de cálculo (prorrateo de impuestos en combos)

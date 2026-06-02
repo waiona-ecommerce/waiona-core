@@ -14,7 +14,6 @@ import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
 import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
-import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ProductService {
@@ -24,8 +23,6 @@ export class ProductService {
 
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
-
-    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -126,7 +123,6 @@ export class ProductService {
     const merged = this.productRepository.merge(product, changes);
 
     await this.productRepository.save(merged);
-    void this.shopCacheService.invalidate();
     return new ProductResponseDto(await this.findOne(merged.id));
   }
 
@@ -138,7 +134,6 @@ export class ProductService {
     const product = await this.findOne(id);
 
     await this.productRepository.softDelete(product.id);
-    void this.shopCacheService.invalidate();
   }
 
   // ==========================

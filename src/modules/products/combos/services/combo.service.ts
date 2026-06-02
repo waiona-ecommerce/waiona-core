@@ -16,7 +16,6 @@ import { CreateComboDto } from '../dto/create-combo.dto';
 import { UpdateComboDto } from '../dto/update-combo.dto';
 import { ComboResponseDto } from '../dto/combo-response.dto';
 import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
-import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 @Injectable()
 export class ComboService {
@@ -34,7 +33,6 @@ export class ComboService {
     private readonly categoryRepository: Repository<CategoryEntity>,
 
     private readonly dataSource: DataSource,
-    private readonly shopCacheService: ShopCacheService,
   ) {}
 
   // ==========================
@@ -161,7 +159,6 @@ export class ComboService {
       return new ComboResponseDto(fullCombo!);
     });
 
-    void this.shopCacheService.invalidate();
     return result;
   }
 
@@ -179,7 +176,6 @@ export class ComboService {
     }
 
     await this.comboRepository.softDelete(combo.id);
-    void this.shopCacheService.invalidate();
   }
 
   // ==========================

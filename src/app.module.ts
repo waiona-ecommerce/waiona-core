@@ -12,7 +12,6 @@ import * as Joi from 'joi';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { AppController } from './app.controller';
 import { HealthModule } from './modules/health/health.module';
-import { AppCacheModule } from './common/cache/cache.module';
 
 import { TaxationModule } from './modules/taxation/taxation.module';
 import { MarginsModule } from './modules/margins/margins.module';
@@ -106,7 +105,6 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       }),
     }),
 
-    AppCacheModule,
     HealthModule,
     TaxationModule,
     MarginsModule,

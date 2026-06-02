@@ -9,6 +9,8 @@ import { Repository, ILike, FindOptionsWhere } from 'typeorm';
 
 import { ProductEntity } from '../../product/entities/product.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
+import { CategoryEntity } from '../../categories/entities/category.entity';
+import { CategoryTreeResponseDto } from '../../categories/dto/category-tree-response.dto';
 
 import { SearchShopDto } from '../dto/search-shop.dto';
 import { ShopPaginatedResponseDto } from '../dto/shop-paginated-response.dto';
@@ -20,15 +22,8 @@ import {
 
 import { CalculationService } from '../../../pricing/calculation/services/calculation.service';
 import { StockItemsService } from '../../../stocks/stock-item/services/stock-item.service';
-import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 import { PriceBreakdownDto } from '../../../pricing/calculation/dto/price-breakdown.dto';
 import { StockItemEntity } from '../../../stocks/stock-item/entities/stock-item.entity';
-
-interface StaticMeta {
-  name: string;
-  description: string;
-  type: 'product' | 'combo';
-}
 
 const PRICE_FILTER_SCAN_LIMIT = 500;
 
@@ -41,10 +36,40 @@ export class ShopService {
     @InjectRepository(ComboEntity)
     private readonly comboRepository: Repository<ComboEntity>,
 
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepository: Repository<CategoryEntity>,
+
     private readonly calculationService: CalculationService,
     private readonly stockItemsService: StockItemsService,
-    private readonly shopCacheService: ShopCacheService,
   ) {}
+
+  // ==========================
+  // CATEGORIES
+  // ==========================
+
+  async getCategories(): Promise<CategoryTreeResponseDto[]> {
+    const all = await this.categoryRepository.find({
+      where: { isActive: true },
+      order: { name: 'ASC' },
+    });
+
+    for (const cat of all) {
+      cat.children = [];
+    }
+
+    const map = new Map(all.map((cat) => [cat.id, cat]));
+    const roots: CategoryEntity[] = [];
+
+    for (const cat of all) {
+      if (cat.parentId != null) {
+        map.get(cat.parentId)?.children?.push(cat);
+      } else {
+        roots.push(cat);
+      }
+    }
+
+    return roots.map((root) => new CategoryTreeResponseDto(root));
+  }
 
   // ==========================
   // SEARCH (LISTADO)
@@ -208,12 +233,6 @@ export class ShopService {
     const image = product.images?.sort((a, b) => a.position - b.position)[0]
       ?.url;
 
-    void this.shopCacheService.set(`product:meta:${product.id}`, {
-      name: product.name,
-      description: product.description,
-      type: 'product',
-    } satisfies StaticMeta);
-
     return {
       id: product.id,
       name: product.name,
@@ -248,12 +267,6 @@ export class ShopService {
     if (maxPrice !== undefined && priceData.finalPrice > maxPrice) return null;
     const image = combo.images?.sort((a, b) => a.position - b.position)[0]?.url;
 
-    void this.shopCacheService.set(`combo:meta:${combo.id}`, {
-      name: combo.name,
-      description: combo.description,
-      type: 'combo',
-    } satisfies StaticMeta);
-
     return {
       id: combo.id,
       name: combo.name,
@@ -274,23 +287,12 @@ export class ShopService {
   // ==========================
 
   private async buildProductDetail(id: number): Promise<ShopDetailResponseDto> {
-    const [meta, product] = await Promise.all([
-      this.shopCacheService.get<StaticMeta>(`product:meta:${id}`),
-      this.productRepository.findOne({
-        where: { id, isActive: true },
-        relations: ['images', 'category'],
-      }),
-    ]);
+    const product = await this.productRepository.findOne({
+      where: { id, isActive: true },
+      relations: ['images', 'category'],
+    });
 
     if (!product) throw new NotFoundException('Producto no encontrado');
-
-    if (!meta) {
-      void this.shopCacheService.set(`product:meta:${id}`, {
-        name: product.name,
-        description: product.description,
-        type: 'product',
-      } satisfies StaticMeta);
-    }
 
     const priceData = await this.safeCalculateProduct(id);
     if (!priceData)
@@ -305,8 +307,8 @@ export class ShopService {
 
     return {
       id: product.id,
-      name: meta?.name ?? product.name,
-      description: meta?.description ?? product.description,
+      name: product.name,
+      description: product.description,
       type: 'product',
       originalPrice: priceData.fullPrice,
       finalPrice: priceData.finalPrice,
@@ -327,23 +329,12 @@ export class ShopService {
   // ==========================
 
   private async buildComboDetail(id: number): Promise<ShopDetailResponseDto> {
-    const [meta, combo] = await Promise.all([
-      this.shopCacheService.get<StaticMeta>(`combo:meta:${id}`),
-      this.comboRepository.findOne({
-        where: { id, isActive: true },
-        relations: ['images', 'items', 'items.product', 'category'],
-      }),
-    ]);
+    const combo = await this.comboRepository.findOne({
+      where: { id, isActive: true },
+      relations: ['images', 'items', 'items.product', 'category'],
+    });
 
     if (!combo) throw new NotFoundException('Combo no encontrado');
-
-    if (!meta) {
-      void this.shopCacheService.set(`combo:meta:${id}`, {
-        name: combo.name,
-        description: combo.description,
-        type: 'combo',
-      } satisfies StaticMeta);
-    }
 
     const priceData = await this.safeCalculateCombo(id);
     if (!priceData)
@@ -364,8 +355,8 @@ export class ShopService {
 
     return {
       id: combo.id,
-      name: meta?.name ?? combo.name,
-      description: meta?.description ?? combo.description,
+      name: combo.name,
+      description: combo.description,
       type: 'combo',
       originalPrice: priceData.fullPrice,
       finalPrice: priceData.finalPrice,

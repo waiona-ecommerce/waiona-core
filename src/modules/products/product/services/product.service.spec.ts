@@ -7,7 +7,6 @@ import { ProductService } from './product.service';
 import { ProductEntity } from '../entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
-import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ProductService', () => {
   let service: ProductService;
@@ -24,7 +23,6 @@ describe('ProductService', () => {
   });
 
   const mockCategoryRepository = () => ({ findOne: jest.fn() });
-  const mockShopCacheService = { invalidate: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -38,7 +36,6 @@ describe('ProductService', () => {
           provide: getRepositoryToken(CategoryEntity),
           useFactory: mockCategoryRepository,
         },
-        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 
@@ -201,7 +198,6 @@ describe('ProductService', () => {
         name: 'Coca Cola 1L',
       });
       expect(result.name).toBe('Coca Cola 1L');
-      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw ConflictException if new SKU already exists', async () => {
@@ -240,7 +236,6 @@ describe('ProductService', () => {
       await service.delete(1);
 
       expect(productRepository.softDelete).toHaveBeenCalledWith(product.id);
-      expect(mockShopCacheService.invalidate).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if product not found', async () => {

@@ -1,4 +1,12 @@
-import { Controller, Get, Query, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Param,
+  ParseIntPipe,
+  UseInterceptors,
+} from '@nestjs/common';
+import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiTags,
   ApiOperation,
@@ -11,11 +19,26 @@ import { ShopService } from '../services/shop.service';
 import { SearchShopDto } from '../dto/search-shop.dto';
 import { ShopPaginatedResponseDto } from '../dto/shop-paginated-response.dto';
 import { ShopDetailResponseDto } from '../dto/shop-detail-response.dto';
+import { CategoryTreeResponseDto } from '../../categories/dto/category-tree-response.dto';
 
 @ApiTags('Shop')
 @Controller({ version: '1', path: 'shop' })
 export class ShopController {
   constructor(private readonly shopService: ShopService) {}
+
+  // ==========================
+  // GET /shop/categories
+  // ==========================
+
+  @Get('categories')
+  @UseInterceptors(CacheInterceptor)
+  @CacheKey('shop:categories')
+  @CacheTTL(300_000)
+  @ApiOperation({ summary: 'Árbol de categorías activas del catálogo' })
+  @ApiResponse({ status: 200, type: [CategoryTreeResponseDto] })
+  async getCategories(): Promise<CategoryTreeResponseDto[]> {
+    return this.shopService.getCategories();
+  }
 
   // ==========================
   // GET /shop/items

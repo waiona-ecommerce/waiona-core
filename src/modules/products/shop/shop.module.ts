@@ -6,14 +6,14 @@ import { ShopController } from './controllers/shop.controller';
 
 import { ProductEntity } from '../product/entities/product.entity';
 import { ComboEntity } from '../combos/entities/combo.entity';
+import { CategoryEntity } from '../categories/entities/category.entity';
 
 import { CalculationModule } from '../../pricing/calculation/calculation.module';
-
 import { StocksModule } from '../../stocks/stocks.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ProductEntity, ComboEntity]),
+    TypeOrmModule.forFeature([ProductEntity, ComboEntity, CategoryEntity]),
     CalculationModule,
     StocksModule,
   ],

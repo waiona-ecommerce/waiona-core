@@ -5,25 +5,21 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ShopService } from '../../../products/shop/services/shop.service';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
+import { CategoryEntity } from '../../../products/categories/entities/category.entity';
 import { CalculationService } from '../../../pricing/calculation/services/calculation.service';
 import { StockItemsService } from '../../../stocks/stock-item/services/stock-item.service';
-import { ShopCacheService } from '../../../../common/cache/shop-cache.service';
 
 describe('ShopService', () => {
   let service: ShopService;
 
   const mockProductRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockComboRepo = { find: jest.fn(), findOne: jest.fn() };
+  const mockCategoryRepo = { find: jest.fn() };
   const mockCalculation = {
     calculateProduct: jest.fn(),
     calculateCombo: jest.fn(),
   };
   const mockStock = { findByProduct: jest.fn(), findByCombo: jest.fn() };
-  const mockShopCacheService = {
-    get: jest.fn().mockResolvedValue(undefined),
-    set: jest.fn().mockResolvedValue(undefined),
-    invalidate: jest.fn().mockResolvedValue(undefined),
-  };
 
   const mockPriceBreakdown = (overrides = {}) => ({
     unitPrice: 500,
@@ -82,9 +78,9 @@ describe('ShopService', () => {
           useValue: mockProductRepo,
         },
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
+        { provide: getRepositoryToken(CategoryEntity), useValue: mockCategoryRepo },
         { provide: CalculationService, useValue: mockCalculation },
         { provide: StockItemsService, useValue: mockStock },
-        { provide: ShopCacheService, useValue: mockShopCacheService },
       ],
     }).compile();
 
@@ -92,6 +88,57 @@ describe('ShopService', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  const mockCategory = (overrides = {}): CategoryEntity =>
+    ({
+      id: 1,
+      name: 'Bebidas',
+      isActive: true,
+      parentId: null,
+      children: [],
+      ...overrides,
+    }) as unknown as CategoryEntity;
+
+  // ==========================
+  // getCategories
+  // ==========================
+
+  describe('getCategories', () => {
+    it('should return flat list as root nodes when no children', async () => {
+      mockCategoryRepo.find.mockResolvedValue([
+        mockCategory({ id: 1, name: 'Bebidas' }),
+        mockCategory({ id: 2, name: 'Snacks' }),
+      ]);
+
+      const result = await service.getCategories();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe('Bebidas');
+      expect(result[0].children).toEqual([]);
+    });
+
+    it('should nest children under their parent', async () => {
+      mockCategoryRepo.find.mockResolvedValue([
+        mockCategory({ id: 1, name: 'Bebidas', parentId: null }),
+        mockCategory({ id: 2, name: 'Gaseosas', parentId: 1 }),
+      ]);
+
+      const result = await service.getCategories();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('Bebidas');
+      expect(result[0].children).toHaveLength(1);
+      expect(result[0].children[0].name).toBe('Gaseosas');
+    });
+
+    it('should return empty array when no categories', async () => {
+      mockCategoryRepo.find.mockResolvedValue([]);
+
+      const result = await service.getCategories();
+
+      expect(result).toEqual([]);
+    });
+  });
 
   // ==========================
   // search
