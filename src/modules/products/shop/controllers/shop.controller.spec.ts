@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ShopController } from '../../../products/shop/controllers/shop.controller';
 import { ShopService } from '../../../products/shop/services/shop.service';
 
@@ -6,7 +7,11 @@ describe('ShopController', () => {
   let controller: ShopController;
   let service: jest.Mocked<ShopService>;
 
-  const mockService = () => ({ search: jest.fn(), findById: jest.fn() });
+  const mockService = () => ({
+    search: jest.fn(),
+    findById: jest.fn(),
+    getCategories: jest.fn(),
+  });
 
   const mockPaginatedResponse = (overrides = {}) => ({
     total: 1,
@@ -39,7 +44,10 @@ describe('ShopController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ShopController],
-      providers: [{ provide: ShopService, useFactory: mockService }],
+      providers: [
+        { provide: ShopService, useFactory: mockService },
+        { provide: CACHE_MANAGER, useValue: { get: jest.fn(), set: jest.fn() } },
+      ],
     }).compile();
 
     controller = module.get<ShopController>(ShopController);
@@ -49,6 +57,23 @@ describe('ShopController', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should be defined', () => expect(controller).toBeDefined());
+
+  // ==========================
+  // getCategories
+  // ==========================
+
+  describe('getCategories', () => {
+    it('should return category tree from service', async () => {
+      const tree = [{ id: 1, name: 'Bebidas', children: [] }];
+      service.getCategories.mockResolvedValue(tree as any);
+
+      const result = await controller.getCategories();
+
+      expect(service.getCategories).toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('Bebidas');
+    });
+  });
 
   // ==========================
   // search

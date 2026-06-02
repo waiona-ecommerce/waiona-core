@@ -78,7 +78,10 @@ describe('ShopService', () => {
           useValue: mockProductRepo,
         },
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
-        { provide: getRepositoryToken(CategoryEntity), useValue: mockCategoryRepo },
+        {
+          provide: getRepositoryToken(CategoryEntity),
+          useValue: mockCategoryRepo,
+        },
         { provide: CalculationService, useValue: mockCalculation },
         { provide: StockItemsService, useValue: mockStock },
       ],
