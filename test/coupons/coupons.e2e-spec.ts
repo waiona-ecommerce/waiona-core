@@ -371,9 +371,9 @@ describe('Coupons (e2e)', () => {
         .get(`/v1/coupons/${fixedCouponId}/targets/products`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
-      expect(res.body[0].productId).toBe(1);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data[0].productId).toBe(1);
     });
 
     it('404 — cupón inexistente', async () => {
@@ -448,9 +448,9 @@ describe('Coupons (e2e)', () => {
         .get(`/v1/coupons/${fixedCouponId}/targets/combos`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
-      expect(res.body[0].comboId).toBe(1);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data[0].comboId).toBe(1);
     });
 
     it('404 — cupón inexistente', async () => {

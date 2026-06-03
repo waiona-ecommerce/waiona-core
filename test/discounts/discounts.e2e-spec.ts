@@ -525,9 +525,9 @@ describe('Discounts (e2e)', () => {
         .get(`/v1/discounts/${discountRes.body.id}/targets/products`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
-      expect(res.body[0].productId).toBe(extraProduct.id);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data[0].productId).toBe(extraProduct.id);
     });
 
     it('200 — retorna array vacío si no hay targets', async () => {
@@ -539,7 +539,7 @@ describe('Discounts (e2e)', () => {
         .get(`/v1/discounts/${discountRes.body.id}/targets/products`)
         .expect(200);
 
-      expect(res.body).toEqual([]);
+      expect(res.body.data).toEqual([]);
     });
 
     it('404 — si el descuento no existe', async () => {
@@ -581,7 +581,7 @@ describe('Discounts (e2e)', () => {
         .get(`/v1/discounts/${discountRes.body.id}/targets/products`)
         .expect(200);
 
-      expect(listRes.body).toEqual([]);
+      expect(listRes.body.data).toEqual([]);
     });
 
     it('404 — si el target no existe', async () => {
@@ -737,9 +737,9 @@ describe('Discounts (e2e)', () => {
         .get(`/v1/discounts/${discountRes.body.id}/targets/combos`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
-      expect(res.body[0].comboId).toBe(extraCombo.id);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data[0].comboId).toBe(extraCombo.id);
     });
 
     it('200 — retorna array vacío si no hay targets', async () => {
@@ -751,7 +751,7 @@ describe('Discounts (e2e)', () => {
         .get(`/v1/discounts/${discountRes.body.id}/targets/combos`)
         .expect(200);
 
-      expect(res.body).toEqual([]);
+      expect(res.body.data).toEqual([]);
     });
 
     it('404 — si el descuento no existe', async () => {
@@ -791,7 +791,7 @@ describe('Discounts (e2e)', () => {
         .get(`/v1/discounts/${discountRes.body.id}/targets/combos`)
         .expect(200);
 
-      expect(listRes.body).toEqual([]);
+      expect(listRes.body.data).toEqual([]);
     });
 
     it('404 — si el target no existe', async () => {
