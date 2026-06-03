@@ -188,7 +188,17 @@ Actualización parcial. **Errores:** `400` — code duplicado | `404` — no enc
 
 ### Taxes — `GET /tax-types/:taxTypeId/taxes`
 
-Lista todos los impuestos de un tipo. **Response 200:** `TaxResponseDto[]`.
+Lista paginada de impuestos de un tipo.
+
+**Query params** (opcionales): `page` (default: 1), `limit` (default: 20, máx: 100)
+
+**Response 200:**
+```json
+{
+  "data": [{ "id": 1, "taxTypeId": 1, "value": 21, "isGlobal": false, "createdAt": "...", "updatedAt": "..." }],
+  "total": 1, "page": 1, "limit": 20, "totalPages": 1, "hasNextPage": false
+}
+```
 
 ### Taxes — `GET /tax-types/:taxTypeId/taxes/:id`
 
@@ -224,7 +234,17 @@ Actualización parcial.
 
 ### Product Taxes — `GET /products/:productId/taxes`
 
-Lista todos los impuestos asignados al producto. **Response 200:** `ProductTaxResponseDto[]`.
+Lista paginada de impuestos asignados al producto.
+
+**Query params** (opcionales): `page` (default: 1), `limit` (default: 20, máx: 100)
+
+**Response 200:**
+```json
+{
+  "data": [{ "id": 1, "productId": 1, "taxId": 1, "createdAt": "...", "updatedAt": "..." }],
+  "total": 1, "page": 1, "limit": 20, "totalPages": 1, "hasNextPage": false
+}
+```
 
 ### Product Taxes — `GET /products/:productId/taxes/:id`
 

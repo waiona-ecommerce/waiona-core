@@ -15,12 +15,13 @@ export class ProductTaxesController {
 
   // GET /v1/products/:productId/taxes
   @ApiOperation({ summary: 'List taxes for a product' })
-  @ApiResponse({ status: 200, type: [ProductTaxResponseDto] })
+  @ApiResponse({ status: 200, type: ProductTaxResponseDto, isArray: true })
   @Get()
   findAll(
     @Param('productId', ParseIntPipe) productId: number,
-  ): Promise<ProductTaxResponseDto[]> {
-    return this.productTaxesService.findAll(productId);
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<ProductTaxResponseDto>> {
+    return this.productTaxesService.findAll(productId, page, limit);
   }
 
   // GET /v1/products/:productId/taxes/:id

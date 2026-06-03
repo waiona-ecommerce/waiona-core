@@ -170,8 +170,8 @@ describe('ProductTaxes (e2e)', () => {
       .get(`/v1/products/${productId}/taxes`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
   });
 
   it('GET /products/:productId/taxes -> should return empty array for product with no taxes', async () => {
@@ -193,7 +193,7 @@ describe('ProductTaxes (e2e)', () => {
       .get(`/v1/products/${product2.id}/taxes`)
       .expect(200);
 
-    expect(res.body).toEqual([]);
+    expect(res.body.data).toEqual([]);
   });
 
   // -------------------------

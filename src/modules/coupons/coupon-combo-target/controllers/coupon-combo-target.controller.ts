@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -22,6 +23,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { CouponComboTargetService } from '../services/coupon-combo-target.service';
 import { CreateCouponComboTargetDto } from '../dto/create-coupon-combo-target.dto';
 import { CouponComboTargetResponseDto } from '../dto/coupon-combo-target-response.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
@@ -63,8 +66,9 @@ export class CouponComboTargetController {
   @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
   async findAll(
     @Param('couponId', ParseIntPipe) couponId: number,
-  ): Promise<CouponComboTargetResponseDto[]> {
-    return this.couponComboTargetService.findAll(couponId);
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CouponComboTargetResponseDto>> {
+    return this.couponComboTargetService.findAll(couponId, page, limit);
   }
 
   @Delete(':comboId')

@@ -62,21 +62,37 @@ describe('TaxesController', () => {
 
   describe('findAll', () => {
     it('should return all taxes for a taxTypeId', async () => {
-      const taxes = [mockTaxResponse()];
-      service.findAll.mockResolvedValue(taxes);
+      const tax = mockTaxResponse();
+      const paginated = {
+        data: [tax],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNextPage: false,
+      };
+      service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(1);
+      const result = await controller.findAll(1, { page: 1, limit: 20 });
 
-      expect(service.findAll).toHaveBeenCalledWith(1);
-      expect(result).toEqual(taxes);
+      expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
+      expect(result.data).toEqual([tax]);
     });
 
-    it('should return empty array if no taxes', async () => {
-      service.findAll.mockResolvedValue([]);
+    it('should return empty data if no taxes', async () => {
+      const paginated = {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasNextPage: false,
+      };
+      service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(1);
+      const result = await controller.findAll(1, { page: 1, limit: 20 });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 

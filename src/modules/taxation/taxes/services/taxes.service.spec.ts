@@ -11,6 +11,7 @@ describe('TaxesService', () => {
 
   const mockTaxRepo = () => ({
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
@@ -62,15 +63,18 @@ describe('TaxesService', () => {
   // ==========================
   describe('findAll', () => {
     it('should return taxes by taxTypeId', async () => {
-      taxRepo.find.mockResolvedValue([mockTax()]);
+      taxRepo.findAndCount.mockResolvedValue([[mockTax()], 1]);
       const result = await service.findAll(1);
-      expect(result).toHaveLength(1);
-      expect(result[0].value).toBe(21);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].value).toBe(21);
+      expect(result.total).toBe(1);
     });
 
-    it('should return empty array', async () => {
-      taxRepo.find.mockResolvedValue([]);
-      expect(await service.findAll(1)).toEqual([]);
+    it('should return empty data', async () => {
+      taxRepo.findAndCount.mockResolvedValue([[], 0]);
+      const result = await service.findAll(1);
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 

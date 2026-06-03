@@ -128,8 +128,8 @@ describe('Taxes (e2e)', () => {
       .get(`/v1/tax-types/${taxTypeId}/taxes`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
   });
 
   it('GET /tax-types/:id/taxes -> should return empty array if no taxes', async () => {
@@ -141,7 +141,7 @@ describe('Taxes (e2e)', () => {
       .get(`/v1/tax-types/${newType.body.id}/taxes`)
       .expect(200);
 
-    expect(res.body).toEqual([]);
+    expect(res.body.data).toEqual([]);
   });
 
   // -------------------------

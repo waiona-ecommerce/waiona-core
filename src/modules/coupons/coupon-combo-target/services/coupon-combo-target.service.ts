@@ -11,6 +11,7 @@ import { CouponEntity } from '../../coupon/entities/coupon.entity';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { CreateCouponComboTargetDto } from '../dto/create-coupon-combo-target.dto';
 import { CouponComboTargetResponseDto } from '../dto/coupon-combo-target-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class CouponComboTargetService {
@@ -50,14 +51,25 @@ export class CouponComboTargetService {
   // GET ALL BY COUPON
   // ==========================
 
-  async findAll(couponId: number): Promise<CouponComboTargetResponseDto[]> {
+  async findAll(
+    couponId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<CouponComboTargetResponseDto>> {
     await this.findCoupon(couponId);
 
-    const targets = await this.repo.find({
+    const [targets, total] = await this.repo.findAndCount({
       where: { couponId },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return targets.map((t) => new CouponComboTargetResponseDto(t));
+    return new PaginatedResponseDto(
+      targets.map((t) => new CouponComboTargetResponseDto(t)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

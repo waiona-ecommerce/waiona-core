@@ -47,16 +47,27 @@ export class DiscountComboTargetService {
 
   // ─── GET ALL BY DISCOUNT ─────────────────────────────────────────────────────
 
-  async findAll(discountId: number): Promise<DiscountComboTargetResponseDto[]> {
+  async findAll(
+    discountId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<DiscountComboTargetResponseDto>> {
     // Verifica que el discount padre exista antes de listar.
     // Devuelve 404 si fue borrado, en vez de una lista vacía que podría confundir.
     await this.findDiscount(discountId);
 
-    const targets = await this.repo.find({
+    const [targets, total] = await this.repo.findAndCount({
       where: { discountId },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return targets.map((t) => new DiscountComboTargetResponseDto(t));
+    return new PaginatedResponseDto(
+      targets.map((t) => new DiscountComboTargetResponseDto(t)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ─── DELETE (soft) ───────────────────────────────────────────────────────────

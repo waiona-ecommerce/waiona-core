@@ -9,6 +9,7 @@ import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
 import { TaxResponseDto } from '../dto/tax-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class TaxesService {
@@ -24,14 +25,25 @@ export class TaxesService {
   // FIND ALL BY TAX TYPE
   // ==========================
 
-  async findAll(taxTypeId: number): Promise<TaxResponseDto[]> {
-    const entities = await this.taxRepository.find({
+  async findAll(
+    taxTypeId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<TaxResponseDto>> {
+    const [entities, total] = await this.taxRepository.findAndCount({
       where: { taxTypeId },
       relations: ['taxType'],
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return entities.map((entity) => new TaxResponseDto(entity));
+    return new PaginatedResponseDto(
+      entities.map((entity) => new TaxResponseDto(entity)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

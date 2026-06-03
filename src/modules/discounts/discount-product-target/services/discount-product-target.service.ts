@@ -10,6 +10,7 @@ import { DiscountProductTargetEntity } from '../entities/discount-product-target
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { CreateDiscountProductTargetDto } from '../dto/create-discount-product-target.dto';
 import { DiscountProductTargetResponseDto } from '../dto/discount-target-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class DiscountProductTargetService {
@@ -50,14 +51,23 @@ export class DiscountProductTargetService {
 
   async findAll(
     discountId: number,
-  ): Promise<DiscountProductTargetResponseDto[]> {
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<DiscountProductTargetResponseDto>> {
     await this.findDiscount(discountId);
 
-    const targets = await this.repo.find({
+    const [targets, total] = await this.repo.findAndCount({
       where: { discountId },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return targets.map((t) => new DiscountProductTargetResponseDto(t));
+    return new PaginatedResponseDto(
+      targets.map((t) => new DiscountProductTargetResponseDto(t)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

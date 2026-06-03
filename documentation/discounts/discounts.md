@@ -308,9 +308,11 @@ Asigna un producto a un descuento.
 
 ### `GET /v1/discounts/:discountId/targets/products`
 
-Lista todos los productos asignados a un descuento.
+Lista paginada de productos asignados a un descuento.
 
-**Response 200:** array de `DiscountProductTargetResponseDto`
+**Query params** (opcionales): `page` (default: 1), `limit` (default: 20, máx: 100)
+
+**Response 200:** `PaginatedResponseDto<DiscountProductTargetResponseDto>`
 
 **Errores posibles:**
 - `404` — descuento no encontrado
@@ -358,9 +360,11 @@ Asigna un combo a un descuento.
 
 ### `GET /v1/discounts/:discountId/targets/combos`
 
-Lista todos los combos asignados a un descuento.
+Lista paginada de combos asignados a un descuento.
 
-**Response 200:** array de `DiscountComboTargetResponseDto`
+**Query params** (opcionales): `page` (default: 1), `limit` (default: 20, máx: 100)
+
+**Response 200:** `PaginatedResponseDto<DiscountComboTargetResponseDto>`
 
 **Errores posibles:**
 - `404` — descuento no encontrado

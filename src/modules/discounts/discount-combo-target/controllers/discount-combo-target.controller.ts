@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -22,6 +23,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { DiscountComboTargetService } from '../services/discount-combo-target.service';
 import { CreateDiscountComboTargetDto } from '../dto/create-discount-combo-target.dto';
 import { DiscountComboTargetResponseDto } from '../dto/discount-combo-target.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
@@ -61,8 +64,9 @@ export class DiscountComboTargetController {
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
   async findAll(
     @Param('discountId', ParseIntPipe) discountId: number,
-  ): Promise<DiscountComboTargetResponseDto[]> {
-    return this.service.findAll(discountId);
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<DiscountComboTargetResponseDto>> {
+    return this.service.findAll(discountId, page, limit);
   }
 
   @Delete(':comboId')

@@ -57,10 +57,18 @@ describe('CouponComboTargetController', () => {
   });
 
   it('findAll should return targets', async () => {
-    service.findAll.mockResolvedValue([mockResponse()]);
-    const result = await controller.findAll(1);
-    expect(service.findAll).toHaveBeenCalledWith(1);
-    expect(result).toHaveLength(1);
+    const paginated = {
+      data: [mockResponse()],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+      hasNextPage: false,
+    };
+    service.findAll.mockResolvedValue(paginated);
+    const result = await controller.findAll(1, { page: 1, limit: 20 });
+    expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
+    expect(result.data).toHaveLength(1);
   });
 
   it('remove should delegate to service', async () => {

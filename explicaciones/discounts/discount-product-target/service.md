@@ -53,17 +53,26 @@ export class DiscountProductTargetService {
 
   async findAll(
     discountId: number,
-  ): Promise<DiscountProductTargetResponseDto[]> {
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<DiscountProductTargetResponseDto>> {
     // Se verifica que el discount padre exista antes de listar.
     // Si el discount fue borrado, devolver una lista vacía podría ser confuso;
     // mejor fallar con 404 para que el cliente sepa que el recurso padre no existe.
     await this.findDiscount(discountId);
 
-    const targets = await this.repo.find({
+    const [targets, total] = await this.repo.findAndCount({
       where: { discountId },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return targets.map((t) => new DiscountProductTargetResponseDto(t));
+    return new PaginatedResponseDto(
+      targets.map((t) => new DiscountProductTargetResponseDto(t)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ─── DELETE (soft) ───────────────────────────────────────────────────────────

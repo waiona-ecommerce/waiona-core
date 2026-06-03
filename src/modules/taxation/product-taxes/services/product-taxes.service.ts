@@ -13,6 +13,7 @@ import { TaxEntity } from '../../taxes/entities/tax.entity';
 import { CreateProductTaxDto } from '../dto/create-product-tax.dto';
 import { UpdateProductTaxDto } from '../dto/update-product-tax.dto';
 import { ProductTaxResponseDto } from '../dto/product-tax-response.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class ProductTaxesService {
@@ -68,13 +69,24 @@ export class ProductTaxesService {
   // GET ALL BY PRODUCT
   // ==========================
 
-  async findAll(productId: number): Promise<ProductTaxResponseDto[]> {
-    const productTaxes = await this.productTaxRepository.find({
+  async findAll(
+    productId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<ProductTaxResponseDto>> {
+    const [productTaxes, total] = await this.productTaxRepository.findAndCount({
       where: { productId },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return productTaxes.map((pt) => new ProductTaxResponseDto(pt));
+    return new PaginatedResponseDto(
+      productTaxes.map((pt) => new ProductTaxResponseDto(pt)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ==========================

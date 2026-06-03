@@ -7,6 +7,7 @@ import {
   Patch,
   Delete,
   ParseIntPipe,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -23,6 +24,8 @@ import { TaxesService } from '../services/taxes.service';
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
 import { TaxResponseDto } from '../dto/tax-response.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
@@ -38,12 +41,13 @@ export class TaxesController {
   constructor(private readonly taxesService: TaxesService) {}
 
   @ApiOperation({ summary: 'List taxes for a tax type' })
-  @ApiResponse({ status: 200, type: [TaxResponseDto] })
+  @ApiResponse({ status: 200, type: TaxResponseDto, isArray: true })
   @Get()
   findAll(
     @Param('taxTypeId', ParseIntPipe) taxTypeId: number,
-  ): Promise<TaxResponseDto[]> {
-    return this.taxesService.findAll(taxTypeId);
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<TaxResponseDto>> {
+    return this.taxesService.findAll(taxTypeId, page, limit);
   }
 
   @ApiOperation({ summary: 'Get a tax by ID' })

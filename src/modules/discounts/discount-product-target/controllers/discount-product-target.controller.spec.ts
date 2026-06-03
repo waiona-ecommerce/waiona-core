@@ -78,21 +78,37 @@ describe('DiscountProductTargetController', () => {
 
   describe('findAll', () => {
     it('should return all targets for a discount', async () => {
-      const targets = [mockTargetResponse()];
-      service.findAll.mockResolvedValue(targets);
+      const target = mockTargetResponse();
+      const paginated = {
+        data: [target],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNextPage: false,
+      };
+      service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(1);
+      const result = await controller.findAll(1, { page: 1, limit: 20 });
 
-      expect(service.findAll).toHaveBeenCalledWith(1);
-      expect(result).toEqual(targets);
+      expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
+      expect(result.data).toEqual([target]);
     });
 
-    it('should return empty array if no targets', async () => {
-      service.findAll.mockResolvedValue([]);
+    it('should return empty data if no targets', async () => {
+      const paginated = {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasNextPage: false,
+      };
+      service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(1);
+      const result = await controller.findAll(1, { page: 1, limit: 20 });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 

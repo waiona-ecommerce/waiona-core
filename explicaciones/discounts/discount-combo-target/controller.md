@@ -33,16 +33,13 @@ export class DiscountComboTargetController {
   @Get()
   @ApiOperation({ summary: 'Listar combos asignados a un descuento' })
   @ApiParam({ name: 'discountId', type: Number })
-  @ApiResponse({
-    status: 200,
-    type: DiscountComboTargetResponseDto,
-    isArray: true,
-  })
+  @ApiResponse({ status: 200, type: DiscountComboTargetResponseDto, isArray: true })
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
   async findAll(
     @Param('discountId', ParseIntPipe) discountId: number,
-  ): Promise<DiscountComboTargetResponseDto[]> {
-    return this.service.findAll(discountId);
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<DiscountComboTargetResponseDto>> {
+    return this.service.findAll(discountId, page, limit);
   }
 
   // DELETE /v1/discounts/:discountId/targets/combos/:comboId

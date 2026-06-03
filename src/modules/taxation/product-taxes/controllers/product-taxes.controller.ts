@@ -5,6 +5,7 @@ import {
   Param,
   Body,
   ParseIntPipe,
+  Query,
   Patch,
   Delete,
   HttpCode,
@@ -23,6 +24,8 @@ import { ProductTaxesService } from '../services/product-taxes.service';
 import { CreateProductTaxDto } from '../dto/create-product-tax.dto';
 import { UpdateProductTaxDto } from '../dto/update-product-tax.dto';
 import { ProductTaxResponseDto } from '../dto/product-tax-response.dto';
+import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
 import { AuthGuard } from '@nestjs/passport';
@@ -38,12 +41,13 @@ export class ProductTaxesController {
   constructor(private readonly productTaxesService: ProductTaxesService) {}
 
   @ApiOperation({ summary: 'List taxes for a product' })
-  @ApiResponse({ status: 200, type: [ProductTaxResponseDto] })
+  @ApiResponse({ status: 200, type: ProductTaxResponseDto, isArray: true })
   @Get()
   findAll(
     @Param('productId', ParseIntPipe) productId: number,
-  ): Promise<ProductTaxResponseDto[]> {
-    return this.productTaxesService.findAll(productId);
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<ProductTaxResponseDto>> {
+    return this.productTaxesService.findAll(productId, page, limit);
   }
 
   @ApiOperation({ summary: 'Get a product tax by ID' })

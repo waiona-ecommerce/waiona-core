@@ -16,15 +16,18 @@ export class TaxesController {
 
   // GET /v1/tax-types/:taxTypeId/taxes
   @ApiOperation({ summary: 'List taxes for a tax type' })
-  @ApiResponse({ status: 200, type: [TaxResponseDto] })
+  @ApiResponse({ status: 200, type: TaxResponseDto, isArray: true })
   @Get()
   findAll(
     // taxTypeId viene del segmento de URL :taxTypeId. ParseIntPipe lo convierte
     // de string a number. Si no es un número válido, falla con 400 antes de
     // ejecutar el handler.
     @Param('taxTypeId', ParseIntPipe) taxTypeId: number,
-  ): Promise<TaxResponseDto[]> {
-    return this.taxesService.findAll(taxTypeId);
+    // page y limit vienen del query string. PaginationQueryDto tiene @ApiPropertyOptional
+    // para que Swagger los muestre como parámetros opcionales.
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<TaxResponseDto>> {
+    return this.taxesService.findAll(taxTypeId, page, limit);
   }
 
   // GET /v1/tax-types/:taxTypeId/taxes/:id

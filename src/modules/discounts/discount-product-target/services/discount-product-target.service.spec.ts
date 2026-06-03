@@ -12,6 +12,7 @@ describe('DiscountProductTargetService', () => {
 
   const mockRepo = () => ({
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
@@ -104,8 +105,10 @@ describe('DiscountProductTargetService', () => {
   describe('findAll', () => {
     it('should return all targets', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
-      repo.find.mockResolvedValue([mockTarget()]);
-      expect(await service.findAll(1)).toHaveLength(1);
+      repo.findAndCount.mockResolvedValue([[mockTarget()], 1]);
+      const result = await service.findAll(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
 
     it('should throw NotFoundException if discount not found', async () => {

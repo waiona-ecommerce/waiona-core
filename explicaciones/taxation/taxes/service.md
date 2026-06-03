@@ -19,17 +19,27 @@ export class TaxesService {
 
   // ─── FIND ALL BY TAX TYPE ────────────────────────────────────────────────────
 
-  async findAll(taxTypeId: number): Promise<TaxResponseDto[]> {
-    // Filtra los taxes por taxTypeId (que viene del segmento de URL :taxTypeId).
-    // Carga la relación "taxType" para que el DTO de respuesta pueda incluir
-    // el nombre y código del tipo de impuesto, no solo su ID.
-    const entities = await this.taxRepository.find({
+  async findAll(
+    taxTypeId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<TaxResponseDto>> {
+    // findAndCount en una sola query: devuelve [entidades, total].
+    // El total es necesario para construir el PaginatedResponseDto.
+    const [entities, total] = await this.taxRepository.findAndCount({
       where: { taxTypeId },
       relations: ['taxType'],
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return entities.map((entity) => new TaxResponseDto(entity));
+    return new PaginatedResponseDto(
+      entities.map((entity) => new TaxResponseDto(entity)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ─── FIND BY ID ──────────────────────────────────────────────────────────────

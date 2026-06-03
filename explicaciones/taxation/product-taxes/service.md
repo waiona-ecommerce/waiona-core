@@ -62,15 +62,24 @@ export class ProductTaxesService {
 
   // ─── GET ALL BY PRODUCT ──────────────────────────────────────────────────────
 
-  async findAll(productId: number): Promise<ProductTaxResponseDto[]> {
-    // Trae todos los taxes asignados a un producto específico.
-    // No se paginan: la cantidad de taxes por producto es acotada.
-    const productTaxes = await this.productTaxRepository.find({
+  async findAll(
+    productId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<PaginatedResponseDto<ProductTaxResponseDto>> {
+    const [productTaxes, total] = await this.productTaxRepository.findAndCount({
       where: { productId },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return productTaxes.map((pt) => new ProductTaxResponseDto(pt));
+    return new PaginatedResponseDto(
+      productTaxes.map((pt) => new ProductTaxResponseDto(pt)),
+      total,
+      page,
+      limit,
+    );
   }
 
   // ─── GET BY ID ───────────────────────────────────────────────────────────────

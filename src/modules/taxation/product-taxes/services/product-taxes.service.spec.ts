@@ -15,6 +15,7 @@ describe('ProductTaxesService', () => {
 
   const mockProductTaxRepo = () => ({
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
@@ -97,8 +98,10 @@ describe('ProductTaxesService', () => {
 
   describe('findAll', () => {
     it('should return all product taxes by productId', async () => {
-      productTaxRepo.find.mockResolvedValue([mockProductTax()]);
-      expect(await service.findAll(1)).toHaveLength(1);
+      productTaxRepo.findAndCount.mockResolvedValue([[mockProductTax()], 1]);
+      const result = await service.findAll(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
   });
 

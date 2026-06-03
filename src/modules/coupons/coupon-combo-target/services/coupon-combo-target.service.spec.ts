@@ -11,6 +11,7 @@ describe('CouponComboTargetService', () => {
 
   const mockTargetRepo = () => ({
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
@@ -118,8 +119,10 @@ describe('CouponComboTargetService', () => {
   describe('findAll', () => {
     it('should return all targets for a coupon', async () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
-      targetRepo.find.mockResolvedValue([mockTarget()]);
-      expect(await service.findAll(1)).toHaveLength(1);
+      targetRepo.findAndCount.mockResolvedValue([[mockTarget()], 1]);
+      const result = await service.findAll(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
     });
 
     it('should throw NotFoundException if coupon not found', async () => {
