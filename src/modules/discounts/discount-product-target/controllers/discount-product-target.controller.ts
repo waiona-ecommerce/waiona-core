@@ -64,7 +64,11 @@ export class DiscountProductTargetController {
   @Get()
   @ApiOperation({ summary: 'Listar productos asignados a un descuento' })
   @ApiParam({ name: 'discountId', type: Number })
-  @ApiResponse({ status: 200, type: DiscountProductTargetResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    type: DiscountProductTargetResponseDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 404, description: 'Descuento no encontrado' })
   async findAll(
     @Param('discountId', ParseIntPipe) discountId: number,

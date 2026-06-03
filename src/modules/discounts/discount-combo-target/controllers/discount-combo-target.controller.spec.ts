@@ -70,7 +70,14 @@ describe('DiscountComboTargetController', () => {
   describe('findAll', () => {
     it('should return all combo targets for a discount', async () => {
       const target = mockTargetResponse();
-      const paginated = { data: [target], total: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false };
+      const paginated = {
+        data: [target],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNextPage: false,
+      };
       service.findAll.mockResolvedValue(paginated);
       const result = await controller.findAll(1, { page: 1, limit: 20 });
       expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
@@ -78,14 +85,25 @@ describe('DiscountComboTargetController', () => {
     });
 
     it('should return empty data if no targets', async () => {
-      const paginated = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNextPage: false };
+      const paginated = {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasNextPage: false,
+      };
       service.findAll.mockResolvedValue(paginated);
-      expect((await controller.findAll(1, { page: 1, limit: 20 })).data).toEqual([]);
+      expect(
+        (await controller.findAll(1, { page: 1, limit: 20 })).data,
+      ).toEqual([]);
     });
 
     it('should propagate error from service', async () => {
       service.findAll.mockRejectedValue(new Error('boom'));
-      await expect(controller.findAll(1, { page: 1, limit: 20 })).rejects.toThrow('boom');
+      await expect(
+        controller.findAll(1, { page: 1, limit: 20 }),
+      ).rejects.toThrow('boom');
     });
   });
 

@@ -79,7 +79,14 @@ describe('DiscountProductTargetController', () => {
   describe('findAll', () => {
     it('should return all targets for a discount', async () => {
       const target = mockTargetResponse();
-      const paginated = { data: [target], total: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false };
+      const paginated = {
+        data: [target],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNextPage: false,
+      };
       service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll(1, { page: 1, limit: 20 });
@@ -89,7 +96,14 @@ describe('DiscountProductTargetController', () => {
     });
 
     it('should return empty data if no targets', async () => {
-      const paginated = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNextPage: false };
+      const paginated = {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasNextPage: false,
+      };
       service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll(1, { page: 1, limit: 20 });

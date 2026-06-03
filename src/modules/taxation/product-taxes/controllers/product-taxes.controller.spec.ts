@@ -62,7 +62,14 @@ describe('ProductTaxesController', () => {
   describe('findAll', () => {
     it('should return all product taxes for a productId', async () => {
       const tax = mockProductTaxResponse();
-      const paginated = { data: [tax], total: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false };
+      const paginated = {
+        data: [tax],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+        hasNextPage: false,
+      };
       service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll(1, { page: 1, limit: 20 });
@@ -72,7 +79,14 @@ describe('ProductTaxesController', () => {
     });
 
     it('should return empty data if no taxes', async () => {
-      const paginated = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNextPage: false };
+      const paginated = {
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+        hasNextPage: false,
+      };
       service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll(1, { page: 1, limit: 20 });

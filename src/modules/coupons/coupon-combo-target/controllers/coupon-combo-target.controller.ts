@@ -58,7 +58,11 @@ export class CouponComboTargetController {
   @Get()
   @ApiOperation({ summary: 'Listar combos asignados a un cupón' })
   @ApiParam({ name: 'couponId', type: Number })
-  @ApiResponse({ status: 200, type: CouponComboTargetResponseDto, isArray: true })
+  @ApiResponse({
+    status: 200,
+    type: CouponComboTargetResponseDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
   async findAll(
     @Param('couponId', ParseIntPipe) couponId: number,
