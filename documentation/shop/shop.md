@@ -309,20 +309,20 @@ npx jest --config test/jest-e2e.json --testPathPattern="shop.e2e"
 
 ## Cache
 
-El shop implementa cache parcial para datos estáticos usando `ShopCacheService` (Redis).
+Solo `GET /v1/shop/categories` está cacheado, usando el `CacheInterceptor` oficial de NestJS con Redis (configurado globalmente en `app.module.ts`).
 
-| Dato | Cache | Motivo |
-|---|---|---|
-| `name`, `description`, `type` | **Sí** — `product:meta:{id}` / `combo:meta:{id}` | No cambian frecuentemente, sin consecuencia económica si están desactualizados |
-| `finalPrice`, `originalPrice`, `taxes` | **No** — siempre en vivo | Dato con consecuencia económica: precio cobrado ≠ precio mostrado |
-| `inStock`, `quantityAvailable` | **No** — siempre en vivo | Cambia con cada orden despachada |
-| `images`, `category` | **No** — siempre en vivo | Vienen del `findOne()` que se necesita de todos modos para las imágenes |
+```ts
+@Get('categories')
+@UseInterceptors(CacheInterceptor)
+@CacheKey('shop:categories')
+@CacheTTL(300_000) // 5 minutos
+async getCategories(): Promise<CategoryTreeResponseDto[]> { ... }
+```
 
-**Flujo en el listado (`search`):** al construir cada item, se escribe la metadata al cache como side effect (`void` — no bloquea el response). Sirve de warm-up para el detalle.
+- Las siguientes requests en los 5 minutos posteriores devuelven el valor de Redis sin tocar la DB.
+- Expiración por TTL — no hay invalidación manual. Si un admin modifica categorías, el cambio aparece en el próximo ciclo (máx 5 min).
 
-**Flujo en el detalle (`findById`):** se lee cache y se hace `findOne()` en paralelo. Si hay hit se usan los valores cacheados; si hay miss se escriben al cache.
-
-**Invalidación:** `product.service` y `combo.service` llaman `invalidate()` en `update()` y `delete()`. No en `create()` — un producto nuevo no tiene entry en cache.
+`GET /v1/shop/items` y `GET /v1/shop/items/:id` **no tienen cache** — precio y stock son datos en vivo con consecuencias económicas.
 
 ## Integración con otros módulos
 
@@ -330,9 +330,9 @@ El shop implementa cache parcial para datos estáticos usando `ShopCacheService`
 ProductEntity ──────┐
                     ↓
 ComboEntity ────────→  ShopService
-                         ↓           ↓           ↓           ↓
-                   CalculationService  StockItemsService  images  ShopCacheService
-                         ↓                                           (metadata estática)
+                         ↓           ↓           ↓
+                   CalculationService  StockItemsService  images
+                         ↓
                product-pricing / combo-pricing
                margins / product-taxes (prorrateo en combos)
                discount-product-target / discount-combo-target

@@ -114,18 +114,30 @@ Passport LocalStrategy extrae `email` y `password` del body directamente. No hay
     id:        number;
     email:     string;
     isActive:  boolean;
-    role:      'super_admin' | 'admin' | 'client' | null;
+    profileId: number;
     profile: {
-      id:       number;
-      name:     string;
-      lastName: string;
-      avatar:   string | null;
+      id:        number;
+      name:      string;
+      lastName:  string;
+      avatar:    string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      deletedAt: Date | null;
     };
+    roleId: number | null;
+    role: {
+      id:        number;
+      type:      'super_admin' | 'admin' | 'client'; // RoleEntity — no es un string plano
+      createdAt: Date;
+      updatedAt: Date;
+      deletedAt: Date | null;
+    } | null;
     createdAt: Date;
     updatedAt: Date;
+    deletedAt: Date | null;
     // password: NUNCA expuesto — @Exclude() en UserEntity + ClassSerializerInterceptor global
   };
-  access_token: string; // JWT firmado con JWT_SECRET, expira en 6 días
+  access_token: string; // JWT firmado con JWT_SECRET, expira en 15 minutos
 }
 ```
 
@@ -230,15 +242,27 @@ Valida credenciales y emite un access token + refresh token. Gestionado por `Aut
     "id": 1,
     "email": "juan@example.com",
     "isActive": true,
-    "role": "client",
+    "profileId": 1,
     "profile": {
       "id": 1,
       "name": "Juan",
       "lastName": "Pérez",
-      "avatar": null
+      "avatar": null,
+      "createdAt": "2026-05-19T10:00:00.000Z",
+      "updatedAt": "2026-05-19T10:00:00.000Z",
+      "deletedAt": null
+    },
+    "roleId": 3,
+    "role": {
+      "id": 3,
+      "type": "client",
+      "createdAt": "2026-05-19T10:00:00.000Z",
+      "updatedAt": "2026-05-19T10:00:00.000Z",
+      "deletedAt": null
     },
     "createdAt": "2026-05-19T10:00:00.000Z",
-    "updatedAt": "2026-05-19T10:00:00.000Z"
+    "updatedAt": "2026-05-19T10:00:00.000Z",
+    "deletedAt": null
   },
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refresh_token": "abc123..."
@@ -380,7 +404,7 @@ Revoca todos los refresh tokens activos del usuario. Requiere JWT. Cierra sesió
 | `forgotPassword` silencioso si email no existe o cuenta inactiva | early return sin enviar email ni error |
 | Login rechazado si `isActive === false` | `validateUser` → `401 UnauthorizedException` |
 | `password` jamás expuesto en respuestas | `@Exclude()` en `UserEntity` + `ClassSerializerInterceptor` global en `main.ts` |
-| JWT (access token) expira en 6 días | `JwtModule` con `signOptions: { expiresIn: '6d' }` |
+| JWT (access token) expira en 15 minutos | `JwtModule` con `signOptions: { expiresIn: '15m' }` |
 | Refresh token expira en 30 días | `issueRefreshToken()` — se guarda el hash (SHA-256), no el token en claro |
 | Refresh token rotation — un refresh token es de un solo uso | `refresh()` emite el nuevo token PRIMERO, luego revoca el viejo — si falla la emisión, el cliente conserva el token anterior y puede reintentar |
 | `logout` revoca el refresh token del body sin JWT | `findValidRefreshToken()` valida que exista, no esté revocado ni expirado; luego `revokedAt = new Date()` |
