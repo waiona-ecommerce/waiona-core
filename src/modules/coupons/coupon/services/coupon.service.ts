@@ -131,6 +131,7 @@ export class CouponService {
   private async validateUniqueCode(code: string): Promise<void> {
     const existing = await this.couponRepository.findOne({
       where: { code },
+      withDeleted: true,
     });
 
     if (existing) {

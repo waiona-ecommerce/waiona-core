@@ -336,5 +336,6 @@ export interface Env {
 |-----------|-----------------|
 | Service depends on multiple repos | Add each with `getRepositoryToken(Entity)` in spec providers |
 | Service uses `DataSource` | Mock with `{ transaction: jest.fn(cb => cb(mockEntityManager)) }` |
+| `remove()` soft-deletes a parent and its child | Use `dataSource.transaction()` with `manager.softDelete(ParentEntity, id)` + `manager.softDelete(ChildEntity, parent.childId)` — TypeORM does NOT cascade soft-delete through relations |
 | Controller uses `@CurrentUser()` | Pass `{ sub: 1, role: RoleType.CLIENT }` directly — decorator doesn't run in unit tests |
 | `ConfigService` needed in spec | `{ provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('value') } }` |

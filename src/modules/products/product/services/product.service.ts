@@ -71,6 +71,7 @@ export class ProductService {
       where: {
         sku: dto.sku,
       },
+      withDeleted: true,
     });
 
     if (existingSku) {
@@ -109,6 +110,7 @@ export class ProductService {
         where: {
           sku: changes.sku,
         },
+        withDeleted: true,
       });
 
       if (existingSku) {

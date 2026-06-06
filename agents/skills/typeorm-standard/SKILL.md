@@ -303,6 +303,7 @@ Apply this when:
 - **Multi-table writes without transaction**: Use `dataSource.transaction()`.
 - **Missing `@Transform` on string fields**: Every text field in a CreateDto needs normalization — identifiers uppercase, free-text trim.
 - **Soft delete without dependency check**: `softDelete()` bypasses FK RESTRICT constraints. Always count active dependents before deleting if other entities reference this one.
+- **Unique validation without `withDeleted`**: `findOne({ where: { code } })` adds `AND deletedAt IS NULL` — it won't catch soft-deleted records, so the DB unique constraint rejects the insert with an unhandled 500 instead of a clean 409. Always add `withDeleted: true` to uniqueness validation queries.
 - **English error messages**: All `NotFoundException`, `ConflictException`, `BadRequestException` messages must be in Spanish per project convention.
 
 ---
@@ -316,4 +317,6 @@ Apply this when:
 | Soft delete with active dependents | Count dependents first; throw `ConflictException` if > 0 — soft delete bypasses FK RESTRICT |
 | FK from DTO body doesn't exist | Validate with `dataSource.getRepository()` before INSERT — returns 404 instead of 500 |
 | Cascade save (user + profile) | Use `cascade: true` on the owning side OR explicit `manager.save()` in transaction |
+| Soft delete related entities | TypeORM does NOT cascade `softDelete()` through relations — use `dataSource.transaction()` and call `manager.softDelete(Entity, id)` for each entity explicitly |
+| Unique constraint with soft-deleted records | Add `withDeleted: true` to the validation `findOne` so soft-deleted rows still block re-use and the service returns 409 instead of a DB 500 |
 | `quantityAvailable` computed | Use `get` accessor on entity — not a DB column |

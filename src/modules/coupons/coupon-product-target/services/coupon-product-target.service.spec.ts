@@ -119,6 +119,17 @@ describe('CouponProductTargetService', () => {
         ConflictException,
       );
     });
+
+    it('should throw ConflictException if target exists as soft-deleted', async () => {
+      couponRepo.findOne.mockResolvedValue(mockCoupon());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(
+        mockTarget({ deletedAt: new Date() }),
+      );
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
+    });
   });
 
   describe('findAll', () => {
