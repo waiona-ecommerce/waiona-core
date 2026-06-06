@@ -156,8 +156,11 @@ export class UsersService {
       DELETE (SOFT)
   ======================= */
   async remove(id: number): Promise<void> {
-    await this.findEntity(id);
-    await this.userRepo.softDelete(id);
+    const user = await this.findEntity(id);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.softDelete(UserEntity, id);
+      await manager.softDelete(ProfileEntity, user.profileId);
+    });
   }
 
   /* =======================

@@ -5,6 +5,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 
 import { UsersService } from './users.service';
 import { UserEntity } from '../entities/user.entity';
+import { ProfileEntity } from '../entities/profile.entity';
 import { RoleEntity } from '../entities/role.entity';
 import { RoleType } from '../../../common/enums/role-type.enum';
 
@@ -32,7 +33,7 @@ describe('UsersService', () => {
   });
   const mockRoleRepo = () => ({ findOne: jest.fn() });
 
-  const mockEntityManager = { create: jest.fn(), save: jest.fn() };
+  const mockEntityManager = { create: jest.fn(), save: jest.fn(), softDelete: jest.fn() };
   const mockDataSource = {
     transaction: jest.fn((cb) => cb(mockEntityManager)),
   };
@@ -60,6 +61,7 @@ describe('UsersService', () => {
       password: 'hashed',
       isActive: false,
       deletedAt: null,
+      profileId: 1,
       profile: mockProfile,
       role: mockRole,
       createdAt: new Date(),
@@ -237,13 +239,15 @@ describe('UsersService', () => {
   // ==========================
 
   describe('remove', () => {
-    it('should soft delete user', async () => {
+    it('should soft delete user and profile in transaction', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
-      userRepo.softDelete.mockResolvedValue({ affected: 1 });
+      mockEntityManager.softDelete.mockResolvedValue(undefined);
 
       await service.remove(1);
 
-      expect(userRepo.softDelete).toHaveBeenCalledWith(1);
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(UserEntity, 1);
+      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(ProfileEntity, 1);
     });
 
     it('should throw NotFoundException', async () => {

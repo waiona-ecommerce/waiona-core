@@ -245,7 +245,7 @@ Soft delete del propio usuario. Requiere JWT. Solo puede eliminar su propia cuen
 | Usuario creado inactivo (`isActive: false`) | `create` — default de la columna |
 | Solo el propio usuario puede ver/editar/eliminar su perfil | `findOne`, `update`, `remove` — compara `req.user.sub !== id` |
 | Admins pueden listar todos los usuarios | `findAll` — `@Roles(SUPER_ADMIN, ADMIN)` |
-| Soft delete — `deletedAt` nunca `null` en registros eliminados | `remove` vía `repo.softDelete(id)` |
+| Soft delete atómico — user y profile se eliminan juntos | `remove` — `dataSource.transaction()` hace `manager.softDelete(UserEntity)` + `manager.softDelete(ProfileEntity, user.profileId)` |
 | Creación en transacción (usuario + perfil atómicos) | `create` — `dataSource.transaction()` evita perfiles huérfanos |
 | Avatar `null` borra el valor; omitido no lo modifica | `update` — check `!== undefined` antes de asignar |
 | `findEntityWithPassword` expone el hash de bcrypt | Usado internamente por `AuthService` en el flujo de `PATCH /v1/auth/change-password`; usa `addSelect('user.password')` porque la columna tiene `select: false` |
@@ -312,7 +312,7 @@ Authorization: Bearer <jwt-con-sub=1>
 | `PartialType` de `@nestjs/swagger` en `UpdateUserDto` | ✅ |
 | FKs explícitas (`profileId`, `roleId`) en la entidad | ✅ |
 | `onDelete: 'RESTRICT'` en ambas relaciones | ✅ |
-| `ProfileEntity` no inyectada como repo (cascade via `UserEntity`) | ✅ |
+| `ProfileEntity` no inyectada como repo — soft delete vía `manager` en transacción | ✅ |
 | `findEntity()` privado para búsquedas internas | ✅ |
 | `FindOptionsWhere<UserEntity>` en lugar de `any` | ✅ |
 | `SearchUsersDto.email` usa `@IsString()` (no `@IsEmail()`) — permite búsqueda parcial | ✅ |

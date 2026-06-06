@@ -500,10 +500,10 @@ Lista todos los cupones usados por un usuario específico.
 | `startsAt` debe ser estrictamente menor que `endsAt` | `create` y `update` — `validateDates()` |
 | `value` siempre porcentaje: 0.01–100 | `@Min(0.01)` + `@Max(100)` en el DTO — sin `isPercentage` ni `currency` |
 | `code` normalizado a MAYÚSCULAS + trim automáticamente | `@Transform` en `CreateCouponDto.code` |
-| El `code` debe ser único en toda la tabla | `create` y `update` — `validateUniqueCode()` |
+| El `code` debe ser único en toda la tabla, incluyendo soft-deleted | `create` y `update` — `validateUniqueCode()` con `withDeleted: true` |
 | Cupones globales no pueden tener targets de producto o combo | `CouponProductTargetService` y `CouponComboTargetService` — `validateCouponNotGlobal()` |
-| Un cupón no puede tener el mismo producto asignado dos veces | `CouponProductTargetService` — `validateUniqueTarget()` + unique index DB |
-| Un cupón no puede tener el mismo combo asignado dos veces | `CouponComboTargetService` — `validateUniqueTarget()` + unique index DB |
+| Un cupón no puede tener el mismo producto asignado dos veces, incluyendo soft-deleted | `CouponProductTargetService` — `validateUniqueTarget()` con `withDeleted: true` + unique index DB |
+| Un cupón no puede tener el mismo combo asignado dos veces, incluyendo soft-deleted | `CouponComboTargetService` — `validateUniqueTarget()` con `withDeleted: true` + unique index DB |
 | Un usuario solo puede usar cada cupón una vez | `CouponUsageService` — `alreadyUsed` check + unique index `(couponId, userId)` |
 | Todo el flujo de uso ocurre dentro de una transacción con `pessimistic_write` | `CouponUsageService.create()` — previene race conditions en `usageCount` |
 | `usageCount` se incrementa atómicamente dentro de la transacción | `CouponUsageService.create()` |

@@ -132,6 +132,7 @@ export class CouponComboTargetService {
   ): Promise<void> {
     const existing = await this.repo.findOne({
       where: { couponId, comboId },
+      withDeleted: true,
     });
 
     if (existing) {
