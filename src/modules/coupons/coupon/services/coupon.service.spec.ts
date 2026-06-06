@@ -81,7 +81,9 @@ describe('CouponService', () => {
 
     it('should throw ConflictException if code exists on a soft-deleted coupon', async () => {
       repo().findOne.mockResolvedValue(mockCoupon({ deletedAt: new Date() }));
-      await expect(service.create(dto as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw BadRequestException if value > 100', () => {

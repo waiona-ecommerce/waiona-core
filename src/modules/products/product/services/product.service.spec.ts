@@ -177,9 +177,13 @@ describe('ProductService', () => {
 
     it('should throw ConflictException if SKU exists on a soft-deleted product', async () => {
       categoryRepository.findOne.mockResolvedValue({ id: 1 } as any);
-      productRepository.findOne.mockResolvedValue(mockProduct({ deletedAt: new Date() }));
+      productRepository.findOne.mockResolvedValue(
+        mockProduct({ deletedAt: new Date() }),
+      );
 
-      await expect(service.create(createDto as any)).rejects.toThrow(ConflictException);
+      await expect(service.create(createDto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -222,7 +226,11 @@ describe('ProductService', () => {
 
     it('should throw ConflictException if new SKU exists on a soft-deleted product', async () => {
       const original = mockProduct({ sku: 'COCA-500' });
-      const deletedSku = mockProduct({ id: 2, sku: 'SPRITE-500', deletedAt: new Date() });
+      const deletedSku = mockProduct({
+        id: 2,
+        sku: 'SPRITE-500',
+        deletedAt: new Date(),
+      });
 
       productRepository.findOne
         .mockResolvedValueOnce(original)

@@ -33,7 +33,11 @@ describe('UsersService', () => {
   });
   const mockRoleRepo = () => ({ findOne: jest.fn() });
 
-  const mockEntityManager = { create: jest.fn(), save: jest.fn(), softDelete: jest.fn() };
+  const mockEntityManager = {
+    create: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
+  };
   const mockDataSource = {
     transaction: jest.fn((cb) => cb(mockEntityManager)),
   };
@@ -247,7 +251,10 @@ describe('UsersService', () => {
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(mockEntityManager.softDelete).toHaveBeenCalledWith(UserEntity, 1);
-      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(ProfileEntity, 1);
+      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(
+        ProfileEntity,
+        1,
+      );
     });
 
     it('should throw NotFoundException', async () => {

@@ -118,8 +118,12 @@ describe('CouponComboTargetService', () => {
     it('should throw ConflictException if target exists as soft-deleted', async () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
       comboRepo.findOne.mockResolvedValue(mockCombo());
-      targetRepo.findOne.mockResolvedValue(mockTarget({ deletedAt: new Date() }));
-      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(ConflictException);
+      targetRepo.findOne.mockResolvedValue(
+        mockTarget({ deletedAt: new Date() }),
+      );
+      await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
