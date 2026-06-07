@@ -79,6 +79,18 @@ describe('DiscountsService', () => {
         } as any),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should throw BadRequestException if only startsAt is provided', async () => {
+      await expect(
+        service.create({ name: 'X', value: 10, startsAt: new Date() } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if only endsAt is provided', async () => {
+      await expect(
+        service.create({ name: 'X', value: 10, endsAt: new Date() } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('findAll', () => {
@@ -125,6 +137,15 @@ describe('DiscountsService', () => {
       await expect(service.update(999, {} as any)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('should throw BadRequestException if updating only startsAt on a discount with no endsAt', async () => {
+      repo.findOne.mockResolvedValue(
+        mockDiscount({ startsAt: null, endsAt: null }),
+      );
+      await expect(
+        service.update(1, { startsAt: new Date() } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

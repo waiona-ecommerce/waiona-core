@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 
@@ -27,6 +28,18 @@ import { TokenType } from '../../mail/enum/token-type.enum';
 import { RoleType } from '../../../common/enums/role-type.enum';
 import { UserEntity } from '../../users/entities/user.entity';
 import { ChangePasswordDto } from '../dto/change-password.dto';
+
+const mockManager = {
+  findOne: jest.fn(),
+  update: jest.fn(),
+  save: jest.fn(),
+};
+
+const mockDataSource = {
+  transaction: jest.fn((cb: (m: typeof mockManager) => Promise<any>) =>
+    cb(mockManager),
+  ),
+};
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -116,6 +129,7 @@ describe('AuthService', () => {
           provide: getRepositoryToken(RefreshTokenEntity),
           useFactory: mockRefreshTokenRepo,
         },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -337,29 +351,30 @@ describe('AuthService', () => {
 
   describe('activateAccount', () => {
     it('should throw 400 if token not found', async () => {
-      tokenRepo.findOne.mockResolvedValue(null);
+      mockManager.findOne.mockResolvedValueOnce(null);
       await expect(service.activateAccount('bad')).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw 400 if token already used', async () => {
-      tokenRepo.findOne.mockResolvedValue(mockToken({ isUsed: true }));
+      mockManager.findOne.mockResolvedValueOnce(mockToken({ isUsed: true }));
       await expect(service.activateAccount('raw_token')).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw 400 if token expired', async () => {
-      tokenRepo.findOne.mockResolvedValue(mockToken({ isExpired: true }));
+      mockManager.findOne.mockResolvedValueOnce(mockToken({ isExpired: true }));
       await expect(service.activateAccount('raw_token')).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw 400 if account already active', async () => {
-      tokenRepo.findOne.mockResolvedValue(mockToken());
-      usersService.findOne.mockResolvedValue(mockUser({ isActive: true }));
+      mockManager.findOne
+        .mockResolvedValueOnce(mockToken())
+        .mockResolvedValueOnce(mockUser({ isActive: true }));
       await expect(service.activateAccount('raw_token')).rejects.toThrow(
         BadRequestException,
       );
@@ -367,16 +382,19 @@ describe('AuthService', () => {
 
     it('should activate account and mark token as used', async () => {
       const token = mockToken();
-      tokenRepo.findOne.mockResolvedValue(token);
-      usersService.findOne.mockResolvedValue(mockUser({ isActive: false }));
-      usersService.activate.mockResolvedValue(undefined);
-      tokenRepo.save.mockResolvedValue(undefined);
+      mockManager.findOne
+        .mockResolvedValueOnce(token)
+        .mockResolvedValueOnce(mockUser({ isActive: false }));
+      mockManager.update.mockResolvedValue(undefined);
+      mockManager.save.mockResolvedValue(undefined);
 
       await service.activateAccount('raw_token');
 
-      expect(usersService.activate).toHaveBeenCalledWith(1);
+      expect(mockManager.update).toHaveBeenCalledWith(UserEntity, 1, {
+        isActive: true,
+      });
       expect(token.usedAt).not.toBeNull();
-      expect(tokenRepo.save).toHaveBeenCalledWith(token);
+      expect(mockManager.save).toHaveBeenCalledWith(TokenEntity, token);
     });
   });
 

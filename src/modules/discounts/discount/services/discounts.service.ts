@@ -133,12 +133,23 @@ export class DiscountsService {
   }
 
   private validateDates(startsAt?: Date | null, endsAt?: Date | null): void {
-    if (startsAt && endsAt) {
-      if (new Date(startsAt) >= new Date(endsAt)) {
-        throw new BadRequestException(
-          'La fecha de inicio debe ser anterior a la fecha de fin',
-        );
-      }
+    const hasStart = startsAt != null;
+    const hasEnd = endsAt != null;
+
+    if (hasStart !== hasEnd) {
+      throw new BadRequestException(
+        'Debe especificar tanto la fecha de inicio como la de fin, o ninguna',
+      );
+    }
+
+    if (
+      startsAt != null &&
+      endsAt != null &&
+      new Date(startsAt) >= new Date(endsAt)
+    ) {
+      throw new BadRequestException(
+        'La fecha de inicio debe ser anterior a la fecha de fin',
+      );
     }
   }
 }

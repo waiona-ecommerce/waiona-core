@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'crypto';
 
@@ -30,6 +30,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    private readonly dataSource: DataSource,
 
     @InjectRepository(TokenEntity)
     private readonly tokenRepo: Repository<TokenEntity>,
@@ -139,19 +140,32 @@ export class AuthService {
   // ==========================
 
   async activateAccount(token: string): Promise<void> {
-    const tokenEntity = await this.findValidToken(
-      token,
-      TokenType.ACCOUNT_ACTIVATION,
-    );
+    await this.dataSource.transaction(async (manager) => {
+      const tokenEntity = await manager.findOne(TokenEntity, {
+        where: { token, type: TokenType.ACCOUNT_ACTIVATION },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    const user = await this.usersService.findOne(tokenEntity.userId);
-    if (user.isActive)
-      throw new BadRequestException('La cuenta ya fue activada');
+      if (!tokenEntity)
+        throw new BadRequestException('Token inválido o expirado');
+      if (tokenEntity.isUsed)
+        throw new BadRequestException('El token ya fue utilizado');
+      if (tokenEntity.isExpired)
+        throw new BadRequestException('El token ha expirado');
 
-    await this.usersService.activate(tokenEntity.userId);
+      const user = await manager.findOne(UserEntity, {
+        where: { id: tokenEntity.userId },
+      });
 
-    tokenEntity.usedAt = new Date();
-    await this.tokenRepo.save(tokenEntity);
+      if (!user) throw new BadRequestException('Usuario no encontrado');
+      if (user.isActive)
+        throw new BadRequestException('La cuenta ya fue activada');
+
+      await manager.update(UserEntity, tokenEntity.userId, { isActive: true });
+
+      tokenEntity.usedAt = new Date();
+      await manager.save(TokenEntity, tokenEntity);
+    });
   }
 
   // ==========================

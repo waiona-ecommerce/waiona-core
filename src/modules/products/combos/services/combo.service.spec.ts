@@ -8,6 +8,7 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
+import { ProductPricingEntity } from '../../../pricing/entities/product-pricing.entity';
 
 describe('ComboService', () => {
   let service: ComboService;
@@ -52,6 +53,7 @@ describe('ComboService', () => {
   const mockItemRepo = { find: jest.fn() };
   const mockProductRepo = { findOne: jest.fn(), findBy: jest.fn() };
   const mockCategoryRepo = { findOne: jest.fn() };
+  const mockProductPricingRepo = { findBy: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -69,6 +71,10 @@ describe('ComboService', () => {
         {
           provide: getRepositoryToken(CategoryEntity),
           useValue: mockCategoryRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useValue: mockProductPricingRepo,
         },
         { provide: DataSource, useValue: mockDataSource },
       ],
@@ -141,6 +147,7 @@ describe('ComboService', () => {
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
       mockProductRepo.findBy.mockResolvedValue([{ id: 1 }]);
+      mockProductPricingRepo.findBy.mockResolvedValue([{ productId: 1 }]);
       mockEntityManager.create.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
       mockEntityManager.findOne.mockResolvedValue(combo);
@@ -184,6 +191,23 @@ describe('ComboService', () => {
         BadRequestException,
       );
     });
+
+    it('should throw BadRequestException if product has no pricing', async () => {
+      const dto = {
+        name: 'Combo',
+        description: 'Desc',
+        categoryId: 1,
+        items: [{ productId: 1, quantity: 2 }],
+      };
+
+      mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
+      mockProductRepo.findBy.mockResolvedValue([{ id: 1 }]);
+      mockProductPricingRepo.findBy.mockResolvedValue([]);
+
+      await expect(service.create(dto as any)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 
   // ==========================
@@ -217,6 +241,7 @@ describe('ComboService', () => {
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
       mockProductRepo.findBy.mockResolvedValue([{ id: 2 }]);
+      mockProductPricingRepo.findBy.mockResolvedValue([{ productId: 2 }]);
       mockEntityManager.findOne
         .mockResolvedValueOnce(combo)
         .mockResolvedValueOnce(updated);

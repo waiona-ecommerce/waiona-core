@@ -19,6 +19,9 @@ import { ComboImageEntity } from '../../src/modules/products/combo-images/entiti
 import { ProductEntity } from '../../src/modules/products/product/entities/product.entity';
 import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
 import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
+import { ProductPricingEntity } from '../../src/modules/pricing/entities/product-pricing.entity';
+import { MarginEntity } from '../../src/modules/margins/entities/margin.entity';
+import { CurrencyCode } from '../../src/common/enums/currency-code.enum';
 import { ProductMeasurementUnit } from '../../src/modules/products/product/enums/product-measurement-unit.enum';
 
 describe('Combos (e2e)', () => {
@@ -54,6 +57,8 @@ describe('Combos (e2e)', () => {
               ProductEntity,
               ProductImageEntity,
               CategoryEntity,
+              ProductPricingEntity,
+              MarginEntity,
             ],
             synchronize: true,
             dropSchema: true,
@@ -64,6 +69,7 @@ describe('Combos (e2e)', () => {
           ComboItemEntity,
           ProductEntity,
           CategoryEntity,
+          ProductPricingEntity,
         ]),
       ],
       controllers: [ComboController],
@@ -103,6 +109,12 @@ describe('Combos (e2e)', () => {
       measurementUnit: ProductMeasurementUnit.UNIT,
     });
     productId = product.id;
+
+    await dataSource.getRepository(ProductPricingEntity).save({
+      productId: product.id,
+      currency: CurrencyCode.ARS,
+      unitPrice: 500,
+    });
   }, 30000);
 
   afterAll(async () => {
@@ -223,6 +235,12 @@ describe('Combos (e2e)', () => {
       isActive: true,
       categoryId,
       measurementUnit: ProductMeasurementUnit.UNIT,
+    });
+
+    await dataSource.getRepository(ProductPricingEntity).save({
+      productId: product2.id,
+      currency: CurrencyCode.ARS,
+      unitPrice: 400,
     });
 
     const created = await request(app.getHttpServer())
