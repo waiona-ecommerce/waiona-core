@@ -5,6 +5,7 @@ import { CategoryEntity } from './categories/entities/category.entity';
 import { ProductEntity } from './product/entities/product.entity';
 import { ComboEntity } from './combos/entities/combo.entity';
 import { ComboItemEntity } from './combos/entities/combo-item.entity';
+import { ProductPricingEntity } from '../pricing/entities/product-pricing.entity';
 
 import { CategoryService } from './categories/services/category.service';
 import { ProductService } from './product/services/product.service';
@@ -30,6 +31,7 @@ import { ShopModule } from './shop/shop.module';
       ComboItemEntity,
       ProductImageEntity,
       ComboImageEntity,
+      ProductPricingEntity,
     ]),
     ShopModule,
   ],

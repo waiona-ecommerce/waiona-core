@@ -185,6 +185,7 @@ export class UsersService {
       .createQueryBuilder('user')
       .addSelect('user.password')
       .where('user.id = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 

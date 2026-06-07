@@ -11,6 +11,7 @@ import { ComboEntity } from '../entities/combo.entity';
 import { ComboItemEntity } from '../entities/combo-item.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
+import { ProductPricingEntity } from '../../../pricing/entities/product-pricing.entity';
 
 import { CreateComboDto } from '../dto/create-combo.dto';
 import { UpdateComboDto } from '../dto/update-combo.dto';
@@ -31,6 +32,9 @@ export class ComboService {
 
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
+
+    @InjectRepository(ProductPricingEntity)
+    private readonly productPricingRepository: Repository<ProductPricingEntity>,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -216,6 +220,17 @@ export class ComboService {
       const foundIds = new Set(found.map((p) => p.id));
       const missing = ids.find((id) => !foundIds.has(id));
       throw new BadRequestException(`Producto con id ${missing} no encontrado`);
+    }
+
+    const pricings = await this.productPricingRepository.findBy({
+      productId: In(ids),
+    });
+    if (pricings.length !== ids.length) {
+      const pricedIds = new Set(pricings.map((p) => p.productId));
+      const missing = ids.find((id) => !pricedIds.has(id));
+      throw new BadRequestException(
+        `Producto con id ${missing} no tiene precio configurado`,
+      );
     }
   }
 
