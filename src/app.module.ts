@@ -36,11 +36,31 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       isGlobal: true,
       validationSchema: Joi.object({
         DATABASE_URL: Joi.string().uri().optional(),
-        POSTGRES_HOST: Joi.string().when('DATABASE_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-        POSTGRES_PORT: Joi.number().when('DATABASE_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-        POSTGRES_DB: Joi.string().when('DATABASE_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-        POSTGRES_USER: Joi.string().when('DATABASE_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-        POSTGRES_PASSWORD: Joi.string().when('DATABASE_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
+        POSTGRES_HOST: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_PORT: Joi.number().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_DB: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_USER: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_PASSWORD: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
         JWT_SECRET: Joi.string().required(),
         MP_ACCESS_TOKEN: Joi.string().required(),
         MP_NOTIFICATION_URL: Joi.string().required(),
@@ -48,8 +68,16 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
         FRONTEND_URL: Joi.string().required(),
         API_URL: Joi.string().required(),
         REDIS_URL: Joi.string().uri().optional(),
-        REDIS_HOST: Joi.string().when('REDIS_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
-        REDIS_PORT: Joi.number().when('REDIS_URL', { is: Joi.exist(), then: Joi.optional(), otherwise: Joi.required() }),
+        REDIS_HOST: Joi.string().when('REDIS_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        REDIS_PORT: Joi.number().when('REDIS_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
         CLOUDINARY_CLOUD_NAME: Joi.string().required(),
         CLOUDINARY_API_KEY: Joi.string().required(),
         CLOUDINARY_API_SECRET: Joi.string().required(),
@@ -110,7 +138,12 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
             process.env.NODE_ENV !== 'production',
         };
         if (databaseUrl) {
-          return { type: 'postgres', url: databaseUrl, ssl: { rejectUnauthorized: false }, ...base };
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ssl: { rejectUnauthorized: false },
+            ...base,
+          };
         }
         return {
           type: 'postgres',
