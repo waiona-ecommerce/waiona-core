@@ -93,6 +93,9 @@ jobs:
       MAIL_FROM: noreply@test.com
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      CLOUDINARY_CLOUD_NAME: ci-cloud-name
+      CLOUDINARY_API_KEY: ci-cloudinary-key
+      CLOUDINARY_API_SECRET: ci-cloudinary-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
