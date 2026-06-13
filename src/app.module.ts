@@ -35,19 +35,49 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
-        POSTGRES_HOST: Joi.string().required(),
-        POSTGRES_PORT: Joi.number().required(),
-        POSTGRES_DB: Joi.string().required(),
-        POSTGRES_USER: Joi.string().required(),
-        POSTGRES_PASSWORD: Joi.string().required(),
+        DATABASE_URL: Joi.string().uri().optional(),
+        POSTGRES_HOST: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_PORT: Joi.number().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_DB: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_USER: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        POSTGRES_PASSWORD: Joi.string().when('DATABASE_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
         JWT_SECRET: Joi.string().required(),
         MP_ACCESS_TOKEN: Joi.string().required(),
         MP_NOTIFICATION_URL: Joi.string().required(),
         RESEND_API_KEY: Joi.string().required(),
         FRONTEND_URL: Joi.string().required(),
         API_URL: Joi.string().required(),
-        REDIS_HOST: Joi.string().required(),
-        REDIS_PORT: Joi.number().required(),
+        REDIS_URL: Joi.string().uri().optional(),
+        REDIS_HOST: Joi.string().when('REDIS_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
+        REDIS_PORT: Joi.number().when('REDIS_URL', {
+          is: Joi.exist(),
+          then: Joi.optional(),
+          otherwise: Joi.required(),
+        }),
         CLOUDINARY_CLOUD_NAME: Joi.string().required(),
         CLOUDINARY_API_KEY: Joi.string().required(),
         CLOUDINARY_API_SECRET: Joi.string().required(),
@@ -68,41 +98,63 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        redis: {
-          host: config.get('REDIS_HOST'),
-          port: config.get<number>('REDIS_PORT'),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        if (redisUrl) return { url: redisUrl };
+        return {
+          redis: {
+            host: config.get('REDIS_HOST'),
+            port: config.get<number>('REDIS_PORT'),
+          },
+        };
+      },
     }),
 
     CacheModule.registerAsync({
       isGlobal: true,
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        store: redisStore,
-        socket: {
-          host: config.get('REDIS_HOST'),
-          port: config.get<number>('REDIS_PORT'),
-        },
-        ttl: 60_000,
-      }),
+      useFactory: (config: ConfigService): any => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        if (redisUrl) return { store: redisStore, url: redisUrl, ttl: 60_000 };
+        return {
+          store: redisStore,
+          socket: {
+            host: config.get('REDIS_HOST'),
+            port: config.get<number>('REDIS_PORT'),
+          },
+          ttl: 60_000,
+        };
+      },
     }),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('POSTGRES_HOST'),
-        port: config.get<number>('POSTGRES_PORT'),
-        username: config.get<string>('POSTGRES_USER'),
-        password: config.get<string>('POSTGRES_PASSWORD'),
-        database: config.get<string>('POSTGRES_DB'),
-        autoLoadEntities: true,
-        synchronize:
-          process.env.DB_SYNCHRONIZE === 'true' ||
-          process.env.NODE_ENV !== 'production',
-      }),
+      useFactory: (config: ConfigService) => {
+        const databaseUrl = config.get<string>('DATABASE_URL');
+        const base = {
+          autoLoadEntities: true,
+          synchronize:
+            process.env.DB_SYNCHRONIZE === 'true' ||
+            process.env.NODE_ENV !== 'production',
+        };
+        if (databaseUrl) {
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ssl: { rejectUnauthorized: false },
+            ...base,
+          };
+        }
+        return {
+          type: 'postgres',
+          host: config.get<string>('POSTGRES_HOST'),
+          port: config.get<number>('POSTGRES_PORT'),
+          username: config.get<string>('POSTGRES_USER'),
+          password: config.get<string>('POSTGRES_PASSWORD'),
+          database: config.get<string>('POSTGRES_DB'),
+          ...base,
+        };
+      },
     }),
 
     HealthModule,

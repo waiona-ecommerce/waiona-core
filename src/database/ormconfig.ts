@@ -17,16 +17,29 @@ config(); // carga el .env
 
 const compiled = __filename.endsWith('.js');
 
-export default new DataSource({
-  type: 'postgres',
-  host: process.env.POSTGRES_HOST,
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-  username: process.env.POSTGRES_USER,
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,
+const base = {
   entities: [compiled ? 'dist/**/*.entity.js' : 'src/**/*.entity.ts'],
   migrations: [
     compiled ? 'dist/database/migrations/*.js' : 'src/database/migrations/*.ts',
   ],
   synchronize: false,
-});
+};
+
+export default new DataSource(
+  process.env.DATABASE_URL
+    ? {
+        type: 'postgres' as const,
+        url: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+        ...base,
+      }
+    : {
+        type: 'postgres' as const,
+        host: process.env.POSTGRES_HOST,
+        port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+        username: process.env.POSTGRES_USER,
+        password: process.env.POSTGRES_PASSWORD,
+        database: process.env.POSTGRES_DB,
+        ...base,
+      },
+);
