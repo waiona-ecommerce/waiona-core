@@ -85,6 +85,20 @@ describe('MarginsService', () => {
         service.create({ name: 'Margen estándar', value: 20 } as any),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('should allow creating a margin with the same name as a soft-deleted one', async () => {
+      // TypeORM agrega deletedAt IS NULL automáticamente — el soft-deleted no aparece
+      // Esto es comportamiento intencional: un nombre eliminado puede reutilizarse
+      marginRepository.findOne.mockResolvedValue(null);
+      const entity = mockMargin();
+      marginRepository.create.mockReturnValue(entity);
+      marginRepository.save.mockResolvedValue(entity);
+
+      const result = await service.create({ name: 'MARGEN ESTÁNDAR', value: 20 });
+
+      expect(result.name).toBe('Margen estándar');
+      expect(marginRepository.save).toHaveBeenCalled();
+    });
   });
 
   // ==========================

@@ -44,7 +44,7 @@ export class MarginsController {
   @ApiResponse({ status: 201, type: MarginResponseDto })
   @ApiResponse({
     status: 400,
-    description: 'Porcentaje mayor a 100 o datos inválidos',
+    description: 'Datos inválidos',
   })
   @ApiResponse({
     status: 409,
@@ -76,7 +76,7 @@ export class MarginsController {
   @ApiOperation({ summary: 'Actualizar un margen (parcial)' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 200, type: MarginResponseDto })
-  @ApiResponse({ status: 400, description: 'Porcentaje mayor a 100' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiResponse({ status: 404, description: 'Margen no encontrado' })
   @ApiResponse({
     status: 409,

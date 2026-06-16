@@ -135,6 +135,25 @@ describe('Margins (e2e)', () => {
       .expect(409);
   });
 
+  it('POST /margins -> 201 permite recrear un margen con el mismo nombre si fue eliminado', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/v1/margins')
+      .send({ name: 'Reutilizable', value: 10 });
+
+    await request(app.getHttpServer())
+      .delete(`/v1/margins/${createRes.body.id}`)
+      .expect(204);
+
+    const recreateRes = await request(app.getHttpServer())
+      .post('/v1/margins')
+      .send({ name: 'Reutilizable', value: 25 })
+      .expect(201);
+
+    expect(recreateRes.body.name).toBe('REUTILIZABLE');
+    expect(recreateRes.body.value).toBe(25);
+    expect(recreateRes.body.id).not.toBe(createRes.body.id);
+  });
+
   // -------------------------
   // GET ALL
   // -------------------------

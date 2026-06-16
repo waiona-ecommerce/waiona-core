@@ -1,48 +1,59 @@
 # Waiona — Agents
 
-Este directorio define las skills disponibles para IAs (Claude, Cursor, Copilot, etc.) que trabajen en este proyecto.
+Sistema SDD (Spec-Driven Development) para trabajar en este proyecto.
+El punto de entrada siempre es el **Orchestrator** — él decide qué roles invocar según la complejidad de la tarea.
 
 ---
 
-## Cómo usar las skills
+## Cómo usar
 
-Antes de generar código, la IA debe cargar la skill relevante. Cada skill tiene un `When to Use` que indica cuándo cargarla.
-
-**Combinaciones frecuentes:**
-- Crear un módulo nuevo → `nestjs-core` + `typeorm-standard`
-- Implementar auth, guards o refresh tokens → `nestjs-auth-jwt`
-- Agregar un endpoint nuevo de auth → `nestjs-auth-jwt` (incluye flujo de refresh token rotation, change-password, logout-all)
-- Escribir unit tests → `nestjs-core` (sección testing) + `testing-standard`
-- Escribir unit tests con QueryBuilder → `testing-standard` (sección buildMockQB)
-- Escribir e2e tests → `testing-standard` + `nestjs-docker-postgres`
-- Configurar Docker/DB → `nestjs-docker-postgres` + `postgres-standard`
-- Trabajar con pagos → `mercadopago-payments`
-- Crear templates de email o nuevos flujos de mail → `email-templates` (patrón BullMQ, no Resend directo)
-- Trabajar con Redis, cache o idempotencia → `nestjs-core` + `testing-standard` (mocks de `ShopCacheService` / `CACHE_MANAGER`)
-  - `ShopCacheService` solo lo usan `products`, `combos` y `shop` — el cache está limitado a metadata estática (`name`, `description`, `type`) del shop público
-- Upload de imágenes → `nestjs-core` (StorageModule ya existe: `src/modules/storage/`)
-- Endpoints de agregación/analytics → `postgres-standard` + `testing-standard` (buildMockQB)
-- Operaciones SQL directas → `postgres-standard`
-- Documentar un módulo → `module-docs`
+1. Cargá `orchestrator/ORCHESTRATOR.md`
+2. Describile la tarea
+3. El Orchestrator coordina el flujo — no cargás roles ni skills manualmente
 
 ---
 
-## Skills disponibles
+## Flujo SDD
 
-| Skill | Archivo | Cuándo cargar |
+```
+Explorer → Proposer → [Spec Writer || Designer] → Task Planner → Implementer → Verifier → Archive
+```
+
+Spec Writer y Designer corren en paralelo. El resto es secuencial con gates entre cada fase.
+
+---
+
+## Roles
+
+| # | Rol | Archivo | Qué hace |
+|---|---|---|---|
+| 1 | Explorer | `roles/1-explorer.md` | Lee el código y construye contexto |
+| 2 | Proposer | `roles/2-proposer.md` | Define qué cambiar y por qué |
+| 3 | Spec Writer | `roles/3-spec-writer.md` | Escribe el spec formal en `specs/` |
+| 4 | Designer | `roles/4-designer.md` | Define entidad, relaciones y decisiones técnicas |
+| 5 | Task Planner | `roles/5-task-planner.md` | Parte el diseño en tareas ordenadas |
+| 6 | Implementer | `roles/6-implementer.md` | Escribe el código siguiendo spec y diseño |
+| 7 | Verifier | `roles/7-verifier.md` | Valida que lo implementado matchea el spec |
+| 8 | Archive | `roles/8-archive.md` | Cierra el loop y registra el spec como completado |
+
+---
+
+## Skills de contexto
+
+Los skills los carga el Implementer (o cualquier rol que los necesite) — no se cargan manualmente.
+
+| Skill | Archivo | Cuándo |
 |---|---|---|
-| `nestjs-core` | `skills/nestjs-core/SKILL.md` | Crear módulos, controllers, services |
-| `nestjs-auth-jwt` | `skills/nestjs-auth-jwt/SKILL.md` | Auth, guards, JWT, roles |
+| `nestjs-core` | `skills/nestjs-core/SKILL.md` | Módulos, controllers, services |
 | `typeorm-standard` | `skills/typeorm-standard/SKILL.md` | Entidades, DTOs, relaciones, transacciones |
 | `testing-standard` | `skills/testing-standard/SKILL.md` | Unit tests y e2e tests |
-| `postgres-standard` | `skills/postgres-standard/SKILL.md` | SQL, naming, sync vs migraciones |
-| `nestjs-docker-postgres` | `skills/nestjs-docker-postgres/SKILL.md` | Docker, conexión DB, e2e setup |
+| `nestjs-auth-jwt` | `skills/nestjs-auth-jwt/SKILL.md` | Auth, guards, JWT, roles |
+| `postgres-infra` | `skills/postgres-infra/SKILL.md` | Docker, DB, migraciones, SQL directo |
 | `mercadopago-payments` | `skills/mercadopago-payments/SKILL.md` | Pagos, webhook, firma MP |
-| `email-templates` | `skills/email-templates/SKILL.md` | Templates HTML, MailService, Resend |
-| `module-docs` | `skills/module-docs/SKILL.md` | Documentar módulos (doc técnico + doc de negocio) |
+| `email-templates` | `skills/email-templates/SKILL.md` | Templates HTML, BullMQ mail queue |
 
 ---
 
 ## Contexto del proyecto
 
-Ver `CLAUDE.md` en la raíz del proyecto para el contexto completo — stack, módulos, flujos y convenciones.
+Ver `CLAUDE.md` en la raíz para el stack, módulos, flujos y convenciones completas.

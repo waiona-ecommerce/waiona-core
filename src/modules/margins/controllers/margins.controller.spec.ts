@@ -87,12 +87,13 @@ describe('MarginsController', () => {
       expect(result).toEqual(margins);
     });
 
-    it('should return empty array if no margins', async () => {
-      service.findAll.mockResolvedValue([] as any);
+    it('should return empty paginated response if no margins', async () => {
+      const empty = { data: [], total: 0, page: 1, limit: 20, totalPages: 0, hasNextPage: false };
+      service.findAll.mockResolvedValue(empty as any);
 
       const result = await controller.findAll({ page: 1, limit: 20 });
 
-      expect(result).toEqual([]);
+      expect(result).toEqual(empty);
     });
   });
 
