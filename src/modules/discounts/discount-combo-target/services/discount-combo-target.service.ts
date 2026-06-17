@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { DiscountComboTargetEntity } from '../entities/discount-combo-target.entity';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
@@ -58,6 +58,7 @@ export class DiscountComboTargetService {
 
     const [targets, total] = await this.repo.findAndCount({
       where: { discountId },
+      order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -113,8 +114,7 @@ export class DiscountComboTargetService {
     comboId: number,
   ): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { discountId, comboId, deletedAt: IsNull() },
-      withDeleted: true,
+      where: { discountId, comboId },
     });
 
     if (existing) {

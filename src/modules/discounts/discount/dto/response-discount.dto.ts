@@ -51,10 +51,6 @@ export class DiscountResponseDto {
     const now = new Date();
     const { startsAt, endsAt } = entity;
 
-    if (startsAt && endsAt && endsAt < startsAt) {
-      return DiscountStatus.EXPIRED;
-    }
-
     if (endsAt && now > endsAt) {
       return DiscountStatus.EXPIRED;
     }

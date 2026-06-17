@@ -111,6 +111,15 @@ describe('DiscountComboTargetService', () => {
       expect(result.total).toBe(1);
     });
 
+    it('should query with createdAt DESC order', async () => {
+      discountRepo.findOne.mockResolvedValue(mockDiscount());
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      await service.findAll(1);
+      expect(repo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ order: { createdAt: 'DESC' } }),
+      );
+    });
+
     it('should throw NotFoundException if discount not found', async () => {
       discountRepo.findOne.mockResolvedValue(null);
       await expect(service.findAll(999)).rejects.toThrow(NotFoundException);
