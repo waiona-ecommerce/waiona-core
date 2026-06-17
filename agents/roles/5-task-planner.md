@@ -39,15 +39,15 @@ Ambos llegan juntos. Si hay contradicción entre spec y diseño, el spec tiene p
 1. Entidad + module file
 2. Create DTO + Update DTO
 3. Response DTO
-4. Service unit test (.spec.ts) → RED intencional, corre npx jest y confirma que falla
-5. Service implementation → GREEN, corre npx jest y confirma que pasa
-6. Controller unit test (.spec.ts) → RED intencional, corre npx jest y confirma que falla
-7. Controller implementation → GREEN, corre npx jest y confirma que pasa
+4. Service implementation
+5. Service unit test (.spec.ts) → verifica la implementación, corre npx jest y confirma que pasa
+6. Controller implementation
+7. Controller unit test (.spec.ts) → verifica la implementación, corre npx jest y confirma que pasa
 8. Registrar en AppModule
 9. E2E test (si aplica)
 ```
 
-El ciclo RED → GREEN es obligatorio: no avanzar a la implementación sin confirmar que el test falla primero, y no avanzar a la tarea siguiente sin confirmar que el test pasa.
+El flujo es SDD: la spec define el comportamiento esperado, la implementación lo materializa, y los tests lo verifican. No se escribe el test antes de la implementación. No avanzar a la tarea siguiente sin confirmar que los tests pasan.
 
 Ajustar según lo que indique el diseño — si hay transacciones, si hay múltiples entidades, si hay endpoints especiales.
 

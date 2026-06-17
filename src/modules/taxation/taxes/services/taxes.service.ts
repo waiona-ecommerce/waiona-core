@@ -30,6 +30,16 @@ export class TaxesService {
     page = 1,
     limit = 20,
   ): Promise<PaginatedResponseDto<TaxResponseDto>> {
+    const taxType = await this.taxTypeRepository.findOne({
+      where: { id: taxTypeId },
+    });
+
+    if (!taxType) {
+      throw new NotFoundException(
+        `Tipo de impuesto con id ${taxTypeId} no encontrado`,
+      );
+    }
+
     const [entities, total] = await this.taxRepository.findAndCount({
       where: { taxTypeId },
       relations: ['taxType'],

@@ -63,6 +63,7 @@ describe('TaxesService', () => {
   // ==========================
   describe('findAll', () => {
     it('should return taxes by taxTypeId', async () => {
+      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
       taxRepo.findAndCount.mockResolvedValue([[mockTax()], 1]);
       const result = await service.findAll(1);
       expect(result.data).toHaveLength(1);
@@ -70,11 +71,17 @@ describe('TaxesService', () => {
       expect(result.total).toBe(1);
     });
 
-    it('should return empty data', async () => {
+    it('should return empty data when taxType exists but has no taxes', async () => {
+      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
       taxRepo.findAndCount.mockResolvedValue([[], 0]);
       const result = await service.findAll(1);
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
+    });
+
+    it('should throw NotFoundException if taxTypeId does not exist', async () => {
+      taxTypeRepo.findOne.mockResolvedValue(null);
+      await expect(service.findAll(999)).rejects.toThrow(NotFoundException);
     });
   });
 

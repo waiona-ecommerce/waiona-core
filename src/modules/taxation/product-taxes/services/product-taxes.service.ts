@@ -62,7 +62,7 @@ export class ProductTaxesService {
 
     const saved = await this.productTaxRepository.save(productTax);
 
-    return new ProductTaxResponseDto(saved);
+    return new ProductTaxResponseDto(await this.findEntity(saved.id));
   }
 
   // ==========================
@@ -76,6 +76,7 @@ export class ProductTaxesService {
   ): Promise<PaginatedResponseDto<ProductTaxResponseDto>> {
     const [productTaxes, total] = await this.productTaxRepository.findAndCount({
       where: { productId },
+      relations: ['tax'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -106,10 +107,37 @@ export class ProductTaxesService {
     dto: UpdateProductTaxDto,
   ): Promise<ProductTaxResponseDto> {
     const productTax = await this.findEntity(id);
+
+    if (dto.taxId !== undefined && dto.taxId !== productTax.taxId) {
+      const tax = await this.taxRepository.findOne({
+        where: { id: dto.taxId },
+      });
+
+      if (!tax) {
+        throw new NotFoundException(`Impuesto con id ${dto.taxId} no encontrado`);
+      }
+
+      if (tax.isGlobal) {
+        throw new BadRequestException(
+          'Un impuesto global no puede asignarse a un producto específico',
+        );
+      }
+
+      const duplicate = await this.productTaxRepository.findOne({
+        where: { productId: productTax.productId, taxId: dto.taxId },
+      });
+
+      if (duplicate) {
+        throw new ConflictException(
+          `El impuesto ${dto.taxId} ya está asignado a este producto`,
+        );
+      }
+    }
+
     const merged = this.productTaxRepository.merge(productTax, dto);
     const updated = await this.productTaxRepository.save(merged);
 
-    return new ProductTaxResponseDto(updated);
+    return new ProductTaxResponseDto(await this.findEntity(updated.id));
   }
 
   // ==========================
@@ -126,7 +154,10 @@ export class ProductTaxesService {
   // ==========================
 
   private async findEntity(id: number): Promise<ProductTaxEntity> {
-    const entity = await this.productTaxRepository.findOne({ where: { id } });
+    const entity = await this.productTaxRepository.findOne({
+      where: { id },
+      relations: ['tax'],
+    });
     if (!entity)
       throw new NotFoundException(
         `Impuesto de producto con id ${id} no encontrado`,
