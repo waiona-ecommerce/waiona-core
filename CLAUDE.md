@@ -240,3 +240,28 @@ npm run migration:run:prod                                           # aplica en
 - El logo del email (`EMAIL_THEME.logo`) apunta a `API_URL/email/logo.png`. En desarrollo usar Cloudinary u otra URL pública.
 - El webhook de MercadoPago siempre debe responder 200 — el service swallow errores internamente.
 - `forbidNonWhitelisted: true` en el `ValidationPipe` — campos extra en el body generan 400.
+
+---
+
+## Memory Protocol (Engram)
+
+Tenés acceso a memoria persistente entre sesiones via MCP tools (`mem_save`, `mem_search`, `mem_context`, `mem_session_summary`, etc.).
+
+**Al iniciar cualquier sesión:**
+- Llamar `mem_context` para recuperar el estado de trabajo anterior antes de arrancar
+
+**Guardar proactivamente después de:**
+- Bugfixes completados
+- Decisiones de arquitectura o diseño técnico no obvias
+- Descubrimientos importantes sobre el codebase
+- Patrones o convenciones establecidas en esta sesión
+
+**Antes de cerrar cualquier sesión:**
+- Llamar `mem_session_summary` con: goal, accomplished, next steps, relevant files, next spec number
+- Esto es obligatorio — sin este paso la próxima sesión arranca sin contexto
+
+**Formato de mem_save:**
+- `title`: verbo + qué (ej: "Corregir soft delete en categorías padre")
+- `type`: `bugfix` | `architecture` | `decision` | `discovery` | `pattern`
+- `topic_key`: `<tipo>/<módulo>-<aspecto>` para decisiones que evolucionan
+- `content`: **What** / **Why** / **Where** / **Learned**

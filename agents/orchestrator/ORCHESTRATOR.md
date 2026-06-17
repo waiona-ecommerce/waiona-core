@@ -24,21 +24,39 @@ Specs y Design corren **en paralelo** — ambos arrancan cuando el Proposer term
 
 ---
 
-## Cómo evaluar la complejidad
+## Paso 0 — Recuperar contexto de sesión anterior
 
-Antes de arrancar, clasificá la tarea:
+**Siempre, antes de evaluar la tarea:**
+- Llamar `mem_context` para recuperar estado de la sesión previa
+- Si hay un spec en progreso, presentarlo al usuario antes de arrancar con la tarea nueva
+- Si hubo decisiones de arquitectura relevantes al módulo de la tarea, tenerlas presentes
 
-| Tipo | Criterio | Roles a invocar |
+---
+
+## Cómo clasificar la tarea
+
+Antes de arrancar, clasificá la tarea en uno de estos cuatro tipos:
+
+| Tipo | Criterio | Flujo |
 |---|---|---|
-| **Simple** | Bugfix, un endpoint, cambio en DTO | Explorer → Implementer → Verifier |
-| **Media** | Feature nueva en módulo existente | Explorer → Proposer → Spec Writer → Implementer → Verifier → Archive |
-| **Compleja** | Módulo nuevo, feature cross-módulo, integración externa | Todos los roles en orden completo |
+| **Bugfix** | Algo que funciona mal, error en prod, comportamiento incorrecto | RCA → Implementer → Verifier → Archive → PR Writer |
+| **Simple** | Un endpoint nuevo, cambio en DTO, ajuste menor | Explorer → Implementer → Verifier → Archive → PR Writer |
+| **Media** | Feature nueva en módulo existente | Explorer → Proposer → Spec Writer → Implementer → Verifier → Archive → PR Writer |
+| **Compleja** | Módulo nuevo, feature cross-módulo, integración externa | Todos los roles en orden completo → PR Writer |
 
 Ante la duda, usá el flujo completo.
+Si el usuario describe un síntoma ("no funciona", "da error", "se rompe"), es **bugfix** — arrancá por RCA, no por Explorer.
 
 ---
 
 ## Protocolo por fase
+
+### 0. RCA (solo en bugfix)
+- Cargá `roles/0-rca.md`
+- Pasale la descripción del bug + stack trace / logs si están disponibles
+- Esperá el diagnóstico completo antes de continuar
+- **Gate**: ¿la causa raíz está identificada con precisión? ¿el blast radius está evaluado? Si no, pedile que amplíe — no pasés al Implementer con un diagnóstico vago
+- Después de RCA en bugfix: ir directo a Implementer (paso 5), salteando Explorer, Proposer, Spec Writer, Designer y Task Planner
 
 ### 1. Explorer
 - Cargá `roles/1-explorer.md`
@@ -80,7 +98,12 @@ Ante la duda, usá el flujo completo.
 ### 7. Archive
 - Cargá `roles/8-archive.md` solo si el Verifier emitió PASS completo
 - Pasale el spec final + lista de archivos modificados
-- **Gate**: ¿el spec tiene sección `## Estado` y el INDEX.md está actualizado?
+- **Gate**: ¿el spec tiene sección `## Estado`, el INDEX.md está actualizado, y se llamó `mem_session_summary`?
+
+### 8. PR Writer
+- Cargá `roles/9-pr-writer.md` siempre, después del Archive
+- Pasale el spec cerrado + lista de archivos del Archive + reporte del Verifier
+- **Gate**: ¿el commit message y el PR description están listos para copiar?
 
 ---
 

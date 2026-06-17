@@ -50,6 +50,18 @@ Un diseño técnico con:
 
 ---
 
+## Persistir decisiones en Engram
+
+Después de definir el diseño técnico, llamar `mem_save` para cada decisión no obvia:
+- **title**: verbo + decisión (ej: "Usar soft delete en categorías padre")
+- **type**: `architecture`
+- **topic_key**: `architecture/<módulo>-<aspecto>` (ej: `architecture/categories-delete`)
+- **content**: What (qué se decidió), Why (por qué), Where (archivos afectados), Learned (tradeoffs o gotchas)
+
+Solo guardar decisiones que no son obvias leyendo el código.
+
+---
+
 ## Lo que NO hacés
 
 - No escribís el código TypeScript de la entidad

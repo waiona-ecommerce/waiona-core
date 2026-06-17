@@ -13,10 +13,21 @@ El punto de entrada siempre es el **Orchestrator** — él decide qué roles inv
 
 ---
 
-## Flujo SDD
+## Flujos SDD
 
+**Feature compleja:**
 ```
-Explorer → Proposer → [Spec Writer || Designer] → Task Planner → Implementer → Verifier → Archive
+Explorer → Proposer → [Spec Writer || Designer] → Task Planner → Implementer → Verifier → Archive → PR Writer
+```
+
+**Feature simple:**
+```
+Explorer → Implementer → Verifier → Archive → PR Writer
+```
+
+**Bugfix:**
+```
+RCA → Implementer → Verifier → Archive → PR Writer
 ```
 
 Spec Writer y Designer corren en paralelo. El resto es secuencial con gates entre cada fase.
@@ -27,14 +38,16 @@ Spec Writer y Designer corren en paralelo. El resto es secuencial con gates entr
 
 | # | Rol | Archivo | Qué hace |
 |---|---|---|---|
+| 0 | RCA | `roles/0-rca.md` | Diagnostica la causa raíz de un bug (solo track bugfix) |
 | 1 | Explorer | `roles/1-explorer.md` | Lee el código y construye contexto |
 | 2 | Proposer | `roles/2-proposer.md` | Define qué cambiar y por qué |
 | 3 | Spec Writer | `roles/3-spec-writer.md` | Escribe el spec formal en `specs/` |
 | 4 | Designer | `roles/4-designer.md` | Define entidad, relaciones y decisiones técnicas |
 | 5 | Task Planner | `roles/5-task-planner.md` | Parte el diseño en tareas ordenadas |
 | 6 | Implementer | `roles/6-implementer.md` | Escribe el código siguiendo spec y diseño |
-| 7 | Verifier | `roles/7-verifier.md` | Valida que lo implementado matchea el spec |
-| 8 | Archive | `roles/8-archive.md` | Cierra el loop y registra el spec como completado |
+| 7 | Verifier | `roles/7-verifier.md` | Valida spec + checklist de seguridad |
+| 8 | Archive | `roles/8-archive.md` | Cierra el loop, registra el spec y guarda sesión en Engram |
+| 9 | PR Writer | `roles/9-pr-writer.md` | Produce commit message y PR description listos para usar |
 
 ---
 
@@ -51,6 +64,17 @@ Los skills los carga el Implementer (o cualquier rol que los necesite) — no se
 | `postgres-infra` | `skills/postgres-infra/SKILL.md` | Docker, DB, migraciones, SQL directo |
 | `mercadopago-payments` | `skills/mercadopago-payments/SKILL.md` | Pagos, webhook, firma MP |
 | `email-templates` | `skills/email-templates/SKILL.md` | Templates HTML, BullMQ mail queue |
+
+---
+
+## Memoria persistente (Engram)
+
+Los roles Explorer, Designer y Archive usan Engram automáticamente:
+- **Explorer** → `mem_search` al inicio para recuperar decisiones previas del módulo
+- **Designer** → `mem_save` tipo `architecture` por cada decisión técnica no obvia
+- **Archive** → `mem_session_summary` obligatorio al cerrar
+
+Ver sección **Memory Protocol** en `CLAUDE.md` para el protocolo completo.
 
 ---
 

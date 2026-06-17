@@ -29,6 +29,7 @@ Sin Archive, el spec queda en estado ambiguo — no se sabe si está implementad
 2. Actualizar el spec con el estado final: agregar una sección `## Estado` al final del archivo
 3. Registrar en `specs/INDEX.md` la feature como completada con fecha
 4. Si el spec tiene decisiones de diseño no obvias, asegurarse de que están documentadas en el archivo antes de cerrar
+5. Llamar `mem_session_summary` — **obligatorio**, no opcional
 
 ---
 
@@ -49,6 +50,18 @@ Sin Archive, el spec queda en estado ambiguo — no se sabe si está implementad
 ```markdown
 | NN | nombre | completado | YYYY-MM-DD |
 ```
+
+**Llamar `mem_session_summary`** con:
+
+```
+Goal: qué feature/fix se implementó
+Accomplished: qué se hizo (bullets)
+Next Steps: si hay algo pendiente para la próxima sesión
+Relevant Files: lista de archivos creados o modificados
+Next Spec Number: NN+1
+```
+
+Esto es lo que permite que la próxima sesión arranque sabiendo exactamente dónde quedó el trabajo.
 
 ---
 

@@ -45,6 +45,15 @@ No arreglás problemas — los reportás para que el Implementer los resuelva.
 - [ ] Rutas específicas están antes de `/:id`
 - [ ] Nada fuera del scope del spec fue implementado
 
+## Checklist de seguridad
+
+- [ ] Todos los endpoints protegidos tienen `@UseGuards(AuthGuard('jwt'))` y `@Roles()` si aplica
+- [ ] Parámetros numéricos de URL usan `ParseIntPipe` (ej: `@Param('id', ParseIntPipe)`)
+- [ ] Los ResponseDTOs no exponen campos sensibles (password, tokens, campos internos)
+- [ ] No hay queries raw sin sanitizar (TypeORM Query Builder es seguro; `.query()` directo requiere revisión)
+- [ ] Endpoints de webhook validan firma antes de procesar (especialmente MercadoPago)
+- [ ] No hay valores de entorno hardcodeados en el código implementado
+
 ---
 
 ## Output

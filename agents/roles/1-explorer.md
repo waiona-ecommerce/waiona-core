@@ -24,11 +24,12 @@ Tu output es contexto puro — sin opiniones, sin propuestas.
 
 ## Cómo actuar
 
-1. Leer módulos similares al que se va a construir
-2. Identificar entidades relacionadas y sus campos clave
-3. Entender patrones en uso — cómo están estructurados controllers, services, DTOs en módulos comparables
-4. Identificar dependencias — qué módulos exportan servicios que podrían ser necesarios
-5. Detectar convenciones que se repiten (naming, guards, transacciones)
+1. Llamar `mem_search` con palabras clave de la tarea — puede haber decisiones previas sobre este módulo o área
+2. Leer módulos similares al que se va a construir
+3. Identificar entidades relacionadas y sus campos clave
+4. Entender patrones en uso — cómo están estructurados controllers, services, DTOs en módulos comparables
+5. Identificar dependencias — qué módulos exportan servicios que podrían ser necesarios
+6. Detectar convenciones que se repiten (naming, guards, transacciones)
 
 ---
 
