@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class DiscountTargetsPartialUniqueIndex1781900000000
-  implements MigrationInterface
-{
+export class DiscountTargetsPartialUniqueIndex1781900000000 implements MigrationInterface {
   name = 'DiscountTargetsPartialUniqueIndex1781900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -121,14 +121,19 @@ describe('DiscountsService', () => {
     });
 
     it('should return status ACTIVE when no dates', async () => {
-      repo.findOne.mockResolvedValue(mockDiscount({ startsAt: null, endsAt: null }));
+      repo.findOne.mockResolvedValue(
+        mockDiscount({ startsAt: null, endsAt: null }),
+      );
       expect((await service.findOne(1)).status).toBe('active');
     });
 
     it('should return status SCHEDULED when startsAt is in the future', async () => {
       const future = new Date(Date.now() + 86400000);
       repo.findOne.mockResolvedValue(
-        mockDiscount({ startsAt: future, endsAt: new Date(Date.now() + 172800000) }),
+        mockDiscount({
+          startsAt: future,
+          endsAt: new Date(Date.now() + 172800000),
+        }),
       );
       expect((await service.findOne(1)).status).toBe('scheduled');
     });
@@ -136,7 +141,10 @@ describe('DiscountsService', () => {
     it('should return status EXPIRED when endsAt is in the past', async () => {
       const past = new Date(Date.now() - 86400000);
       repo.findOne.mockResolvedValue(
-        mockDiscount({ startsAt: new Date(Date.now() - 172800000), endsAt: past }),
+        mockDiscount({
+          startsAt: new Date(Date.now() - 172800000),
+          endsAt: past,
+        }),
       );
       expect((await service.findOne(1)).status).toBe('expired');
     });

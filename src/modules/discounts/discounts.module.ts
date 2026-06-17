@@ -32,6 +32,10 @@ import { DiscountComboTargetController } from './discount-combo-target/controlle
     DiscountProductTargetController,
     DiscountComboTargetController,
   ],
-  exports: [DiscountsService, DiscountProductTargetService, DiscountComboTargetService],
+  exports: [
+    DiscountsService,
+    DiscountProductTargetService,
+    DiscountComboTargetService,
+  ],
 })
 export class DiscountsModule {}
