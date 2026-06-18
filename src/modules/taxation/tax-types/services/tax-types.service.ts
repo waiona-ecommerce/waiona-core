@@ -2,12 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { TaxTypeEntity } from '../entities/tax-types.entity';
+import { TaxEntity } from '../../taxes/entities/tax.entity';
 import { CreateTaxTypeDto } from '../dto/create-tax-type.dto';
 import { UpdateTaxTypeDto } from '../dto/update-tax-type.dto';
 import { TaxTypeResponseDto } from '../dto/tax-type-response.dto';
@@ -18,6 +20,9 @@ export class TaxTypesService {
   constructor(
     @InjectRepository(TaxTypeEntity)
     private taxTypeRepository: Repository<TaxTypeEntity>,
+
+    @InjectRepository(TaxEntity)
+    private taxRepository: Repository<TaxEntity>,
   ) {}
 
   async findAll(
@@ -69,6 +74,16 @@ export class TaxTypesService {
 
   async delete(id: number): Promise<void> {
     const entity = await this.findEntity(id);
+
+    const usage = await this.taxRepository.findOne({
+      where: { taxTypeId: entity.id },
+    });
+
+    if (usage) {
+      throw new ConflictException(
+        'El tipo de impuesto tiene impuestos asociados y no puede eliminarse',
+      );
+    }
 
     await this.taxTypeRepository.softDelete(entity.id);
   }

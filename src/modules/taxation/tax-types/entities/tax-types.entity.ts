@@ -7,7 +7,6 @@ export class TaxTypeEntity extends BaseEntity {
     type: 'varchar',
     length: 20,
     nullable: false,
-    unique: true,
   })
   code: string;
 

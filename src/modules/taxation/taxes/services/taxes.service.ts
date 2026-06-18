@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { TaxEntity } from '../entities/tax.entity';
 import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
+import { ProductTaxEntity } from '../../product-taxes/entities/product-taxes.entity';
 
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
@@ -19,6 +24,9 @@ export class TaxesService {
 
     @InjectRepository(TaxTypeEntity)
     private taxTypeRepository: Repository<TaxTypeEntity>,
+
+    @InjectRepository(ProductTaxEntity)
+    private productTaxRepository: Repository<ProductTaxEntity>,
   ) {}
 
   // ==========================
@@ -109,6 +117,17 @@ export class TaxesService {
 
   async delete(id: number): Promise<void> {
     const entity = await this.findEntity(id);
+
+    const usage = await this.productTaxRepository.findOne({
+      where: { taxId: entity.id },
+    });
+
+    if (usage) {
+      throw new ConflictException(
+        'El impuesto está asignado a uno o más productos y no puede eliminarse',
+      );
+    }
+
     await this.taxRepository.softDelete(entity.id);
   }
 

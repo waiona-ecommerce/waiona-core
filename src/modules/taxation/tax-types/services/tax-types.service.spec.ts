@@ -1,11 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { TaxTypesService } from './tax-types.service';
 import { TaxTypeEntity } from '../entities/tax-types.entity';
+import { TaxEntity } from '../../taxes/entities/tax.entity';
 describe('TaxTypesService', () => {
   let service: TaxTypesService;
   let repo: any;
+  let taxRepo: any;
 
   const mockRepo = () => ({
     findAndCount: jest.fn(),
@@ -15,6 +21,7 @@ describe('TaxTypesService', () => {
     merge: jest.fn(),
     softDelete: jest.fn(),
   });
+  const mockTaxRepo = () => ({ findOne: jest.fn() });
 
   const mockTaxType = (overrides = {}): TaxTypeEntity => ({
     id: 1,
@@ -31,11 +38,13 @@ describe('TaxTypesService', () => {
       providers: [
         TaxTypesService,
         { provide: getRepositoryToken(TaxTypeEntity), useFactory: mockRepo },
+        { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
       ],
     }).compile();
 
     service = module.get<TaxTypesService>(TaxTypesService);
     repo = module.get(getRepositoryToken(TaxTypeEntity));
+    taxRepo = module.get(getRepositoryToken(TaxEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -115,12 +124,19 @@ describe('TaxTypesService', () => {
   });
 
   describe('delete', () => {
-    it('should soft delete', async () => {
+    it('should soft delete a tax type with no associated taxes', async () => {
       const entity = mockTaxType();
       repo.findOne.mockResolvedValue(entity);
+      taxRepo.findOne.mockResolvedValue(null);
       repo.softDelete.mockResolvedValue({ affected: 1 });
       await service.delete(1);
       expect(repo.softDelete).toHaveBeenCalledWith(entity.id);
+    });
+
+    it('should throw ConflictException if tax type has associated taxes', async () => {
+      repo.findOne.mockResolvedValue(mockTaxType());
+      taxRepo.findOne.mockResolvedValue({ id: 1, taxTypeId: 1 });
+      await expect(service.delete(1)).rejects.toThrow(ConflictException);
     });
 
     it('should throw NotFoundException', async () => {
