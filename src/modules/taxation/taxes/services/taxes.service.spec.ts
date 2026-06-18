@@ -172,7 +172,11 @@ describe('TaxesService', () => {
 
     it('should throw ConflictException if tax is assigned to products', async () => {
       taxRepo.findOne.mockResolvedValue(mockTax());
-      productTaxRepo.findOne.mockResolvedValue({ id: 1, taxId: 1, productId: 5 });
+      productTaxRepo.findOne.mockResolvedValue({
+        id: 1,
+        taxId: 1,
+        productId: 5,
+      });
 
       await expect(service.delete(1)).rejects.toThrow(ConflictException);
     });

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class TaxationPartialUniqueIndexes1781910000000
-  implements MigrationInterface
-{
+export class TaxationPartialUniqueIndexes1781910000000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     // Drop la unique constraint simple en tax_types.code (no es soft-delete-aware)
     await queryRunner.query(`
@@ -56,9 +54,7 @@ export class TaxationPartialUniqueIndexes1781910000000
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_tax_types_code_active"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tax_types_code_active"`);
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_product_taxes_product_tax_active"`,
     );
