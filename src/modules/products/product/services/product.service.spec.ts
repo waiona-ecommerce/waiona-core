@@ -6,12 +6,14 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { ProductEntity } from '../entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
+import { ComboItemEntity } from '../../combos/entities/combo-item.entity';
 import { ProductMeasurementUnit } from '../enums/product-measurement-unit.enum';
 
 describe('ProductService', () => {
   let service: ProductService;
   let productRepository: jest.Mocked<Repository<ProductEntity>>;
   let categoryRepository: jest.Mocked<Repository<CategoryEntity>>;
+  let comboItemRepository: jest.Mocked<{ count: jest.Mock }>;
 
   const mockProductRepository = () => ({
     findAndCount: jest.fn(),
@@ -23,6 +25,7 @@ describe('ProductService', () => {
   });
 
   const mockCategoryRepository = () => ({ findOne: jest.fn() });
+  const mockComboItemRepository = () => ({ count: jest.fn() });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -36,12 +39,17 @@ describe('ProductService', () => {
           provide: getRepositoryToken(CategoryEntity),
           useFactory: mockCategoryRepository,
         },
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useFactory: mockComboItemRepository,
+        },
       ],
     }).compile();
 
     service = module.get<ProductService>(ProductService);
     productRepository = module.get(getRepositoryToken(ProductEntity));
     categoryRepository = module.get(getRepositoryToken(CategoryEntity));
+    comboItemRepository = module.get(getRepositoryToken(ComboItemEntity));
   });
 
   afterEach(() => {
@@ -259,11 +267,21 @@ describe('ProductService', () => {
       const product = mockProduct();
 
       productRepository.findOne.mockResolvedValue(product);
+      comboItemRepository.count.mockResolvedValue(0);
       productRepository.softDelete.mockResolvedValue({} as any);
 
       await service.delete(1);
 
       expect(productRepository.softDelete).toHaveBeenCalledWith(product.id);
+    });
+
+    it('should throw ConflictException if product is in active combos', async () => {
+      const product = mockProduct();
+
+      productRepository.findOne.mockResolvedValue(product);
+      comboItemRepository.count.mockResolvedValue(2);
+
+      await expect(service.delete(1)).rejects.toThrow(ConflictException);
     });
 
     it('should throw NotFoundException if product not found', async () => {

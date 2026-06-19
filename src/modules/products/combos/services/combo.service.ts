@@ -5,10 +5,11 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, EntityManager } from 'typeorm';
 
 import { ComboEntity } from '../entities/combo.entity';
 import { ComboItemEntity } from '../entities/combo-item.entity';
+import { ComboImageEntity } from '../../combo-images/entities/combo-image.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ProductPricingEntity } from '../../../pricing/entities/product-pricing.entity';
@@ -79,8 +80,8 @@ export class ComboService {
   async create(dto: CreateComboDto): Promise<ComboResponseDto> {
     await this.validateCategoryExists(dto.categoryId);
 
-    const result = await this.dataSource.transaction(async (manager) => {
-      await this.validateItems(dto.items);
+    const savedId = await this.dataSource.transaction(async (manager) => {
+      await this.validateItems(dto.items, manager);
 
       const combo = manager.create(ComboEntity, {
         name: dto.name,
@@ -100,16 +101,10 @@ export class ComboService {
       );
 
       await manager.save(items);
-
-      const fullCombo = await manager.findOne(ComboEntity, {
-        where: { id: savedCombo.id },
-        relations: ['category', 'items', 'items.product'],
-      });
-
-      return new ComboResponseDto(fullCombo!);
+      return savedCombo.id;
     });
 
-    return result;
+    return new ComboResponseDto(await this.findOne(savedId));
   }
 
   // ==========================
@@ -121,7 +116,7 @@ export class ComboService {
       await this.validateCategoryExists(dto.categoryId);
     }
 
-    const result = await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
       const combo = await manager.findOne(ComboEntity, {
         where: { id },
       });
@@ -140,7 +135,7 @@ export class ComboService {
       await manager.save(combo);
 
       if (dto.items) {
-        await this.validateItems(dto.items);
+        await this.validateItems(dto.items, manager);
 
         await manager.softDelete(ComboItemEntity, { comboId: combo.id });
 
@@ -154,16 +149,9 @@ export class ComboService {
 
         await manager.save(newItems);
       }
-
-      const fullCombo = await manager.findOne(ComboEntity, {
-        where: { id: combo.id },
-        relations: ['category', 'items', 'items.product'],
-      });
-
-      return new ComboResponseDto(fullCombo!);
     });
 
-    return result;
+    return new ComboResponseDto(await this.findOne(id));
   }
 
   // ==========================
@@ -171,15 +159,17 @@ export class ComboService {
   // ==========================
 
   async delete(id: number): Promise<void> {
-    const combo = await this.comboRepository.findOne({
-      where: { id },
+    await this.dataSource.transaction(async (manager) => {
+      const combo = await manager.findOne(ComboEntity, { where: { id } });
+
+      if (!combo) {
+        throw new NotFoundException(`Combo con id ${id} no encontrado`);
+      }
+
+      await manager.softDelete(ComboItemEntity, { comboId: id });
+      await manager.softDelete(ComboImageEntity, { comboId: id });
+      await manager.softDelete(ComboEntity, id);
     });
-
-    if (!combo) {
-      throw new NotFoundException(`Combo con id ${id} no encontrado`);
-    }
-
-    await this.comboRepository.softDelete(combo.id);
   }
 
   // ==========================
@@ -201,6 +191,7 @@ export class ComboService {
 
   private async validateItems(
     items: { productId: number; quantity: number }[],
+    manager: EntityManager,
   ): Promise<void> {
     const ids = items.map((i) => i.productId);
 
@@ -214,7 +205,7 @@ export class ComboService {
       seen.add(id);
     }
 
-    const found = await this.productRepository.findBy({ id: In(ids) });
+    const found = await manager.findBy(ProductEntity, { id: In(ids) });
 
     if (found.length !== ids.length) {
       const foundIds = new Set(found.map((p) => p.id));
@@ -222,7 +213,7 @@ export class ComboService {
       throw new BadRequestException(`Producto con id ${missing} no encontrado`);
     }
 
-    const pricings = await this.productPricingRepository.findBy({
+    const pricings = await manager.findBy(ProductPricingEntity, {
       productId: In(ids),
     });
     if (pricings.length !== ids.length) {

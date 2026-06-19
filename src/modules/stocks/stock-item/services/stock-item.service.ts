@@ -112,36 +112,58 @@ export class StockItemsService {
   // Fórmula: min(floor(quantityAvailable / quantity)) para cada item.
   // ==========================
 
-  async findByCombo(
-    comboId: number,
-  ): Promise<{ quantityAvailable: number; inStock: boolean }> {
+  async findByCombo(comboId: number): Promise<{
+    quantityAvailable: number;
+    inStock: boolean;
+    stockMin: number;
+    stockCritical: number;
+  }> {
     const items = await this.comboItemRepository.find({
       where: { comboId },
     });
 
     if (!items.length) {
-      return { quantityAvailable: 0, inStock: false };
+      return {
+        quantityAvailable: 0,
+        inStock: false,
+        stockMin: 0,
+        stockCritical: 0,
+      };
     }
 
     let minAvailable = Infinity;
+    // Umbral más restrictivo en combo-units: el combo es "low/critical"
+    // si CUALQUIER componente lo es → se toma el MAX de los umbrales por componente
+    let maxThresholdMin = 0;
+    let maxThresholdCritical = 0;
 
     for (const item of items) {
       const stockItems = await this.stockItemRepository.find({
         where: { productId: item.productId },
       });
 
-      // máximo stock disponible en una sola ubicación
-      // (consistente con reserveStock, que elige la mejor ubicación — no mezcla ubicaciones)
-      const bestAvailable = stockItems.reduce(
-        (best, s) => (s.quantityAvailable > best ? s.quantityAvailable : best),
-        0,
-      );
+      // Mejor ubicación para este componente (consistente con reserveStock)
+      let bestPossible = 0;
+      let bestStockItem: (typeof stockItems)[number] | undefined;
+      for (const s of stockItems) {
+        const possible = Math.floor(s.quantityAvailable / item.quantity);
+        if (possible > bestPossible) {
+          bestPossible = possible;
+          bestStockItem = s;
+        }
+      }
 
-      // cuántos combos puedo armar con este producto
-      const possible = Math.floor(bestAvailable / item.quantity);
+      if (bestPossible < minAvailable) minAvailable = bestPossible;
 
-      if (possible < minAvailable) {
-        minAvailable = possible;
+      // Convertir umbrales a combo-units usando la misma ubicación
+      if (bestStockItem) {
+        const thresholdMin = Math.floor(bestStockItem.stockMin / item.quantity);
+        const thresholdCritical = Math.floor(
+          bestStockItem.stockCritical / item.quantity,
+        );
+        if (thresholdMin > maxThresholdMin) maxThresholdMin = thresholdMin;
+        if (thresholdCritical > maxThresholdCritical)
+          maxThresholdCritical = thresholdCritical;
       }
     }
 
@@ -150,6 +172,8 @@ export class StockItemsService {
     return {
       quantityAvailable,
       inStock: quantityAvailable > 0,
+      stockMin: maxThresholdMin,
+      stockCritical: maxThresholdCritical,
     };
   }
 

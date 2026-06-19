@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 
 import { ProductImageEntity } from '../entities/product-image.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
@@ -37,6 +41,8 @@ export class ProductImageService {
         `Producto con id ${dto.productId} no encontrado`,
       );
     }
+
+    await this.assertPositionFree(dto.productId, dto.position);
 
     const image = this.productImageRepository.create(dto);
 
@@ -75,6 +81,11 @@ export class ProductImageService {
     dto: UpdateProductImageDto,
   ): Promise<ProductImageResponseDto> {
     const image = await this.findEntity(id);
+
+    if (dto.position !== undefined && dto.position !== image.position) {
+      await this.assertPositionFree(image.productId, dto.position, id);
+    }
+
     const merged = this.productImageRepository.merge(image, dto);
     const updated = await this.productImageRepository.save(merged);
 
@@ -98,10 +109,29 @@ export class ProductImageService {
       );
     }
 
+    await this.assertPositionFree(dto.productId, dto.position);
+
     const { url, publicId } = await this.storageService.upload(
       file,
       'waiona/products',
     );
+
+    const stillExists = await this.productRepository.findOne({
+      where: { id: dto.productId },
+    });
+    if (!stillExists) {
+      await this.storageService.delete(publicId);
+      throw new NotFoundException(
+        `Producto con id ${dto.productId} no encontrado`,
+      );
+    }
+
+    try {
+      await this.assertPositionFree(dto.productId, dto.position);
+    } catch (err) {
+      await this.storageService.delete(publicId);
+      throw err;
+    }
 
     const image = this.productImageRepository.create({
       productId: dto.productId,
@@ -137,5 +167,23 @@ export class ProductImageService {
         `Imagen de producto con id ${id} no encontrada`,
       );
     return image;
+  }
+
+  private async assertPositionFree(
+    productId: number,
+    position: number,
+    excludeId?: number,
+  ): Promise<void> {
+    const existing = await this.productImageRepository.findOne({
+      where:
+        excludeId !== undefined
+          ? { productId, position, id: Not(excludeId) }
+          : { productId, position },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe una imagen en la posición ${position} para este producto`,
+      );
+    }
   }
 }

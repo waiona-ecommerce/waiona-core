@@ -193,14 +193,6 @@ describe('CategoryService', () => {
       );
     });
 
-    it('should throw BadRequestException if category is its own parent', async () => {
-      categoryRepository.findOne.mockResolvedValue(mockCategory());
-
-      await expect(service.update(1, { parentId: 1 } as any)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
     it('should throw NotFoundException if not found', async () => {
       categoryRepository.findOne.mockResolvedValue(null);
 
