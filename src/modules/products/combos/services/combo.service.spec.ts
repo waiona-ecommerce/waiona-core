@@ -226,7 +226,9 @@ describe('ComboService', () => {
       mockEntityManager.findOne.mockResolvedValueOnce(combo);
       mockEntityManager.merge.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
-      mockComboRepo.findOne.mockResolvedValue(mockCombo({ name: 'Nuevo nombre' }));
+      mockComboRepo.findOne.mockResolvedValue(
+        mockCombo({ name: 'Nuevo nombre' }),
+      );
 
       const result = await service.update(1, dto);
 
