@@ -108,24 +108,6 @@ export class CategoryService {
       await this.validateUniqueName(changes.name);
     }
 
-    if (changes.parentId) {
-      const parent = await this.categoryRepository.findOne({
-        where: { id: changes.parentId },
-      });
-
-      if (!parent) {
-        throw new BadRequestException(
-          `Categoría padre con id ${changes.parentId} no encontrada`,
-        );
-      }
-
-      if (await this.wouldCreateCycle(id, changes.parentId)) {
-        throw new BadRequestException(
-          'Asignar esta categoría padre crearía una jerarquía circular',
-        );
-      }
-    }
-
     const merged = this.categoryRepository.merge(entity, changes);
 
     const saved = await this.categoryRepository.save(merged);
@@ -188,7 +170,12 @@ export class CategoryService {
 
     for (const cat of all) {
       if (cat.parentId != null) {
-        map.get(cat.parentId)?.children?.push(cat);
+        const parent = map.get(cat.parentId);
+        if (parent) {
+          parent.children!.push(cat);
+        } else {
+          roots.push(cat);
+        }
       } else {
         roots.push(cat);
       }
@@ -200,21 +187,6 @@ export class CategoryService {
   // ==========================
   // PRIVATE
   // ==========================
-
-  private async wouldCreateCycle(
-    categoryId: number,
-    newParentId: number,
-  ): Promise<boolean> {
-    let currentId: number | null = newParentId;
-    while (currentId !== null) {
-      if (currentId === categoryId) return true;
-      const cat = await this.categoryRepository.findOne({
-        where: { id: currentId },
-      });
-      currentId = cat?.parentId ?? null;
-    }
-    return false;
-  }
 
   private async findOne(id: number): Promise<CategoryEntity> {
     const entity = await this.categoryRepository.findOne({

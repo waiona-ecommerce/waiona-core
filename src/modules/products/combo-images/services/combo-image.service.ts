@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 
 import { ComboImageEntity } from '../entities/combo-image.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
@@ -35,6 +39,8 @@ export class ComboImageService {
     if (!combo) {
       throw new NotFoundException(`Combo con id ${dto.comboId} no encontrado`);
     }
+
+    await this.assertPositionFree(dto.comboId, dto.position);
 
     const image = this.comboImageRepository.create(dto);
 
@@ -73,6 +79,11 @@ export class ComboImageService {
     dto: UpdateComboImageDto,
   ): Promise<ComboImageResponseDto> {
     const image = await this.findEntity(id);
+
+    if (dto.position !== undefined && dto.position !== image.position) {
+      await this.assertPositionFree(image.comboId, dto.position, id);
+    }
+
     const merged = this.comboImageRepository.merge(image, dto);
     const updated = await this.comboImageRepository.save(merged);
 
@@ -94,10 +105,27 @@ export class ComboImageService {
       throw new NotFoundException(`Combo con id ${dto.comboId} no encontrado`);
     }
 
+    await this.assertPositionFree(dto.comboId, dto.position);
+
     const { url, publicId } = await this.storageService.upload(
       file,
       'waiona/combos',
     );
+
+    const stillExists = await this.comboRepository.findOne({
+      where: { id: dto.comboId },
+    });
+    if (!stillExists) {
+      await this.storageService.delete(publicId);
+      throw new NotFoundException(`Combo con id ${dto.comboId} no encontrado`);
+    }
+
+    try {
+      await this.assertPositionFree(dto.comboId, dto.position);
+    } catch (err) {
+      await this.storageService.delete(publicId);
+      throw err;
+    }
 
     const image = this.comboImageRepository.create({
       comboId: dto.comboId,
@@ -131,5 +159,23 @@ export class ComboImageService {
     if (!image)
       throw new NotFoundException(`Imagen de combo con id ${id} no encontrada`);
     return image;
+  }
+
+  private async assertPositionFree(
+    comboId: number,
+    position: number,
+    excludeId?: number,
+  ): Promise<void> {
+    const existing = await this.comboImageRepository.findOne({
+      where:
+        excludeId !== undefined
+          ? { comboId, position, id: Not(excludeId) }
+          : { comboId, position },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe una imagen en la posición ${position} para este combo`,
+      );
+    }
   }
 }
