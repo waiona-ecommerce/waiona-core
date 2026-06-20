@@ -86,15 +86,29 @@ export class CouponService {
       await this.validateUniqueCode(dto.code);
     }
 
-    const startsAt = dto.startsAt ?? coupon.startsAt;
-    const endsAt = dto.endsAt ?? coupon.endsAt;
+    // Usar !== undefined para permitir nullear explícitamente fechas y límite
+    const startsAt = dto.startsAt !== undefined ? dto.startsAt : coupon.startsAt;
+    const endsAt = dto.endsAt !== undefined ? dto.endsAt : coupon.endsAt;
 
     this.validateDates(startsAt, endsAt);
+
+    const newUsageLimit =
+      dto.usageLimit !== undefined ? dto.usageLimit : coupon.usageLimit;
+
+    if (
+      newUsageLimit !== null &&
+      newUsageLimit !== undefined &&
+      newUsageLimit < coupon.usageCount
+    ) {
+      throw new BadRequestException(
+        `El límite de uso (${newUsageLimit}) no puede ser menor que el uso actual (${coupon.usageCount})`,
+      );
+    }
 
     coupon.code = dto.code ?? coupon.code;
     coupon.isGlobal = dto.isGlobal ?? coupon.isGlobal;
     coupon.value = Number(dto.value ?? coupon.value);
-    coupon.usageLimit = dto.usageLimit ?? coupon.usageLimit;
+    coupon.usageLimit = newUsageLimit;
     coupon.startsAt = startsAt ?? null;
     coupon.endsAt = endsAt ?? null;
 
@@ -131,7 +145,6 @@ export class CouponService {
   private async validateUniqueCode(code: string): Promise<void> {
     const existing = await this.couponRepository.findOne({
       where: { code },
-      withDeleted: true,
     });
 
     if (existing) {

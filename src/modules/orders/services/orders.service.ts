@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
 
 import { OrderEntity } from '../entities/order.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
@@ -55,12 +55,6 @@ export class OrdersService {
 
     @InjectRepository(CouponEntity)
     private readonly couponRepo: Repository<CouponEntity>,
-
-    @InjectRepository(CouponProductTargetEntity)
-    private readonly couponProductTargetRepo: Repository<CouponProductTargetEntity>,
-
-    @InjectRepository(CouponComboTargetEntity)
-    private readonly couponComboTargetRepo: Repository<CouponComboTargetEntity>,
 
     private readonly stockItemsService: StockItemsService,
     private readonly calculationService: CalculationService,
@@ -202,19 +196,13 @@ export class OrdersService {
       }
     }
 
-    const couponDiscount = dto.couponCode
-      ? await this.computeOrderCouponDiscount(dto.couponCode, couponItems)
-      : 0;
-
-    const total = Math.max(0, subtotal - couponDiscount);
-
     // 4. 🔥 Transacción — guardar orden + reservar stock + registrar cupón de forma atómica
     const saved = await this.dataSource.transaction(async (manager) => {
-      // pessimistic lock sobre el cupón — previene race condition (TOCTOU):
-      // dos requests concurrentes con el mismo código esperan el lock en lugar de ambas pasar
       let lockedCoupon: CouponEntity | null = null;
+      let couponDiscount = 0;
 
       if (dto.couponCode) {
+        // Lock del cupón primero — serializa concurrencia y garantiza datos frescos
         lockedCoupon = await manager.findOne(CouponEntity, {
           where: { code: dto.couponCode },
           lock: { mode: 'pessimistic_write' },
@@ -227,7 +215,8 @@ export class OrdersService {
         if (lockedCoupon.endsAt && now > lockedCoupon.endsAt)
           throw new BadRequestException('El cupón ha expirado');
         if (
-          lockedCoupon.usageLimit &&
+          lockedCoupon.usageLimit !== null &&
+          lockedCoupon.usageLimit !== undefined &&
           lockedCoupon.usageCount >= lockedCoupon.usageLimit
         )
           throw new BadRequestException(
@@ -240,12 +229,21 @@ export class OrdersService {
         if (alreadyUsed)
           throw new ConflictException('El usuario ya utilizó este cupón');
 
+        // Calcular descuento con datos frescos del cupón ya locked
+        couponDiscount = await this.computeCouponDiscountWithManager(
+          lockedCoupon,
+          couponItems,
+          manager,
+        );
+
         if (couponDiscount === 0) {
           throw new BadRequestException(
             'El cupón no aplica a ningún ítem de esta orden',
           );
         }
       }
+
+      const total = Math.max(0, subtotal - couponDiscount);
 
       // guardar orden
       const order = manager.create(OrderEntity, {
@@ -478,45 +476,45 @@ export class OrdersService {
   // PRIVATE — descuento de cupón sobre la orden
   // ==========================
 
-  private async computeOrderCouponDiscount(
-    couponCode: string,
+  private async computeCouponDiscountWithManager(
+    coupon: CouponEntity,
     items: Array<{ productId?: number; comboId?: number; subtotal: number }>,
+    manager: EntityManager,
   ): Promise<number> {
-    const now = new Date();
-
-    const coupon = await this.couponRepo.findOne({
-      where: { code: couponCode },
-    });
-    if (!coupon) return 0;
-    if (coupon.startsAt && now < coupon.startsAt) return 0;
-    if (coupon.endsAt && now > coupon.endsAt) return 0;
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
-
     const apply = (base: number) => base * (coupon.value / 100);
 
     if (coupon.isGlobal) {
-      const total = items.reduce((sum, i) => sum + i.subtotal, 0);
-      return apply(total);
+      return apply(items.reduce((sum, i) => sum + i.subtotal, 0));
     }
 
-    let eligibleSubtotal = 0;
-    for (const item of items) {
-      if (item.productId) {
-        const target = await this.couponProductTargetRepo.findOne({
-          where: { couponId: coupon.id, productId: item.productId },
-        });
-        if (target) eligibleSubtotal += item.subtotal;
-      }
-      if (item.comboId) {
-        const target = await this.couponComboTargetRepo.findOne({
-          where: { couponId: coupon.id, comboId: item.comboId },
-        });
-        if (target) eligibleSubtotal += item.subtotal;
-      }
-    }
+    const productIds = items.flatMap((i) => (i.productId ? [i.productId] : []));
+    const comboIds = items.flatMap((i) => (i.comboId ? [i.comboId] : []));
 
-    if (eligibleSubtotal === 0) return 0;
-    return apply(eligibleSubtotal);
+    const [productTargets, comboTargets] = await Promise.all([
+      productIds.length
+        ? manager.find(CouponProductTargetEntity, {
+            where: { couponId: coupon.id, productId: In(productIds) },
+          })
+        : Promise.resolve([]),
+      comboIds.length
+        ? manager.find(CouponComboTargetEntity, {
+            where: { couponId: coupon.id, comboId: In(comboIds) },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const eligibleProductIds = new Set(productTargets.map((t) => t.productId));
+    const eligibleComboIds = new Set(comboTargets.map((t) => t.comboId));
+
+    const eligibleSubtotal = items.reduce((sum, i) => {
+      if (i.productId && eligibleProductIds.has(i.productId))
+        return sum + i.subtotal;
+      if (i.comboId && eligibleComboIds.has(i.comboId))
+        return sum + i.subtotal;
+      return sum;
+    }, 0);
+
+    return eligibleSubtotal === 0 ? 0 : apply(eligibleSubtotal);
   }
 
   // ==========================
@@ -584,15 +582,20 @@ export class OrdersService {
       }
     }
 
-    if (order.coupon) {
-      const couponRepo = manager.getRepository(CouponEntity);
-      const usageRepo = manager.getRepository(CouponUsageEntity);
-      order.coupon.usageCount = Math.max(0, order.coupon.usageCount - 1);
-      await couponRepo.save(order.coupon);
-      await usageRepo.softDelete({
-        couponId: order.coupon.id,
-        orderId: order.id,
+    if (order.couponId) {
+      // Re-leer con lock para evitar lost update si dos cancelaciones son concurrentes
+      const coupon = await manager.findOne(CouponEntity, {
+        where: { id: order.couponId },
+        lock: { mode: 'pessimistic_write' },
       });
+      if (coupon) {
+        coupon.usageCount = Math.max(0, coupon.usageCount - 1);
+        await manager.save(CouponEntity, coupon);
+        await manager.softDelete(CouponUsageEntity, {
+          couponId: coupon.id,
+          orderId: order.id,
+        });
+      }
     }
   }
 

@@ -9,7 +9,6 @@ export class CouponEntity extends BaseEntity {
     type: 'varchar',
     length: 100,
     nullable: false,
-    unique: true,
   })
   code: string;
 

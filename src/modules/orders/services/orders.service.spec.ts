@@ -70,8 +70,10 @@ describe('OrdersService', () => {
   };
   const mockEntityManager = {
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    softDelete: jest.fn(),
     getRepository: jest.fn(() => mockManagerRepo),
   };
   const mockDataSource = {
@@ -408,19 +410,7 @@ describe('OrdersService', () => {
       stockItemRepo.find.mockResolvedValue([mockStock()]);
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
-      // computeOrderCouponDiscount: cupón válido no global, sin target para este producto → retorna 0
-      couponRepo.findOne.mockResolvedValueOnce({
-        id: 1,
-        code: 'NOAPLICA',
-        value: 10,
-        isGlobal: false,
-        usageLimit: null,
-        usageCount: 0,
-        startsAt: null,
-        endsAt: null,
-      });
-      couponProductTargetRepo.findOne.mockResolvedValueOnce(null);
-      // dentro de la transacción: cupón válido, sin uso previo, pero couponDiscount === 0
+      // dentro de la transacción: cupón válido no global, sin uso previo
       mockEntityManager.findOne
         .mockResolvedValueOnce({
           id: 1,
@@ -433,6 +423,8 @@ describe('OrdersService', () => {
           endsAt: null,
         })
         .mockResolvedValueOnce(null); // sin uso previo
+      // computeCouponDiscountWithManager: sin targets → descuento = 0
+      mockEntityManager.find.mockResolvedValue([]);
 
       await expect(
         service.create(1, { ...dto, couponCode: 'NOAPLICA' } as any),

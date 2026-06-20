@@ -8,7 +8,6 @@ import { OrderEntity } from '../../../orders/entities/order.entity';
 @Index(['couponId'])
 @Index(['orderId'])
 @Index(['userId'])
-@Index(['couponId', 'userId'], { unique: true }) // un usuario = un uso por cupón
 export class CouponUsageEntity extends BaseEntity {
   // ==========================
   // Cupón

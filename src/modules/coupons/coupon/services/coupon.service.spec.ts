@@ -79,12 +79,6 @@ describe('CouponService', () => {
       );
     });
 
-    it('should throw ConflictException if code exists on a soft-deleted coupon', async () => {
-      repo().findOne.mockResolvedValue(mockCoupon({ deletedAt: new Date() }));
-      await expect(service.create(dto as any)).rejects.toThrow(
-        ConflictException,
-      );
-    });
 
     it('should throw BadRequestException if value > 100', () => {
       // El DTO ya bloquea esto con @Max(100), pero si llega al servicio también falla en la fecha
@@ -139,6 +133,25 @@ describe('CouponService', () => {
 
       const result = await service.update(1, { usageLimit: 200 });
       expect(result.usageLimit).toBe(200);
+    });
+
+    it('should allow nulling usageLimit to make it unlimited', async () => {
+      const coupon = mockCoupon({ usageLimit: 100, usageCount: 10 });
+      const updated = mockCoupon({ usageLimit: null });
+      repo().findOne.mockResolvedValue(coupon);
+      repo().save.mockResolvedValue(updated);
+
+      const result = await service.update(1, { usageLimit: null } as any);
+      expect(result.usageLimit).toBeUndefined();
+    });
+
+    it('should throw BadRequestException if usageLimit < usageCount', async () => {
+      const coupon = mockCoupon({ usageLimit: 100, usageCount: 50 });
+      repo().findOne.mockResolvedValue(coupon);
+
+      await expect(
+        service.update(1, { usageLimit: 30 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ConflictException if new code already exists', async () => {
