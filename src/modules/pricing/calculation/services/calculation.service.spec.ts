@@ -155,9 +155,9 @@ describe('CalculationService', () => {
       productTaxRepo.find.mockResolvedValue([]);
       taxRepo.find.mockResolvedValue([]);
 
-      await expect(
-        service.calculateProduct({ productId: 1 }),
-      ).rejects.toThrow(InternalServerErrorException);
+      await expect(service.calculateProduct({ productId: 1 })).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 

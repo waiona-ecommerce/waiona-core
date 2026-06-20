@@ -45,7 +45,9 @@ export class CalculationController {
   @ApiOperation({ summary: 'Calcular precio de un producto' })
   @ApiResponse({ status: 200, type: PriceBreakdownDto })
   @ApiResponse({ status: 404, description: 'Producto sin pricing configurado' })
-  calculateProduct(@Body() dto: CalculateProductDto): Promise<PriceBreakdownDto> {
+  calculateProduct(
+    @Body() dto: CalculateProductDto,
+  ): Promise<PriceBreakdownDto> {
     return this.calculationService.calculateProduct(dto);
   }
 
@@ -58,7 +60,10 @@ export class CalculationController {
   @Post('combo')
   @ApiOperation({ summary: 'Calcular precio de un combo' })
   @ApiResponse({ status: 200, type: PriceBreakdownDto })
-  @ApiResponse({ status: 404, description: 'Combo o producto del combo sin pricing' })
+  @ApiResponse({
+    status: 404,
+    description: 'Combo o producto del combo sin pricing',
+  })
   calculateCombo(@Body() dto: CalculateComboDto): Promise<PriceBreakdownDto> {
     return this.calculationService.calculateCombo(dto);
   }

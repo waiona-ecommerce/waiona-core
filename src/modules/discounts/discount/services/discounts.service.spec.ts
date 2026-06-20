@@ -64,7 +64,6 @@ describe('DiscountsService', () => {
       const result = await service.create({ name: 'Promo', value: 10 });
       expect(result.value).toBe(10);
     });
-
   });
 
   describe('findAll', () => {
@@ -93,7 +92,6 @@ describe('DiscountsService', () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
-
   });
 
   describe('update', () => {
@@ -113,7 +111,6 @@ describe('DiscountsService', () => {
         NotFoundException,
       );
     });
-
   });
 
   describe('remove', () => {
