@@ -1,12 +1,12 @@
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   IsInt,
   Min,
   MaxLength,
   MinLength,
   IsNotEmpty,
+  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -34,14 +34,10 @@ export class CreateCategoryDto {
   })
   description?: string;
 
-  @ApiPropertyOptional({ example: true, default: true })
+  @ApiPropertyOptional({ example: 1, minimum: 1, nullable: true })
   @IsOptional()
-  @IsBoolean({ message: 'isActive debe ser un valor booleano' })
-  isActive?: boolean;
-
-  @ApiPropertyOptional({ example: 1, minimum: 1 })
-  @IsOptional()
+  @ValidateIf((o) => o.parentId !== null)
   @IsInt({ message: 'El id de la categoría padre debe ser un número entero' })
   @Min(1, { message: 'El id de la categoría padre debe ser mayor a 0' })
-  parentId?: number;
+  parentId?: number | null;
 }

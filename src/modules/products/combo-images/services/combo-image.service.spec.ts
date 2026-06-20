@@ -96,7 +96,9 @@ describe('ComboImageService', () => {
     it('should update an image', async () => {
       const image = mockImage();
       const updated = mockImage({ position: 2 });
-      mockImageRepo.findOne.mockResolvedValue(image);
+      mockImageRepo.findOne
+        .mockResolvedValueOnce(image) // findEntity
+        .mockResolvedValueOnce(null); // assertPositionFree (no conflict)
       mockImageRepo.merge.mockReturnValue(updated);
       mockImageRepo.save.mockResolvedValue(updated);
       expect((await service.update(1, { position: 2 } as any)).position).toBe(
