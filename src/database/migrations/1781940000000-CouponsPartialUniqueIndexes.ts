@@ -121,9 +121,15 @@ export class CouponsPartialUniqueIndexes1781940000000 implements MigrationInterf
 
   async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_coupons_code_active"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_coupon_product_targets_active"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_coupon_combo_targets_active"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_coupon_usages_coupon_user_active"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_coupon_product_targets_active"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_coupon_combo_targets_active"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_coupon_usages_coupon_user_active"`,
+    );
 
     await queryRunner.query(`
       DO $$

@@ -509,8 +509,7 @@ export class OrdersService {
     const eligibleSubtotal = items.reduce((sum, i) => {
       if (i.productId && eligibleProductIds.has(i.productId))
         return sum + i.subtotal;
-      if (i.comboId && eligibleComboIds.has(i.comboId))
-        return sum + i.subtotal;
+      if (i.comboId && eligibleComboIds.has(i.comboId)) return sum + i.subtotal;
       return sum;
     }, 0);
 

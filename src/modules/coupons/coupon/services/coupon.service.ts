@@ -87,7 +87,8 @@ export class CouponService {
     }
 
     // Usar !== undefined para permitir nullear explícitamente fechas y límite
-    const startsAt = dto.startsAt !== undefined ? dto.startsAt : coupon.startsAt;
+    const startsAt =
+      dto.startsAt !== undefined ? dto.startsAt : coupon.startsAt;
     const endsAt = dto.endsAt !== undefined ? dto.endsAt : coupon.endsAt;
 
     this.validateDates(startsAt, endsAt);

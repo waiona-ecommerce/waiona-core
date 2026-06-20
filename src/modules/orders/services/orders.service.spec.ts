@@ -13,8 +13,6 @@ import { OrderItemEntity } from '../entities/order-item.entity';
 import { ProductEntity } from '../../products/product/entities/product.entity';
 import { ComboEntity } from '../../products/combos/entities/combo.entity';
 import { CouponEntity } from '../../coupons/coupon/entities/coupon.entity';
-import { CouponProductTargetEntity } from '../../coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from '../../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { StockItemEntity } from '../../stocks/stock-item/entities/stock-item.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { StockItemsService } from '../../stocks/stock-item/services/stock-item.service';
@@ -37,8 +35,6 @@ describe('OrdersService', () => {
   const mockProductRepo = () => ({ findOne: jest.fn() });
   const mockComboRepo = () => ({ findOne: jest.fn() });
   const mockCouponRepo = () => ({ findOne: jest.fn(), save: jest.fn() });
-  const mockCouponProductTargetRepo = () => ({ findOne: jest.fn() });
-  const mockCouponComboTargetRepo = () => ({ findOne: jest.fn() });
   const mockStockItemRepo = () => ({
     findOne: jest.fn(),
     find: jest.fn(),
@@ -168,8 +164,6 @@ describe('OrdersService', () => {
   let orderRepo: any;
   let productRepo: any;
   let comboRepo: any;
-  let couponRepo: any;
-  let couponProductTargetRepo: any;
   let stockItemRepo: any;
   let userRepo: any;
   let stockService: any;
@@ -195,14 +189,6 @@ describe('OrdersService', () => {
           useFactory: mockCouponRepo,
         },
         {
-          provide: getRepositoryToken(CouponProductTargetEntity),
-          useFactory: mockCouponProductTargetRepo,
-        },
-        {
-          provide: getRepositoryToken(CouponComboTargetEntity),
-          useFactory: mockCouponComboTargetRepo,
-        },
-        {
           provide: getRepositoryToken(StockItemEntity),
           useFactory: mockStockItemRepo,
         },
@@ -218,10 +204,6 @@ describe('OrdersService', () => {
     orderRepo = module.get(getRepositoryToken(OrderEntity));
     productRepo = module.get(getRepositoryToken(ProductEntity));
     comboRepo = module.get(getRepositoryToken(ComboEntity));
-    couponRepo = module.get(getRepositoryToken(CouponEntity));
-    couponProductTargetRepo = module.get(
-      getRepositoryToken(CouponProductTargetEntity),
-    );
     stockItemRepo = module.get(getRepositoryToken(StockItemEntity));
     userRepo = module.get(getRepositoryToken(UserEntity));
     stockService = module.get(StockItemsService);

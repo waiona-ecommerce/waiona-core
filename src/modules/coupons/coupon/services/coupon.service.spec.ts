@@ -79,7 +79,6 @@ describe('CouponService', () => {
       );
     });
 
-
     it('should throw BadRequestException if value > 100', () => {
       // El DTO ya bloquea esto con @Max(100), pero si llega al servicio también falla en la fecha
       // Este test valida que el DTO rechaza valores > 100
