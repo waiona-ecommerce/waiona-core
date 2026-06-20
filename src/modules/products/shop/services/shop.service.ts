@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, FindOptionsWhere } from 'typeorm';
+import { Repository, ILike, In, FindOptionsWhere } from 'typeorm';
 
 import { ProductEntity } from '../../product/entities/product.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
@@ -24,8 +24,6 @@ import { CalculationService } from '../../../pricing/calculation/services/calcul
 import { StockItemsService } from '../../../stocks/stock-item/services/stock-item.service';
 import { PriceBreakdownDto } from '../../../pricing/calculation/dto/price-breakdown.dto';
 import { StockItemEntity } from '../../../stocks/stock-item/entities/stock-item.entity';
-
-const PRICE_FILTER_SCAN_LIMIT = 500;
 
 @Injectable()
 export class ShopService {
@@ -62,7 +60,11 @@ export class ShopService {
 
     for (const cat of all) {
       if (cat.parentId != null) {
-        map.get(cat.parentId)?.children?.push(cat);
+        const parent = map.get(cat.parentId);
+        if (parent) {
+          parent.children!.push(cat);
+        }
+        // padre inactivo o ausente → no mostrar en el shop
       } else {
         roots.push(cat);
       }
@@ -95,7 +97,21 @@ export class ShopService {
     }
 
     const skip = (page - 1) * limit;
-    const hasPriceFilter = minPrice !== undefined || maxPrice !== undefined;
+
+    // Recolectar IDs de la categoría y todos sus descendientes activos
+    let categoryIds: number[] | undefined;
+    if (categoryId) {
+      const allCategories = await this.categoryRepository.find({
+        where: { isActive: true },
+        select: ['id', 'parentId'],
+      });
+      if (!allCategories.some((c) => c.id === categoryId)) {
+        throw new NotFoundException(
+          `Categoría con id ${categoryId} no encontrada`,
+        );
+      }
+      categoryIds = this.collectDescendantIds(categoryId, allCategories);
+    }
 
     type Candidate =
       | { kind: 'product'; entity: ProductEntity }
@@ -106,7 +122,7 @@ export class ShopService {
     if (!type || type === 'product') {
       const where: FindOptionsWhere<ProductEntity> = { isActive: true };
       if (search) where.name = ILike(`%${search}%`);
-      if (categoryId) where.categoryId = categoryId;
+      if (categoryIds) where.categoryId = In(categoryIds);
       const products = await this.productRepository.find({
         where,
         relations: ['images', 'category'],
@@ -120,7 +136,7 @@ export class ShopService {
     if (!type || type === 'combo') {
       const where: FindOptionsWhere<ComboEntity> = { isActive: true };
       if (search) where.name = ILike(`%${search}%`);
-      if (categoryId) where.categoryId = categoryId;
+      if (categoryIds) where.categoryId = In(categoryIds);
       const combos = await this.comboRepository.find({
         where,
         relations: ['images', 'category'],
@@ -133,21 +149,16 @@ export class ShopService {
 
     candidates.sort((a, b) => a.entity.name.localeCompare(b.entity.name));
 
-    if (hasPriceFilter && candidates.length > PRICE_FILTER_SCAN_LIMIT) {
-      candidates.length = PRICE_FILTER_SCAN_LIMIT;
-    }
-
-    let result: ShopPaginatedResponseDto;
+    const hasPriceFilter = minPrice !== undefined || maxPrice !== undefined;
 
     if (!hasPriceFilter) {
-      // Sin filtro de precio: paginamos primero y calculamos solo los items de la página
       const total = candidates.length;
       const totalPages = Math.ceil(total / limit);
-      const page_slice = candidates.slice(skip, skip + limit);
+      const pageSlice = candidates.slice(skip, skip + limit);
 
       const data = (
         await Promise.all(
-          page_slice.map((c) =>
+          pageSlice.map((c) =>
             c.kind === 'product'
               ? this.buildProductListItem(c.entity, undefined, undefined)
               : this.buildComboListItem(c.entity, undefined, undefined),
@@ -155,39 +166,30 @@ export class ShopService {
         )
       ).filter((i): i is ShopItemResponseDto => i !== null);
 
-      result = {
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        data,
-      };
-    } else {
-      // Con filtro de precio: hay que calcular todos para saber cuáles pasan el filtro
-      const allItems = (
-        await Promise.all(
-          candidates.map((c) =>
-            c.kind === 'product'
-              ? this.buildProductListItem(c.entity, minPrice, maxPrice)
-              : this.buildComboListItem(c.entity, minPrice, maxPrice),
-          ),
-        )
-      ).filter((i): i is ShopItemResponseDto => i !== null);
-
-      const total = allItems.length;
-      const totalPages = Math.ceil(total / limit);
-      result = {
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        data: allItems.slice(skip, skip + limit),
-      };
+      return { total, page, limit, totalPages, hasNextPage: page < totalPages, data };
     }
 
-    return result;
+    const allItems = (
+      await Promise.all(
+        candidates.map((c) =>
+          c.kind === 'product'
+            ? this.buildProductListItem(c.entity, minPrice, maxPrice)
+            : this.buildComboListItem(c.entity, minPrice, maxPrice),
+        ),
+      )
+    ).filter((i): i is ShopItemResponseDto => i !== null);
+
+    const total = allItems.length;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      data: allItems.slice(skip, skip + limit),
+    };
   }
 
   // ==========================
@@ -366,7 +368,13 @@ export class ShopService {
       hasDiscount: priceData.discount > 0,
       inStock: comboStock?.inStock ?? false,
       quantityAvailable: comboStock?.quantityAvailable ?? 0,
-      stockStatus: comboStock?.inStock ? 'available' : 'out_of_stock',
+      stockStatus: comboStock
+        ? this.resolveStockStatusFromValues(
+            comboStock.quantityAvailable,
+            comboStock.stockCritical,
+            comboStock.stockMin,
+          )
+        : 'out_of_stock',
       category: combo.category?.name,
       images,
       items,
@@ -407,9 +415,12 @@ export class ShopService {
     }
   }
 
-  private async safeGetStockByCombo(
-    comboId: number,
-  ): Promise<{ quantityAvailable: number; inStock: boolean } | null> {
+  private async safeGetStockByCombo(comboId: number): Promise<{
+    quantityAvailable: number;
+    inStock: boolean;
+    stockMin: number;
+    stockCritical: number;
+  } | null> {
     try {
       return await this.stockItemsService.findByCombo(comboId);
     } catch {
@@ -421,12 +432,45 @@ export class ShopService {
   // PRIVATE — STOCK STATUS
   // ==========================
 
+  private resolveStockStatusFromValues(
+    quantityAvailable: number,
+    stockCritical: number,
+    stockMin: number,
+  ): 'available' | 'low' | 'critical' | 'out_of_stock' {
+    if (quantityAvailable <= 0) return 'out_of_stock';
+    if (quantityAvailable <= stockCritical) return 'critical';
+    if (quantityAvailable <= stockMin) return 'low';
+    return 'available';
+  }
+
   private resolveStockStatus(
     stock: StockItemEntity | null,
   ): 'available' | 'low' | 'critical' | 'out_of_stock' {
-    if (!stock || stock.quantityAvailable <= 0) return 'out_of_stock';
-    if (stock.quantityAvailable <= stock.stockCritical) return 'critical';
-    if (stock.quantityAvailable <= stock.stockMin) return 'low';
-    return 'available';
+    if (!stock) return 'out_of_stock';
+    return this.resolveStockStatusFromValues(
+      stock.quantityAvailable,
+      stock.stockCritical,
+      stock.stockMin,
+    );
+  }
+
+  private collectDescendantIds(
+    rootId: number,
+    allCategories: { id: number; parentId?: number | null }[],
+  ): number[] {
+    const ids = [rootId];
+    const visited = new Set<number>([rootId]);
+    const queue = [rootId];
+    while (queue.length) {
+      const parentId = queue.shift()!;
+      for (const cat of allCategories) {
+        if (cat.parentId === parentId && !visited.has(cat.id)) {
+          ids.push(cat.id);
+          visited.add(cat.id);
+          queue.push(cat.id);
+        }
+      }
+    }
+    return ids;
   }
 }

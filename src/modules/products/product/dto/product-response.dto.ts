@@ -27,9 +27,10 @@ export class ProductResponseDto {
     this.categoryName = entity.category?.name ?? ''; // ok si se carga la relación
 
     this.measurementUnit = entity.measurementUnit;
-    this.measurementValue = entity.measurementValue
-      ? Number(entity.measurementValue)
-      : undefined;
+    this.measurementValue =
+      entity.measurementValue != null
+        ? Number(entity.measurementValue)
+        : undefined;
 
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;

@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 
 import { ProductEntity } from '../entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
+import { ComboItemEntity } from '../../combos/entities/combo-item.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -23,6 +24,9 @@ export class ProductService {
 
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
+
+    @InjectRepository(ComboItemEntity)
+    private readonly comboItemRepository: Repository<ComboItemEntity>,
   ) {}
 
   // ==========================
@@ -68,10 +72,7 @@ export class ProductService {
     await this.validateCategoryExists(dto.categoryId);
 
     const existingSku = await this.productRepository.findOne({
-      where: {
-        sku: dto.sku,
-      },
-      withDeleted: true,
+      where: { sku: dto.sku },
     });
 
     if (existingSku) {
@@ -107,10 +108,7 @@ export class ProductService {
 
     if (changes.sku && changes.sku !== product.sku) {
       const existingSku = await this.productRepository.findOne({
-        where: {
-          sku: changes.sku,
-        },
-        withDeleted: true,
+        where: { sku: changes.sku },
       });
 
       if (existingSku) {
@@ -134,6 +132,15 @@ export class ProductService {
 
   async delete(id: number): Promise<void> {
     const product = await this.findOne(id);
+
+    const comboItemCount = await this.comboItemRepository.count({
+      where: { productId: id },
+    });
+    if (comboItemCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar: el producto está incluido en ${comboItemCount} combo(s)`,
+      );
+    }
 
     await this.productRepository.softDelete(product.id);
   }

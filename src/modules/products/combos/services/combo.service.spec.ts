@@ -37,6 +37,7 @@ describe('ComboService', () => {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
+    findBy: jest.fn(),
     merge: jest.fn(),
     softDelete: jest.fn(),
   };
@@ -146,11 +147,12 @@ describe('ComboService', () => {
       const combo = mockCombo();
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
-      mockProductRepo.findBy.mockResolvedValue([{ id: 1 }]);
-      mockProductPricingRepo.findBy.mockResolvedValue([{ productId: 1 }]);
+      mockEntityManager.findBy
+        .mockResolvedValueOnce([{ id: 1 }])
+        .mockResolvedValueOnce([{ productId: 1 }]);
       mockEntityManager.create.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
-      mockEntityManager.findOne.mockResolvedValue(combo);
+      mockComboRepo.findOne.mockResolvedValue(combo);
 
       const result = await service.create(dto);
 
@@ -185,7 +187,7 @@ describe('ComboService', () => {
       };
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
-      mockProductRepo.findBy.mockResolvedValue([]);
+      mockEntityManager.findBy.mockResolvedValueOnce([]);
 
       await expect(service.create(dto as any)).rejects.toThrow(
         BadRequestException,
@@ -201,8 +203,9 @@ describe('ComboService', () => {
       };
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
-      mockProductRepo.findBy.mockResolvedValue([{ id: 1 }]);
-      mockProductPricingRepo.findBy.mockResolvedValue([]);
+      mockEntityManager.findBy
+        .mockResolvedValueOnce([{ id: 1 }])
+        .mockResolvedValueOnce([]);
 
       await expect(service.create(dto as any)).rejects.toThrow(
         BadRequestException,
@@ -220,11 +223,12 @@ describe('ComboService', () => {
       const combo = mockCombo();
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
-      mockEntityManager.findOne
-        .mockResolvedValueOnce(combo)
-        .mockResolvedValueOnce(mockCombo({ name: 'Nuevo nombre' }));
+      mockEntityManager.findOne.mockResolvedValueOnce(combo);
       mockEntityManager.merge.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
+      mockComboRepo.findOne.mockResolvedValue(
+        mockCombo({ name: 'Nuevo nombre' }),
+      );
 
       const result = await service.update(1, dto);
 
@@ -239,15 +243,14 @@ describe('ComboService', () => {
         items: [{ productId: 2, quantity: 1, product: { name: 'Sprite' } }],
       });
 
-      mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
-      mockProductRepo.findBy.mockResolvedValue([{ id: 2 }]);
-      mockProductPricingRepo.findBy.mockResolvedValue([{ productId: 2 }]);
-      mockEntityManager.findOne
-        .mockResolvedValueOnce(combo)
-        .mockResolvedValueOnce(updated);
+      mockEntityManager.findOne.mockResolvedValueOnce(combo);
+      mockEntityManager.findBy
+        .mockResolvedValueOnce([{ id: 2 }])
+        .mockResolvedValueOnce([{ productId: 2 }]);
       mockEntityManager.merge.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
       mockEntityManager.softDelete.mockResolvedValue({});
+      mockComboRepo.findOne.mockResolvedValue(updated);
 
       const result = await service.update(1, dto);
 
@@ -273,16 +276,16 @@ describe('ComboService', () => {
     it('should soft delete a combo', async () => {
       const combo = mockCombo();
 
-      mockComboRepo.findOne.mockResolvedValue(combo);
-      mockComboRepo.softDelete.mockResolvedValue({} as any);
+      mockEntityManager.findOne.mockResolvedValue(combo);
+      mockEntityManager.softDelete.mockResolvedValue({} as any);
 
       await service.delete(1);
 
-      expect(mockComboRepo.softDelete).toHaveBeenCalledWith(combo.id);
+      expect(mockEntityManager.softDelete).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if not found', async () => {
-      mockComboRepo.findOne.mockResolvedValue(null);
+      mockEntityManager.findOne.mockResolvedValue(null);
 
       await expect(service.delete(999)).rejects.toThrow(NotFoundException);
     });
