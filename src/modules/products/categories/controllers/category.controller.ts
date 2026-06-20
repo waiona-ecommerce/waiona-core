@@ -123,7 +123,7 @@ export class CategoryController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Datos inválidos o jerarquía circular detectada',
+    description: 'Datos inválidos',
   })
   @ApiResponse({ status: 404, description: 'Categoría no encontrada' })
   async update(

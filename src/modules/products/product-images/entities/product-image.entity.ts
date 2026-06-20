@@ -5,7 +5,6 @@ import { ProductEntity } from '../../product/entities/product.entity';
 
 @Entity('product_images')
 @Index(['productId'])
-@Index(['productId', 'position'], { unique: true })
 export class ProductImageEntity extends BaseEntity {
   @Column({ name: 'product_id' })
   productId: number;
