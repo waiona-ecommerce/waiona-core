@@ -166,7 +166,14 @@ export class ShopService {
         )
       ).filter((i): i is ShopItemResponseDto => i !== null);
 
-      return { total, page, limit, totalPages, hasNextPage: page < totalPages, data };
+      return {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        data,
+      };
     }
 
     const allItems = (

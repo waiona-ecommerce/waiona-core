@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsString, IsOptional, MaxLength, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -29,5 +24,4 @@ export class UpdateCategoryDto {
     message: 'La descripción no puede superar los 255 caracteres',
   })
   description?: string;
-
 }
