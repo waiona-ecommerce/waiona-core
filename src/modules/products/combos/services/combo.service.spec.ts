@@ -152,7 +152,7 @@ describe('ComboService', () => {
         .mockResolvedValueOnce([{ productId: 1 }]);
       mockEntityManager.create.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
-      mockComboRepo.findOne.mockResolvedValue(combo);
+      mockEntityManager.findOne.mockResolvedValueOnce(combo);
 
       const result = await service.create(dto);
 
@@ -223,12 +223,11 @@ describe('ComboService', () => {
       const combo = mockCombo();
 
       mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
-      mockEntityManager.findOne.mockResolvedValueOnce(combo);
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(combo)
+        .mockResolvedValueOnce(mockCombo({ name: 'Nuevo nombre' }));
       mockEntityManager.merge.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
-      mockComboRepo.findOne.mockResolvedValue(
-        mockCombo({ name: 'Nuevo nombre' }),
-      );
 
       const result = await service.update(1, dto);
 
@@ -243,14 +242,15 @@ describe('ComboService', () => {
         items: [{ productId: 2, quantity: 1, product: { name: 'Sprite' } }],
       });
 
-      mockEntityManager.findOne.mockResolvedValueOnce(combo);
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(combo)
+        .mockResolvedValueOnce(updated);
       mockEntityManager.findBy
         .mockResolvedValueOnce([{ id: 2 }])
         .mockResolvedValueOnce([{ productId: 2 }]);
       mockEntityManager.merge.mockReturnValue(combo);
       mockEntityManager.save.mockResolvedValue(combo);
       mockEntityManager.softDelete.mockResolvedValue({});
-      mockComboRepo.findOne.mockResolvedValue(updated);
 
       const result = await service.update(1, dto);
 

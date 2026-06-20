@@ -85,7 +85,7 @@ export class CategoryService {
     const entity = this.categoryRepository.create({
       name: dto.name,
       description: dto.description,
-      isActive: dto.isActive ?? true,
+      isActive: true,
       parentId: parent ? parent.id : null,
     });
 

@@ -48,8 +48,18 @@ export class ProductSkuPartialUniqueIndex1781930000000 implements MigrationInter
   async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_products_sku_active"`);
 
-    await queryRunner.query(
-      `ALTER TABLE "products" ADD CONSTRAINT "UQ_products_sku" UNIQUE ("sku")`,
-    );
+    await queryRunner.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM products
+          GROUP BY sku HAVING COUNT(*) > 1
+        ) THEN
+          ALTER TABLE "products" ADD CONSTRAINT "UQ_products_sku" UNIQUE ("sku");
+        ELSE
+          RAISE NOTICE 'Constraint único en products.sku no restaurado: existen SKUs duplicados entre registros eliminados y activos.';
+        END IF;
+      END $$
+    `);
   }
 }

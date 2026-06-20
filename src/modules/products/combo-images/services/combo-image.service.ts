@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
+import { Repository, Not, QueryFailedError } from 'typeorm';
 
 import { ComboImageEntity } from '../entities/combo-image.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
@@ -122,20 +122,23 @@ export class ComboImageService {
 
     try {
       await this.assertPositionFree(dto.comboId, dto.position);
+      const image = this.comboImageRepository.create({
+        comboId: dto.comboId,
+        position: dto.position,
+        url,
+        publicId,
+      });
+      const saved = await this.comboImageRepository.save(image);
+      return new ComboImageResponseDto(saved);
     } catch (err) {
       await this.storageService.delete(publicId);
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este combo`,
+        );
+      }
       throw err;
     }
-
-    const image = this.comboImageRepository.create({
-      comboId: dto.comboId,
-      position: dto.position,
-      url,
-      publicId,
-    });
-    const saved = await this.comboImageRepository.save(image);
-
-    return new ComboImageResponseDto(saved);
   }
 
   // ==========================

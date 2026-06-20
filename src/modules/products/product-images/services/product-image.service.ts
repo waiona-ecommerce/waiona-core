@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
+import { Repository, Not, QueryFailedError } from 'typeorm';
 
 import { ProductImageEntity } from '../entities/product-image.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
@@ -128,20 +128,23 @@ export class ProductImageService {
 
     try {
       await this.assertPositionFree(dto.productId, dto.position);
+      const image = this.productImageRepository.create({
+        productId: dto.productId,
+        position: dto.position,
+        url,
+        publicId,
+      });
+      const saved = await this.productImageRepository.save(image);
+      return new ProductImageResponseDto(saved);
     } catch (err) {
       await this.storageService.delete(publicId);
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este producto`,
+        );
+      }
       throw err;
     }
-
-    const image = this.productImageRepository.create({
-      productId: dto.productId,
-      position: dto.position,
-      url,
-      publicId,
-    });
-    const saved = await this.productImageRepository.save(image);
-
-    return new ProductImageResponseDto(saved);
   }
 
   // ==========================

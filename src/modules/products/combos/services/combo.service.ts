@@ -80,17 +80,17 @@ export class ComboService {
   async create(dto: CreateComboDto): Promise<ComboResponseDto> {
     await this.validateCategoryExists(dto.categoryId);
 
-    const savedId = await this.dataSource.transaction(async (manager) => {
+    const combo = await this.dataSource.transaction(async (manager) => {
       await this.validateItems(dto.items, manager);
 
-      const combo = manager.create(ComboEntity, {
+      const entity = manager.create(ComboEntity, {
         name: dto.name,
         description: dto.description,
         isActive: dto.isActive ?? true,
         categoryId: dto.categoryId,
       });
 
-      const savedCombo = await manager.save(combo);
+      const savedCombo = await manager.save(entity);
 
       const items = dto.items.map((item) =>
         manager.create(ComboItemEntity, {
@@ -101,10 +101,14 @@ export class ComboService {
       );
 
       await manager.save(items);
-      return savedCombo.id;
+
+      return manager.findOne(ComboEntity, {
+        where: { id: savedCombo.id },
+        relations: ['category', 'items', 'items.product'],
+      });
     });
 
-    return new ComboResponseDto(await this.findOne(savedId));
+    return new ComboResponseDto(combo!);
   }
 
   // ==========================
@@ -116,32 +120,32 @@ export class ComboService {
       await this.validateCategoryExists(dto.categoryId);
     }
 
-    await this.dataSource.transaction(async (manager) => {
-      const combo = await manager.findOne(ComboEntity, {
+    const combo = await this.dataSource.transaction(async (manager) => {
+      const entity = await manager.findOne(ComboEntity, {
         where: { id },
       });
 
-      if (!combo) {
+      if (!entity) {
         throw new NotFoundException(`Combo con id ${id} no encontrado`);
       }
 
-      manager.merge(ComboEntity, combo, {
-        name: dto.name ?? combo.name,
-        description: dto.description ?? combo.description,
-        isActive: dto.isActive ?? combo.isActive,
-        categoryId: dto.categoryId ?? combo.categoryId,
+      manager.merge(ComboEntity, entity, {
+        name: dto.name ?? entity.name,
+        description: dto.description ?? entity.description,
+        isActive: dto.isActive ?? entity.isActive,
+        categoryId: dto.categoryId ?? entity.categoryId,
       });
 
-      await manager.save(combo);
+      await manager.save(entity);
 
       if (dto.items) {
         await this.validateItems(dto.items, manager);
 
-        await manager.softDelete(ComboItemEntity, { comboId: combo.id });
+        await manager.softDelete(ComboItemEntity, { comboId: entity.id });
 
         const newItems = dto.items.map((item) =>
           manager.create(ComboItemEntity, {
-            comboId: combo.id,
+            comboId: entity.id,
             productId: item.productId,
             quantity: item.quantity,
           }),
@@ -149,9 +153,14 @@ export class ComboService {
 
         await manager.save(newItems);
       }
+
+      return manager.findOne(ComboEntity, {
+        where: { id: entity.id },
+        relations: ['category', 'items', 'items.product'],
+      });
     });
 
-    return new ComboResponseDto(await this.findOne(id));
+    return new ComboResponseDto(combo!);
   }
 
   // ==========================

@@ -1,7 +1,6 @@
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   IsInt,
   Min,
   MaxLength,
@@ -34,11 +33,6 @@ export class CreateCategoryDto {
     message: 'La descripción no puede superar los 255 caracteres',
   })
   description?: string;
-
-  @ApiPropertyOptional({ example: true, default: true })
-  @IsOptional()
-  @IsBoolean({ message: 'isActive debe ser un valor booleano' })
-  isActive?: boolean;
 
   @ApiPropertyOptional({ example: 1, minimum: 1, nullable: true })
   @IsOptional()
