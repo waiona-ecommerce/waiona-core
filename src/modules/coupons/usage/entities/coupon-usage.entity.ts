@@ -5,6 +5,7 @@ import { UserEntity } from '../../../users/entities/user.entity';
 import { OrderEntity } from '../../../orders/entities/order.entity';
 
 @Entity('coupon_usages')
+@Index(['couponId', 'userId'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['couponId'])
 @Index(['orderId'])
 @Index(['userId'])

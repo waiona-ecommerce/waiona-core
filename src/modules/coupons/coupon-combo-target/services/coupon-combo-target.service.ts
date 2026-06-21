@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { CouponComboTargetEntity } from '../entities/coupon-combo-target.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
@@ -44,9 +44,17 @@ export class CouponComboTargetService {
       comboId: dto.comboId,
     });
 
-    const saved = await this.repo.save(entity);
-
-    return new CouponComboTargetResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new CouponComboTargetResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `El combo ${dto.comboId} ya es un target del cupón ${couponId}`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================

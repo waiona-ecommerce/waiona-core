@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { CouponEntity } from '../entities/coupon.entity';
+import { CouponUsageEntity } from '../../usage/entities/coupon-usage.entity';
 import { CreateCouponDto } from '../dto/create-coupon.dto';
 import { UpdateCouponDto } from '../dto/update-coupon.dto';
 import { CouponResponseDto } from '../dto/coupon-response.dto';
@@ -19,6 +20,9 @@ export class CouponService {
   constructor(
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
+
+    @InjectRepository(CouponUsageEntity)
+    private readonly usageRepository: Repository<CouponUsageEntity>,
   ) {}
 
   // ==========================
@@ -39,9 +43,17 @@ export class CouponService {
       value: dto.value,
     });
 
-    const saved = await this.couponRepository.save(coupon);
-
-    return new CouponResponseDto(saved);
+    try {
+      const saved = await this.couponRepository.save(coupon);
+      return new CouponResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un cupón con el código "${dto.code}"`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -113,9 +125,17 @@ export class CouponService {
     coupon.startsAt = startsAt ?? null;
     coupon.endsAt = endsAt ?? null;
 
-    const updated = await this.couponRepository.save(coupon);
-
-    return new CouponResponseDto(updated);
+    try {
+      const updated = await this.couponRepository.save(coupon);
+      return new CouponResponseDto(updated);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un cupón con el código "${coupon.code}"`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -124,6 +144,16 @@ export class CouponService {
 
   async remove(id: number): Promise<void> {
     const coupon = await this.findEntity(id);
+
+    const usage = await this.usageRepository.findOne({
+      where: { couponId: coupon.id },
+    });
+    if (usage) {
+      throw new ConflictException(
+        'El cupón ya fue utilizado en una o más órdenes y no puede eliminarse',
+      );
+    }
+
     await this.couponRepository.softDelete(coupon.id);
   }
 

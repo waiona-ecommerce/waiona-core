@@ -2,6 +2,7 @@ import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../../../common/entities/base.entity';
 
 @Entity('coupons')
+@Index(['code'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['startsAt'])
 @Index(['endsAt'])
 export class CouponEntity extends BaseEntity {

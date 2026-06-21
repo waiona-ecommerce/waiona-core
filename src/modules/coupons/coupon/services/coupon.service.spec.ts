@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { CouponService } from '../../../coupons/coupon/services/coupon.service';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
+import { CouponUsageEntity } from '../../../coupons/usage/entities/coupon-usage.entity';
 import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
 
 describe('CouponService', () => {
@@ -21,6 +22,10 @@ describe('CouponService', () => {
     softDelete: jest.fn(),
   });
 
+  const mockUsageRepo = () => ({
+    findOne: jest.fn(),
+  });
+
   const mockCoupon = (overrides = {}): CouponEntity =>
     ({
       id: 1,
@@ -29,7 +34,7 @@ describe('CouponService', () => {
       isGlobal: true,
       usageLimit: 100,
       usageCount: 0,
-      isDeleted: false,
+      deletedAt: null,
       startsAt: null,
       endsAt: null,
       createdAt: new Date(),
@@ -42,6 +47,10 @@ describe('CouponService', () => {
       providers: [
         CouponService,
         { provide: getRepositoryToken(CouponEntity), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(CouponUsageEntity),
+          useFactory: mockUsageRepo,
+        },
       ],
     }).compile();
 
@@ -51,6 +60,7 @@ describe('CouponService', () => {
   afterEach(() => jest.clearAllMocks());
 
   const repo = () => (service as any).couponRepository;
+  const usageRepo = () => (service as any).usageRepository;
 
   describe('create', () => {
     const dto = {
@@ -62,7 +72,7 @@ describe('CouponService', () => {
 
     it('should create a coupon', async () => {
       const coupon = mockCoupon();
-      repo().findOne.mockResolvedValue(null); // código no existe
+      repo().findOne.mockResolvedValue(null);
       repo().create.mockReturnValue(coupon);
       repo().save.mockResolvedValue(coupon);
 
@@ -80,8 +90,6 @@ describe('CouponService', () => {
     });
 
     it('should throw BadRequestException if value > 100', () => {
-      // El DTO ya bloquea esto con @Max(100), pero si llega al servicio también falla en la fecha
-      // Este test valida que el DTO rechaza valores > 100
       expect(dto.value).toBeLessThanOrEqual(100);
     });
 
@@ -155,8 +163,8 @@ describe('CouponService', () => {
 
     it('should throw ConflictException if new code already exists', async () => {
       repo()
-        .findOne.mockResolvedValueOnce(mockCoupon({ code: 'OLD' })) // findEntity
-        .mockResolvedValueOnce(mockCoupon({ code: 'TAKEN' })); // validateUniqueCode
+        .findOne.mockResolvedValueOnce(mockCoupon({ code: 'OLD' }))
+        .mockResolvedValueOnce(mockCoupon({ code: 'TAKEN' }));
       await expect(service.update(1, { code: 'TAKEN' } as any)).rejects.toThrow(
         ConflictException,
       );
@@ -171,15 +179,31 @@ describe('CouponService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete a coupon', async () => {
+    it('should soft delete a coupon when no usages exist', async () => {
       const coupon = mockCoupon();
       repo().findOne.mockResolvedValue(coupon);
+      usageRepo().findOne.mockResolvedValue(null);
       repo().softDelete.mockResolvedValue(undefined);
+
       await service.remove(1);
+
       expect(repo().softDelete).toHaveBeenCalledWith(coupon.id);
     });
 
-    it('should throw NotFoundException', async () => {
+    it('should throw ConflictException if coupon has usages', async () => {
+      const coupon = mockCoupon();
+      repo().findOne.mockResolvedValue(coupon);
+      usageRepo().findOne.mockResolvedValue({
+        id: 1,
+        couponId: 1,
+        userId: 1,
+        orderId: 1,
+      });
+
+      await expect(service.remove(1)).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw NotFoundException if coupon not found', async () => {
       repo().findOne.mockResolvedValue(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });

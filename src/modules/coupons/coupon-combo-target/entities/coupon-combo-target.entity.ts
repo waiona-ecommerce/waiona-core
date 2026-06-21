@@ -3,6 +3,7 @@ import { BaseEntity } from '../../../../common/entities/base.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
 
 @Entity('coupon_combo_targets')
+@Index(['couponId', 'comboId'], { unique: true, where: '"deleted_at" IS NULL' })
 @Index(['couponId'])
 @Index(['comboId'])
 export class CouponComboTargetEntity extends BaseEntity {

@@ -5,9 +5,10 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import { CouponUsageEntity } from '../entities/coupon-usage.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
+import { UserEntity } from '../../../users/entities/user.entity';
 import { CouponUsageResponseDto } from '../dto/coupon-usage-response.dto';
 import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
@@ -20,6 +21,9 @@ export class CouponUsageService {
 
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
+
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -72,7 +76,15 @@ export class CouponUsageService {
         userId: dto.userId,
         appliedAt: now,
       });
-      await manager.save(newUsage);
+
+      try {
+        await manager.save(newUsage);
+      } catch (err) {
+        if (err instanceof QueryFailedError) {
+          throw new ConflictException('El usuario ya utilizó este cupón');
+        }
+        throw err;
+      }
 
       coupon.usageCount += 1;
       await manager.save(coupon);
@@ -128,6 +140,11 @@ export class CouponUsageService {
   // ==========================
 
   async findByUser(userId: number): Promise<CouponUsageResponseDto[]> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`Usuario con id ${userId} no encontrado`);
+    }
+
     const usages = await this.repo.find({
       where: { userId },
       order: { createdAt: 'DESC' },
