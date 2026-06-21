@@ -59,7 +59,6 @@ export class CouponEntity extends BaseEntity {
     default: 0,
   })
   usageCount: number;
-
   // ==========================
   // FECHAS
   // ==========================
