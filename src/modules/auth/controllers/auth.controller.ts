@@ -16,8 +16,9 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 import { AuthService } from '../services/auth.service';
-import { UserEntity } from '../../users/entities/user.entity';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
+import { UserResponseDto } from '../../users/dto/user-response.dto';
+import { UserEntity } from '../../users/entities/user.entity';
 import { ForgotPasswordDto } from '../../mail/dto/forgot-password.dto';
 import { ResetPasswordDto } from '../../mail/dto/reset-password.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
@@ -86,13 +87,13 @@ export class AuthController {
     description: 'Credenciales inválidas o cuenta no activada',
   })
   async login(@Req() req: Request): Promise<{
-    user: UserEntity;
+    user: UserResponseDto;
     access_token: string;
     refresh_token: string;
   }> {
     const user = req.user as UserEntity;
     const tokens = await this.authService.login(user);
-    return { user, ...tokens };
+    return { user: new UserResponseDto(user), ...tokens };
   }
 
   // ==========================

@@ -84,6 +84,38 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendOrderDispatchedEmail', () => {
+    it('should enqueue SEND_ORDER_DISPATCHED job with correct data', async () => {
+      await service.sendOrderDispatchedEmail('u@t.com', 'Ana', 42);
+
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_ORDER_DISPATCHED,
+        expect.objectContaining({
+          to: 'u@t.com',
+          orderId: 42,
+          orderUrl: 'http://localhost:4200/orders/42',
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  describe('sendOrderDeliveredEmail', () => {
+    it('should enqueue SEND_ORDER_DELIVERED job with review URL', async () => {
+      await service.sendOrderDeliveredEmail('u@t.com', 'Ana', 42);
+
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        MailJobType.SEND_ORDER_DELIVERED,
+        expect.objectContaining({
+          to: 'u@t.com',
+          orderId: 42,
+          orderUrl: 'http://localhost:4200/orders/42/review',
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
   describe('sendOrderCancelledEmail', () => {
     it('should enqueue SEND_ORDER_CANCELLED job', async () => {
       await service.sendOrderCancelledEmail('u@t.com', 'Ana', 42);

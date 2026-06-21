@@ -19,6 +19,7 @@ import {
   OrderCancelledJobData,
   StockAlertJobData,
 } from '../mail.constants';
+import { escapeHtml } from '../../../common/utils/html-escape';
 
 @Processor(MAIL_QUEUE)
 export class MailProcessor {
@@ -109,14 +110,16 @@ export class MailProcessor {
       threshold,
       adminEmail,
     } = job.data as StockAlertJobData;
+    const safeProduct = escapeHtml(productName);
+    const safeLocation = escapeHtml(locationName);
     await this.resend.emails.send({
       from: this.from,
       to: adminEmail,
-      subject: `Stock crítico: ${productName}`,
+      subject: `Stock crítico: ${safeProduct}`,
       html: `
         <h2>Alerta de stock crítico</h2>
-        <p><strong>Producto:</strong> ${productName}</p>
-        <p><strong>Depósito:</strong> ${locationName}</p>
+        <p><strong>Producto:</strong> ${safeProduct}</p>
+        <p><strong>Depósito:</strong> ${safeLocation}</p>
         <p><strong>Stock disponible:</strong> ${quantityAvailable} unidades</p>
         <p><strong>Umbral crítico:</strong> ${threshold} unidades</p>
         <p>Por favor, reabastezca el stock a la brevedad.</p>
