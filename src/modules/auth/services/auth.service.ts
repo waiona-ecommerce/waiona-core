@@ -78,19 +78,46 @@ export class AuthService {
   async refresh(
     rawToken: string,
   ): Promise<{ access_token: string; refresh_token: string }> {
-    const tokenEntity = await this.findValidRefreshToken(rawToken);
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(RefreshTokenEntity);
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
-    // Emitir nuevos tokens ANTES de revocar el viejo — si algo falla al emitir,
-    // el cliente conserva el token anterior y puede reintentar.
-    const user = await this.usersService.findOne(tokenEntity.userId);
-    const payload: Payload = { sub: user.id, role: user.role };
-    const access_token = this.jwtService.sign(payload);
-    const refresh_token = await this.issueRefreshToken(user.id);
+      const tokenEntity = await repo.findOne({
+        where: { tokenHash },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    tokenEntity.revokedAt = new Date();
-    await this.refreshTokenRepo.save(tokenEntity);
+      if (!tokenEntity)
+        throw new UnauthorizedException('Token de refresco inválido');
+      if (tokenEntity.isRevoked)
+        throw new UnauthorizedException('El token de refresco fue revocado');
+      if (tokenEntity.isExpired)
+        throw new UnauthorizedException('El token de refresco ha expirado');
 
-    return { access_token, refresh_token };
+      // Revocar dentro del lock: si algo falla después, la transacción
+      // hace rollback y el token viejo queda válido → el cliente puede reintentar.
+      tokenEntity.revokedAt = new Date();
+      await repo.save(tokenEntity);
+
+      const user = await this.usersService.findOne(tokenEntity.userId);
+      const payload: Payload = { sub: user.id, role: user.role };
+      const access_token = this.jwtService.sign(payload);
+
+      const raw = randomBytes(64).toString('hex');
+      const newTokenHash = createHash('sha256').update(raw).digest('hex');
+      const expiresAt = new Date(
+        Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
+      );
+      const newEntity = repo.create({
+        userId: user.id,
+        tokenHash: newTokenHash,
+        expiresAt,
+        revokedAt: null,
+      });
+      await repo.save(newEntity);
+
+      return { access_token, refresh_token: raw };
+    });
   }
 
   // ==========================
@@ -141,8 +168,9 @@ export class AuthService {
 
   async activateAccount(token: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
+      const tokenHash = createHash('sha256').update(token).digest('hex');
       const tokenEntity = await manager.findOne(TokenEntity, {
-        where: { token, type: TokenType.ACCOUNT_ACTIVATION },
+        where: { tokenHash, type: TokenType.ACCOUNT_ACTIVATION },
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -203,12 +231,14 @@ export class AuthService {
       TokenType.PASSWORD_RESET,
     );
 
-    await this.usersService.updatePassword(tokenEntity.userId, dto.password);
-
+    // Invalidar primero: si el update de password falla, el token queda quemado
+    // y no puede reutilizarse. Es más seguro que el orden inverso.
     await this.tokenRepo.update(
       { userId: tokenEntity.userId, type: TokenType.PASSWORD_RESET },
       { usedAt: new Date() },
     );
+
+    await this.usersService.updatePassword(tokenEntity.userId, dto.password);
   }
 
   // ==========================
@@ -294,10 +324,11 @@ export class AuthService {
     expiresInHours: number,
   ): Promise<string> {
     const raw = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(raw).digest('hex');
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
     const tokenEntity = this.tokenRepo.create({
-      token: raw,
+      tokenHash,
       type,
       userId,
       expiresAt,
@@ -316,8 +347,9 @@ export class AuthService {
     raw: string,
     type: TokenType,
   ): Promise<TokenEntity> {
+    const tokenHash = createHash('sha256').update(raw).digest('hex');
     const tokenEntity = await this.tokenRepo.findOne({
-      where: { token: raw, type },
+      where: { tokenHash, type },
     });
 
     if (!tokenEntity)

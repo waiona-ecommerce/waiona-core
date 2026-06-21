@@ -1,6 +1,8 @@
 import { EMAIL_THEME } from '../../../common/theme/email-theme';
+import { escapeHtml } from '../../../common/utils/html-escape';
 
 export function resetPasswordTemplate(name: string, url: string): string {
+  const safeName = escapeHtml(name);
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -26,7 +28,7 @@ export function resetPasswordTemplate(name: string, url: string): string {
           <tr>
             <td style="padding:40px;">
               <h2 style="margin:0 0 20px;color:${EMAIL_THEME.colors.primary};">
-                Hola ${name}
+                Hola ${safeName}
               </h2>
 
               <p style="color:${EMAIL_THEME.colors.text};line-height:1.6;margin:0 0 24px;">

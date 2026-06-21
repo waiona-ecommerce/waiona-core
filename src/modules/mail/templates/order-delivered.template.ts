@@ -1,10 +1,12 @@
 import { EMAIL_THEME } from '../../../common/theme/email-theme';
+import { escapeHtml } from '../../../common/utils/html-escape';
 
 export function orderDeliveredTemplate(
   name: string,
   orderId: number,
   reviewUrl: string,
 ): string {
+  const safeName = escapeHtml(name);
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -36,7 +38,7 @@ export function orderDeliveredTemplate(
               </h2>
 
               <p style="color:${EMAIL_THEME.colors.text};line-height:1.6;margin:0 0 8px;">
-                Hola <strong>${name}</strong>,
+                Hola <strong>${safeName}</strong>,
               </p>
               <p style="color:${EMAIL_THEME.colors.text};line-height:1.6;margin:0 0 24px;">
                 Tu pedido <strong>#${orderId}</strong> fue entregado. Esperamos que todo haya
