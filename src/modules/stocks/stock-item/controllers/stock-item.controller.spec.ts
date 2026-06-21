@@ -6,6 +6,8 @@ import { StockItemsController } from './stock-item.controller';
 import { StockItemsService } from '../services/stock-item.service';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { StockWriteOffReason } from '../../stock-writeoff/enums/stock-writeoff-reason.enum';
+import { RoleType } from '../../../../common/enums/role-type.enum';
+import { JwtPayload } from '../../../../common/decorators/current-user.decorator';
 
 describe('StockItemsController', () => {
   let controller: StockItemsController;
@@ -133,17 +135,17 @@ describe('StockItemsController', () => {
   });
 
   describe('writeOffDamage', () => {
-    it('delegates to service.writeOffDamage', async () => {
+    it('delegates to service.writeOffDamage with reportedBy from JWT', async () => {
       const dto = {
         stockItemId: 1,
         quantity: 2,
         reason: StockWriteOffReason.DAMAGED,
-        reportedBy: 99,
       };
+      const mockUser: JwtPayload = { sub: 99, role: RoleType.ADMIN };
       const item = mockItemWithMovements();
       service.writeOffDamage.mockResolvedValue(item);
-      const result = await controller.writeOffDamage(dto);
-      expect(service.writeOffDamage).toHaveBeenCalledWith(dto);
+      const result = await controller.writeOffDamage(dto, mockUser);
+      expect(service.writeOffDamage).toHaveBeenCalledWith(dto, 99);
       expect(result).toBe(item);
     });
   });

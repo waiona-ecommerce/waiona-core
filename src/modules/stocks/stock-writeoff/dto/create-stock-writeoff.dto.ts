@@ -39,12 +39,4 @@ export class CreateStockWriteOffDto {
   @IsArray()
   @IsString({ each: true })
   attachments?: string[];
-
-  @ApiProperty({
-    example: 99,
-    description: 'ID del usuario que reporta la baja',
-  })
-  @IsInt()
-  @Min(1)
-  reportedBy: number;
 }

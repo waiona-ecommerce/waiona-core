@@ -332,7 +332,6 @@ describe('StockItemsService', () => {
       reason: StockWriteOffReason.DAMAGED,
       description: 'broken glass',
       attachments: null,
-      reportedBy: 99,
     };
 
     it('creates damage write-off with movement record', async () => {
@@ -342,13 +341,13 @@ describe('StockItemsService', () => {
       mockManager.create.mockReturnValue({});
       stockRepo.findOne.mockResolvedValue(mockStockItem());
 
-      await service.writeOffDamage(dto as any);
+      await service.writeOffDamage(dto as any, 99);
       expect(mockDataSource.transaction).toHaveBeenCalled();
     });
 
     it('throws BadRequestException for quantity <= 0', async () => {
       await expect(
-        service.writeOffDamage({ ...dto, quantity: 0 } as any),
+        service.writeOffDamage({ ...dto, quantity: 0 } as any, 99),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -357,7 +356,7 @@ describe('StockItemsService', () => {
         mockStockItem({ quantityCurrent: 2, quantityReserved: 0 }),
       ); // available = 2
       await expect(
-        service.writeOffDamage({ ...dto, quantity: 5 } as any),
+        service.writeOffDamage({ ...dto, quantity: 5 } as any, 99),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -401,16 +400,17 @@ describe('StockItemsService', () => {
   // ==========================
 
   describe('reserveStock', () => {
-    it('reserves stock', async () => {
+    it('reserves stock inside a transaction', async () => {
       const item = mockStockItem(); // available = 15
-      stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockResolvedValue({ ...item, quantityReserved: 8 });
+      managerStockRepo.findOne.mockResolvedValue(item);
+      managerStockRepo.save.mockResolvedValue({ ...item, quantityReserved: 8 });
       await service.reserveStock(1, 1, 3);
-      expect(stockRepo.save).toHaveBeenCalled();
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(managerStockRepo.save).toHaveBeenCalled();
     });
 
     it('throws BadRequestException when available stock is insufficient', async () => {
-      stockRepo.findOne.mockResolvedValue(
+      managerStockRepo.findOne.mockResolvedValue(
         mockStockItem({ quantityCurrent: 5, quantityReserved: 4 }),
       ); // available = 1
       await expect(service.reserveStock(1, 1, 3)).rejects.toThrow(
@@ -419,7 +419,7 @@ describe('StockItemsService', () => {
     });
 
     it('throws NotFoundException when stock item not found', async () => {
-      stockRepo.findOne.mockResolvedValue(null);
+      managerStockRepo.findOne.mockResolvedValue(null);
       await expect(service.reserveStock(1, 1, 3)).rejects.toThrow(
         NotFoundException,
       );
