@@ -7,7 +7,10 @@ import { ProductEntity } from '../../product/entities/product.entity';
 @Entity('combo_items')
 @Index(['comboId'])
 @Index(['productId'])
-@Index(['comboId', 'productId'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['comboId', 'productId'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 export class ComboItemEntity extends BaseEntity {
   // ==========================
   // Foreign Keys

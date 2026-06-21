@@ -119,7 +119,9 @@ export class ProductService {
       return new ProductResponseDto(await this.findOne(saved.id));
     } catch (err) {
       if (err instanceof QueryFailedError) {
-        throw new ConflictException(`Ya existe un producto con el SKU ${dto.sku}`);
+        throw new ConflictException(
+          `Ya existe un producto con el SKU ${dto.sku}`,
+        );
       }
       throw err;
     }
@@ -158,7 +160,9 @@ export class ProductService {
       return new ProductResponseDto(await this.findOne(merged.id));
     } catch (err) {
       if (err instanceof QueryFailedError) {
-        throw new ConflictException(`Ya existe un producto con el SKU ${changes.sku}`);
+        throw new ConflictException(
+          `Ya existe un producto con el SKU ${changes.sku}`,
+        );
       }
       throw err;
     }
@@ -198,8 +202,10 @@ export class ProductService {
     if (taxCount > 0) blocking.push(`${taxCount} impuesto(s) asignado(s)`);
     if (discountCount > 0) blocking.push(`un descuento asignado`);
     if (couponCount > 0) blocking.push(`${couponCount} cupón(es) asignado(s)`);
-    if (orderItemCount > 0) blocking.push(`${orderItemCount} orden(es) que lo incluyen`);
-    if (comboItemCount > 0) blocking.push(`${comboItemCount} combo(s) que lo incluyen`);
+    if (orderItemCount > 0)
+      blocking.push(`${orderItemCount} orden(es) que lo incluyen`);
+    if (comboItemCount > 0)
+      blocking.push(`${comboItemCount} combo(s) que lo incluyen`);
 
     if (blocking.length > 0) {
       throw new ConflictException(

@@ -205,7 +205,8 @@ export class ComboService {
     if (pricingCount > 0) blocking.push(`precio configurado`);
     if (discountCount > 0) blocking.push(`un descuento asignado`);
     if (couponCount > 0) blocking.push(`${couponCount} cupón(es) asignado(s)`);
-    if (orderCount > 0) blocking.push(`${orderCount} orden(es) que lo incluyen`);
+    if (orderCount > 0)
+      blocking.push(`${orderCount} orden(es) que lo incluyen`);
 
     if (blocking.length > 0) {
       throw new ConflictException(
@@ -252,7 +253,10 @@ export class ComboService {
       seen.add(id);
     }
 
-    const found = await manager.findBy(ProductEntity, { id: In(ids), isActive: true });
+    const found = await manager.findBy(ProductEntity, {
+      id: In(ids),
+      isActive: true,
+    });
 
     if (found.length !== ids.length) {
       const foundIds = new Set(found.map((p) => p.id));

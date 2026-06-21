@@ -41,7 +41,9 @@ export class TaxesController {
   @ApiOperation({ summary: 'List all taxes' })
   @ApiResponse({ status: 200, type: TaxResponseDto, isArray: true })
   @Get()
-  findAll(@Query() { page, limit }: PaginationQueryDto): Promise<PaginatedResponseDto<TaxResponseDto>> {
+  findAll(
+    @Query() { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<TaxResponseDto>> {
     return this.taxesService.findAll(page, limit);
   }
 

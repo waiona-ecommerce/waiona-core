@@ -95,7 +95,8 @@ export class CalculationService {
       where: { productId: dto.productId },
       relations: ['margin'],
     });
-    if (!pricing) throw new NotFoundException('Pricing de producto no encontrado');
+    if (!pricing)
+      throw new NotFoundException('Pricing de producto no encontrado');
 
     const unitPrice = Number(pricing.unitPrice);
 
@@ -197,7 +198,11 @@ export class CalculationService {
   // HELPERS PRIVADOS
   // ==========================
 
-  private applyValue(base: number, value?: number, isPercentage?: boolean): number {
+  private applyValue(
+    base: number,
+    value?: number,
+    isPercentage?: boolean,
+  ): number {
     if (value == null) return 0;
     if (isNaN(value))
       throw new InternalServerErrorException(
@@ -240,7 +245,13 @@ export class CalculationService {
     const globalTaxIds = new Set(globalTaxes.map((t) => t.id));
 
     if (!items.length) {
-      return { globalTaxes, globalTaxIds, itemsWithRef: [], taxesByProduct: new Map(), totalRef: 0 };
+      return {
+        globalTaxes,
+        globalTaxIds,
+        itemsWithRef: [],
+        taxesByProduct: new Map(),
+        totalRef: 0,
+      };
     }
 
     const productIds = items.map((i) => i.productId);
@@ -248,7 +259,9 @@ export class CalculationService {
     const pricings = await this.productPricingRepo.find({
       where: { productId: In(productIds) },
     });
-    const pricingMap = new Map(pricings.map((p) => [p.productId, Number(p.unitPrice)]));
+    const pricingMap = new Map(
+      pricings.map((p) => [p.productId, Number(p.unitPrice)]),
+    );
 
     const allProductTaxes = await this.productTaxRepo.find({
       where: { productId: In(productIds) },
@@ -257,7 +270,8 @@ export class CalculationService {
 
     const taxesByProduct = new Map<number, { tax: TaxEntity }[]>();
     for (const pt of allProductTaxes) {
-      if (!taxesByProduct.has(pt.productId)) taxesByProduct.set(pt.productId, []);
+      if (!taxesByProduct.has(pt.productId))
+        taxesByProduct.set(pt.productId, []);
       taxesByProduct.get(pt.productId)!.push(pt);
     }
 
@@ -267,12 +281,21 @@ export class CalculationService {
           `El producto ${item.productId} del combo no tiene pricing configurado`,
         );
       }
-      return { productId: item.productId, refPrice: pricingMap.get(item.productId)! * item.quantity };
+      return {
+        productId: item.productId,
+        refPrice: pricingMap.get(item.productId)! * item.quantity,
+      };
     });
 
     const totalRef = itemsWithRef.reduce((acc, i) => acc + i.refPrice, 0);
 
-    return { globalTaxes, globalTaxIds, itemsWithRef, taxesByProduct, totalRef };
+    return {
+      globalTaxes,
+      globalTaxIds,
+      itemsWithRef,
+      taxesByProduct,
+      totalRef,
+    };
   }
 
   private computeTaxesFromData(
@@ -296,7 +319,11 @@ export class CalculationService {
       const productTaxes = data.taxesByProduct.get(item.productId) ?? [];
       for (const pt of productTaxes) {
         if (!data.globalTaxIds.has(pt.tax.id)) {
-          specificAmount += this.applyValue(proratedBase, Number(pt.tax.value), true);
+          specificAmount += this.applyValue(
+            proratedBase,
+            Number(pt.tax.value),
+            true,
+          );
         }
       }
     }

@@ -46,15 +46,42 @@ describe('ProductService', () => {
             softDelete: jest.fn(),
           }),
         },
-        { provide: getRepositoryToken(CategoryEntity), useFactory: () => ({ findOne: jest.fn() }) },
-        { provide: getRepositoryToken(ComboItemEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(ProductImageEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(ProductPricingEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(StockItemEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(ProductTaxEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(DiscountProductTargetEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(CouponProductTargetEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(OrderItemEntity), useFactory: mockCountRepo },
+        {
+          provide: getRepositoryToken(CategoryEntity),
+          useFactory: () => ({ findOne: jest.fn() }),
+        },
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductImageEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(StockItemEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductTaxEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(DiscountProductTargetEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(CouponProductTargetEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(OrderItemEntity),
+          useFactory: mockCountRepo,
+        },
       ],
     }).compile();
 
@@ -63,11 +90,17 @@ describe('ProductService', () => {
     categoryRepository = module.get(getRepositoryToken(CategoryEntity));
     comboItemRepository = module.get(getRepositoryToken(ComboItemEntity));
     productImageRepository = module.get(getRepositoryToken(ProductImageEntity));
-    productPricingRepository = module.get(getRepositoryToken(ProductPricingEntity));
+    productPricingRepository = module.get(
+      getRepositoryToken(ProductPricingEntity),
+    );
     stockItemRepository = module.get(getRepositoryToken(StockItemEntity));
     productTaxRepository = module.get(getRepositoryToken(ProductTaxEntity));
-    discountProductTargetRepository = module.get(getRepositoryToken(DiscountProductTargetEntity));
-    couponProductTargetRepository = module.get(getRepositoryToken(CouponProductTargetEntity));
+    discountProductTargetRepository = module.get(
+      getRepositoryToken(DiscountProductTargetEntity),
+    );
+    couponProductTargetRepository = module.get(
+      getRepositoryToken(CouponProductTargetEntity),
+    );
     orderItemRepository = module.get(getRepositoryToken(OrderItemEntity));
   });
 
@@ -287,17 +320,26 @@ describe('ProductService', () => {
       ['precio', () => productPricingRepository.count.mockResolvedValue(1)],
       ['stock', () => stockItemRepository.count.mockResolvedValue(1)],
       ['impuestos', () => productTaxRepository.count.mockResolvedValue(1)],
-      ['descuento', () => discountProductTargetRepository.count.mockResolvedValue(1)],
-      ['cupones', () => couponProductTargetRepository.count.mockResolvedValue(1)],
+      [
+        'descuento',
+        () => discountProductTargetRepository.count.mockResolvedValue(1),
+      ],
+      [
+        'cupones',
+        () => couponProductTargetRepository.count.mockResolvedValue(1),
+      ],
       ['órdenes', () => orderItemRepository.count.mockResolvedValue(3)],
       ['combos', () => comboItemRepository.count.mockResolvedValue(2)],
-    ])('should throw ConflictException when product has %s', async (_, setupMock) => {
-      productRepository.findOne.mockResolvedValue(mockProduct());
-      mockAllCountsZero();
-      setupMock();
+    ])(
+      'should throw ConflictException when product has %s',
+      async (_, setupMock) => {
+        productRepository.findOne.mockResolvedValue(mockProduct());
+        mockAllCountsZero();
+        setupMock();
 
-      await expect(service.delete(1)).rejects.toThrow(ConflictException);
-      expect(productRepository.softDelete).not.toHaveBeenCalled();
-    });
+        await expect(service.delete(1)).rejects.toThrow(ConflictException);
+        expect(productRepository.softDelete).not.toHaveBeenCalled();
+      },
+    );
   });
 });

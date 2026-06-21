@@ -65,7 +65,9 @@ export class ProductTaxesService {
       return new ProductTaxResponseDto(await this.findEntity(saved.id));
     } catch (err) {
       if (err instanceof QueryFailedError) {
-        throw new ConflictException(`El impuesto ${dto.taxId} ya está asignado a este producto`);
+        throw new ConflictException(
+          `El impuesto ${dto.taxId} ya está asignado a este producto`,
+        );
       }
       throw err;
     }
@@ -148,7 +150,9 @@ export class ProductTaxesService {
       return new ProductTaxResponseDto(await this.findEntity(updated.id));
     } catch (err) {
       if (err instanceof QueryFailedError) {
-        throw new ConflictException(`El impuesto ${dto.taxId} ya está asignado a este producto`);
+        throw new ConflictException(
+          `El impuesto ${dto.taxId} ya está asignado a este producto`,
+        );
       }
       throw err;
     }

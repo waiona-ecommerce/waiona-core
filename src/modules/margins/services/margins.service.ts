@@ -38,7 +38,9 @@ export class MarginsService {
       return new MarginResponseDto(saved);
     } catch (err) {
       if (err instanceof QueryFailedError) {
-        throw new ConflictException(`Ya existe un margen con el nombre "${dto.name}"`);
+        throw new ConflictException(
+          `Ya existe un margen con el nombre "${dto.name}"`,
+        );
       }
       throw err;
     }
@@ -84,7 +86,9 @@ export class MarginsService {
       return new MarginResponseDto(updated);
     } catch (err) {
       if (err instanceof QueryFailedError) {
-        throw new ConflictException(`Ya existe un margen con el nombre "${dto.name}"`);
+        throw new ConflictException(
+          `Ya existe un margen con el nombre "${dto.name}"`,
+        );
       }
       throw err;
     }

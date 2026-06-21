@@ -1,4 +1,13 @@
-import { IsString, IsNotEmpty, Length, IsNumber, Min, Max, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  Length,
+  IsNumber,
+  Min,
+  Max,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -10,7 +19,11 @@ export class CreateTaxDto {
   @Length(2, 20)
   code: string;
 
-  @ApiProperty({ example: 'Impuesto al Valor Agregado', minLength: 3, maxLength: 150 })
+  @ApiProperty({
+    example: 'Impuesto al Valor Agregado',
+    minLength: 3,
+    maxLength: 150,
+  })
   @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @IsNotEmpty()

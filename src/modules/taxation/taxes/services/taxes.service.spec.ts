@@ -37,7 +37,10 @@ describe('TaxesService', () => {
       providers: [
         TaxesService,
         { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
-        { provide: getRepositoryToken(ProductTaxEntity), useFactory: mockProductTaxRepo },
+        {
+          provide: getRepositoryToken(ProductTaxEntity),
+          useFactory: mockProductTaxRepo,
+        },
       ],
     }).compile();
 
@@ -84,7 +87,11 @@ describe('TaxesService', () => {
       taxRepo.findOne.mockResolvedValue(null);
       taxRepo.create.mockReturnValue(tax);
       taxRepo.save.mockResolvedValue(tax);
-      const result = await service.create({ code: 'IVA', name: 'IMPUESTO AL VALOR AGREGADO', value: 21 });
+      const result = await service.create({
+        code: 'IVA',
+        name: 'IMPUESTO AL VALOR AGREGADO',
+        value: 21,
+      });
       expect(result.code).toBe('IVA');
       expect(result.value).toBe(21);
     });
@@ -92,7 +99,11 @@ describe('TaxesService', () => {
     it('should throw ConflictException if code already exists', async () => {
       taxRepo.findOne.mockResolvedValue(mockTax());
       await expect(
-        service.create({ code: 'IVA', name: 'IMPUESTO AL VALOR AGREGADO', value: 21 }),
+        service.create({
+          code: 'IVA',
+          name: 'IMPUESTO AL VALOR AGREGADO',
+          value: 21,
+        }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -112,7 +123,9 @@ describe('TaxesService', () => {
       taxRepo.findOne
         .mockResolvedValueOnce(mockTax({ code: 'IVA' }))
         .mockResolvedValueOnce(mockTax({ code: 'IIBB' }));
-      await expect(service.update(1, { code: 'IIBB' })).rejects.toThrow(ConflictException);
+      await expect(service.update(1, { code: 'IIBB' })).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw NotFoundException if tax not found', async () => {
@@ -133,7 +146,11 @@ describe('TaxesService', () => {
 
     it('should throw ConflictException if tax is assigned to products', async () => {
       taxRepo.findOne.mockResolvedValue(mockTax());
-      productTaxRepo.findOne.mockResolvedValue({ id: 1, taxId: 1, productId: 5 });
+      productTaxRepo.findOne.mockResolvedValue({
+        id: 1,
+        taxId: 1,
+        productId: 5,
+      });
       await expect(service.delete(1)).rejects.toThrow(ConflictException);
     });
 

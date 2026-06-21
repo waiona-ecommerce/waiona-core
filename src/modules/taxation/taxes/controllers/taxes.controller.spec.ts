@@ -118,7 +118,11 @@ describe('TaxesController', () => {
 
   describe('create', () => {
     it('should create a tax', async () => {
-      const dto = { code: 'IVA', name: 'IMPUESTO AL VALOR AGREGADO', value: 21 };
+      const dto = {
+        code: 'IVA',
+        name: 'IMPUESTO AL VALOR AGREGADO',
+        value: 21,
+      };
       const tax = mockTaxResponse();
       service.create.mockResolvedValue(tax);
 

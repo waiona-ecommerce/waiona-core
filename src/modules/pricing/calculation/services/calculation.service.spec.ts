@@ -16,7 +16,10 @@ import { ComboItemEntity } from '../../../products/combos/entities/combo-item.en
 describe('CalculationService', () => {
   let service: CalculationService;
 
-  const mockProductPricingRepo = () => ({ findOne: jest.fn(), find: jest.fn() });
+  const mockProductPricingRepo = () => ({
+    findOne: jest.fn(),
+    find: jest.fn(),
+  });
   const mockComboPricingRepo = () => ({ findOne: jest.fn() });
   const mockProductTaxRepo = () => ({ find: jest.fn() });
   const mockTaxRepo = () => ({ find: jest.fn() });
@@ -27,17 +30,37 @@ describe('CalculationService', () => {
   const mockMargin = { id: 1, value: 20 };
 
   const mockProductPricing = (overrides = {}) => ({
-    id: 1, productId: 1, currency: 'ARS', unitPrice: 500, margin: mockMargin, deletedAt: null,
+    id: 1,
+    productId: 1,
+    currency: 'ARS',
+    unitPrice: 500,
+    margin: mockMargin,
+    deletedAt: null,
     ...overrides,
   });
 
   const mockComboPricing = (overrides = {}) => ({
-    id: 1, comboId: 1, currency: 'ARS', unitPrice: 1200, margin: mockMargin, deletedAt: null,
+    id: 1,
+    comboId: 1,
+    currency: 'ARS',
+    unitPrice: 1200,
+    margin: mockMargin,
+    deletedAt: null,
     ...overrides,
   });
 
-  const mockGlobalTax = (overrides = {}) => ({ id: 1, value: 21, isGlobal: true, ...overrides });
-  const mockSpecificTax = (overrides = {}) => ({ id: 2, value: 3, isGlobal: false, ...overrides });
+  const mockGlobalTax = (overrides = {}) => ({
+    id: 1,
+    value: 21,
+    isGlobal: true,
+    ...overrides,
+  });
+  const mockSpecificTax = (overrides = {}) => ({
+    id: 2,
+    value: 3,
+    isGlobal: false,
+    ...overrides,
+  });
 
   let productPricingRepo: any;
   let comboPricingRepo: any;
@@ -51,13 +74,31 @@ describe('CalculationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CalculationService,
-        { provide: getRepositoryToken(ProductPricingEntity), useFactory: mockProductPricingRepo },
-        { provide: getRepositoryToken(ComboPricingEntity), useFactory: mockComboPricingRepo },
-        { provide: getRepositoryToken(ProductTaxEntity), useFactory: mockProductTaxRepo },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useFactory: mockProductPricingRepo,
+        },
+        {
+          provide: getRepositoryToken(ComboPricingEntity),
+          useFactory: mockComboPricingRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductTaxEntity),
+          useFactory: mockProductTaxRepo,
+        },
         { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
-        { provide: getRepositoryToken(DiscountProductTargetEntity), useFactory: mockDiscountProductRepo },
-        { provide: getRepositoryToken(DiscountComboTargetEntity), useFactory: mockDiscountComboRepo },
-        { provide: getRepositoryToken(ComboItemEntity), useFactory: mockComboItemRepo },
+        {
+          provide: getRepositoryToken(DiscountProductTargetEntity),
+          useFactory: mockDiscountProductRepo,
+        },
+        {
+          provide: getRepositoryToken(DiscountComboTargetEntity),
+          useFactory: mockDiscountComboRepo,
+        },
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useFactory: mockComboItemRepo,
+        },
       ],
     }).compile();
 
@@ -66,8 +107,12 @@ describe('CalculationService', () => {
     comboPricingRepo = module.get(getRepositoryToken(ComboPricingEntity));
     productTaxRepo = module.get(getRepositoryToken(ProductTaxEntity));
     taxRepo = module.get(getRepositoryToken(TaxEntity));
-    discountProductRepo = module.get(getRepositoryToken(DiscountProductTargetEntity));
-    discountComboRepo = module.get(getRepositoryToken(DiscountComboTargetEntity));
+    discountProductRepo = module.get(
+      getRepositoryToken(DiscountProductTargetEntity),
+    );
+    discountComboRepo = module.get(
+      getRepositoryToken(DiscountComboTargetEntity),
+    );
     comboItemRepo = module.get(getRepositoryToken(ComboItemEntity));
   });
 
@@ -92,15 +137,21 @@ describe('CalculationService', () => {
 
     it('should throw NotFoundException if product has no pricing', async () => {
       productPricingRepo.findOne.mockResolvedValue(null);
-      await expect(service.calculateProduct({ productId: 999 })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.calculateProduct({ productId: 999 }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw InternalServerErrorException if margin value is NaN', async () => {
-      productPricingRepo.findOne.mockResolvedValue(mockProductPricing({ margin: { id: 1, value: NaN } }));
+      productPricingRepo.findOne.mockResolvedValue(
+        mockProductPricing({ margin: { id: 1, value: NaN } }),
+      );
       discountProductRepo.findOne.mockResolvedValue(null);
       productTaxRepo.find.mockResolvedValue([]);
       taxRepo.find.mockResolvedValue([]);
-      await expect(service.calculateProduct({ productId: 1 })).rejects.toThrow(InternalServerErrorException);
+      await expect(service.calculateProduct({ productId: 1 })).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -120,7 +171,9 @@ describe('CalculationService', () => {
     });
 
     it('should prorate specific taxes across combo items by reference price', async () => {
-      comboPricingRepo.findOne.mockResolvedValue(mockComboPricing({ unitPrice: 1000, margin: null }));
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([]);
       comboItemRepo.find.mockResolvedValue([
@@ -143,7 +196,9 @@ describe('CalculationService', () => {
     });
 
     it('should apply global tax on full price AND specific via proration without double counting', async () => {
-      comboPricingRepo.findOne.mockResolvedValue(mockComboPricing({ unitPrice: 1000, margin: null }));
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([mockGlobalTax({ id: 1, value: 21 })]);
       comboItemRepo.find.mockResolvedValue([
@@ -165,7 +220,9 @@ describe('CalculationService', () => {
     });
 
     it('should handle quantity > 1 in proration', async () => {
-      comboPricingRepo.findOne.mockResolvedValue(mockComboPricing({ unitPrice: 1000, margin: null }));
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([]);
       comboItemRepo.find.mockResolvedValue([
@@ -187,19 +244,25 @@ describe('CalculationService', () => {
     });
 
     it('should throw NotFoundException if a combo item has no pricing configured', async () => {
-      comboPricingRepo.findOne.mockResolvedValue(mockComboPricing({ unitPrice: 1000, margin: null }));
+      comboPricingRepo.findOne.mockResolvedValue(
+        mockComboPricing({ unitPrice: 1000, margin: null }),
+      );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([mockGlobalTax({ value: 21 })]);
       comboItemRepo.find.mockResolvedValue([{ productId: 99, quantity: 1 }]);
       productPricingRepo.find.mockResolvedValue([]);
       productTaxRepo.find.mockResolvedValue([]);
 
-      await expect(service.calculateCombo({ comboId: 1 })).rejects.toThrow(NotFoundException);
+      await expect(service.calculateCombo({ comboId: 1 })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException if combo has no pricing', async () => {
       comboPricingRepo.findOne.mockResolvedValue(null);
-      await expect(service.calculateCombo({ comboId: 999 })).rejects.toThrow(NotFoundException);
+      await expect(service.calculateCombo({ comboId: 999 })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

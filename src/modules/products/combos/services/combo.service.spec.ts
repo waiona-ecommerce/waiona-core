@@ -1,11 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 
 import { ComboService } from '../../../products/combos/services/combo.service';
 import { ComboEntity } from '../../../products/combos/entities/combo.entity';
-import { ComboItemEntity } from '../../../products/combos/entities/combo-item.entity';
 import { ComboImageEntity } from '../../../products/combo-images/entities/combo-image.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { CategoryEntity } from '../../../products/categories/entities/category.entity';
@@ -20,7 +23,6 @@ const mockCountRepo = () => ({ count: jest.fn() });
 describe('ComboService', () => {
   let service: ComboService;
 
-  let comboRepository: jest.Mocked<{ findAndCount: jest.Mock; findOne: jest.Mock }>;
   let comboImageRepository: jest.Mocked<{ count: jest.Mock }>;
   let comboPricingRepository: jest.Mocked<{ count: jest.Mock }>;
   let discountComboTargetRepository: jest.Mocked<{ count: jest.Mock }>;
@@ -73,24 +75,51 @@ describe('ComboService', () => {
       providers: [
         ComboService,
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
-        { provide: getRepositoryToken(ComboImageEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(ProductEntity), useValue: mockProductRepo },
-        { provide: getRepositoryToken(CategoryEntity), useValue: mockCategoryRepo },
-        { provide: getRepositoryToken(ProductPricingEntity), useValue: mockProductPricingRepo },
-        { provide: getRepositoryToken(ComboPricingEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(DiscountComboTargetEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(CouponComboTargetEntity), useFactory: mockCountRepo },
-        { provide: getRepositoryToken(OrderItemEntity), useFactory: mockCountRepo },
+        {
+          provide: getRepositoryToken(ComboImageEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useValue: mockProductRepo,
+        },
+        {
+          provide: getRepositoryToken(CategoryEntity),
+          useValue: mockCategoryRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useValue: mockProductPricingRepo,
+        },
+        {
+          provide: getRepositoryToken(ComboPricingEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(DiscountComboTargetEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(CouponComboTargetEntity),
+          useFactory: mockCountRepo,
+        },
+        {
+          provide: getRepositoryToken(OrderItemEntity),
+          useFactory: mockCountRepo,
+        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
     service = module.get<ComboService>(ComboService);
-    comboRepository = module.get(getRepositoryToken(ComboEntity));
     comboImageRepository = module.get(getRepositoryToken(ComboImageEntity));
     comboPricingRepository = module.get(getRepositoryToken(ComboPricingEntity));
-    discountComboTargetRepository = module.get(getRepositoryToken(DiscountComboTargetEntity));
-    couponComboTargetRepository = module.get(getRepositoryToken(CouponComboTargetEntity));
+    discountComboTargetRepository = module.get(
+      getRepositoryToken(DiscountComboTargetEntity),
+    );
+    couponComboTargetRepository = module.get(
+      getRepositoryToken(CouponComboTargetEntity),
+    );
     orderItemRepository = module.get(getRepositoryToken(OrderItemEntity));
   });
 
@@ -311,16 +340,22 @@ describe('ComboService', () => {
     it.each([
       ['imágenes', () => comboImageRepository.count.mockResolvedValue(2)],
       ['precio', () => comboPricingRepository.count.mockResolvedValue(1)],
-      ['descuento', () => discountComboTargetRepository.count.mockResolvedValue(1)],
+      [
+        'descuento',
+        () => discountComboTargetRepository.count.mockResolvedValue(1),
+      ],
       ['cupones', () => couponComboTargetRepository.count.mockResolvedValue(1)],
       ['órdenes', () => orderItemRepository.count.mockResolvedValue(3)],
-    ])('should throw ConflictException when combo has %s', async (_, setupMock) => {
-      mockComboRepo.findOne.mockResolvedValue(mockCombo());
-      mockAllCountsZero();
-      setupMock();
+    ])(
+      'should throw ConflictException when combo has %s',
+      async (_, setupMock) => {
+        mockComboRepo.findOne.mockResolvedValue(mockCombo());
+        mockAllCountsZero();
+        setupMock();
 
-      await expect(service.delete(1)).rejects.toThrow(ConflictException);
-      expect(mockDataSource.transaction).not.toHaveBeenCalled();
-    });
+        await expect(service.delete(1)).rejects.toThrow(ConflictException);
+        expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      },
+    );
   });
 });
