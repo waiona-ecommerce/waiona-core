@@ -173,7 +173,9 @@ describe('CouponUsageService', () => {
 
     it('should throw NotFoundException if coupon not found', async () => {
       couponRepo.findOne.mockResolvedValue(null);
-      await expect(service.findByCoupon(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findByCoupon(999)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

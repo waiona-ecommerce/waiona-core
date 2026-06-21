@@ -36,10 +36,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
-import {
-  CurrentUser,
-  JwtPayload,
-} from '../../../../common/decorators/current-user.decorator';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import type { JwtPayload } from '../../../../common/decorators/current-user.decorator';
 
 @ApiTags('Stock Items')
 @ApiBearerAuth()

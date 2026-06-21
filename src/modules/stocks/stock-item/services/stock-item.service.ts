@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager, DataSource, QueryFailedError } from 'typeorm';
+import {
+  Repository,
+  EntityManager,
+  DataSource,
+  QueryFailedError,
+} from 'typeorm';
 
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';

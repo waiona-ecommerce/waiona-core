@@ -26,7 +26,7 @@ describe('CouponService', () => {
     findOne: jest.fn(),
   });
 
-  const mockCoupon = (overrides = {}): CouponEntity =>
+  const mockCoupon = (overrides = {}) =>
     ({
       id: 1,
       code: 'DESCUENTO10',
