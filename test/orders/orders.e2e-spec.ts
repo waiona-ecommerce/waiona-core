@@ -54,6 +54,8 @@ describe('Orders (e2e)', () => {
 
   let userId: number;
   let productId: number;
+  let comboId: number;
+  let couponCode: string;
 
   const mockUser: { sub: number; role: string } = {
     sub: 0,
@@ -230,6 +232,38 @@ describe('Orders (e2e)', () => {
         quantityReserved: 0,
       }),
     );
+
+    // Seed: combo con un ítem que usa el mismo producto
+    const comboRepo = dataSource.getRepository(ComboEntity);
+    const comboItemRepo = dataSource.getRepository(ComboItemEntity);
+    const combo = await comboRepo.save(
+      comboRepo.create({
+        name: 'Combo Test',
+        description: 'E2E test combo',
+        isActive: true,
+        categoryId: category.id,
+      }),
+    );
+    comboId = combo.id;
+    await comboItemRepo.save(
+      comboItemRepo.create({
+        comboId: combo.id,
+        productId: product.id,
+        quantity: 1,
+      }),
+    );
+
+    // Seed: cupón global del 10% sin límite de usos
+    const couponRepo = dataSource.getRepository(CouponEntity);
+    const coupon = await couponRepo.save(
+      couponRepo.create({
+        code: 'TESTGLOBAL10',
+        value: 10,
+        isGlobal: true,
+        usageCount: 0,
+      }),
+    );
+    couponCode = coupon.code;
   }, 30000);
 
   afterAll(async () => {
@@ -329,6 +363,60 @@ describe('Orders (e2e)', () => {
         })
         .expect(201);
       expect(res.body.notes).toBe('Sin cebolla');
+    });
+
+    it('201 — crea orden con combo', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/orders')
+        .send({
+          items: [{ comboId, quantity: 1 }],
+          deliveryType: DeliveryType.PICKUP,
+        })
+        .expect(201);
+
+      expect(res.body.id).toBeDefined();
+      expect(res.body.status).toBe(OrderStatus.PENDING);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].comboId).toBe(comboId);
+      expect(res.body.items[0].unitPrice).toBe(2000);
+    });
+
+    it('201 — crea orden con cupón global aplica descuento', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/orders')
+        .send({
+          items: [{ productId, quantity: 1 }],
+          deliveryType: DeliveryType.PICKUP,
+          couponCode,
+        })
+        .expect(201);
+
+      expect(res.body.couponCode).toBe(couponCode);
+      expect(res.body.couponDiscount).toBeGreaterThan(0);
+      expect(res.body.total).toBeLessThan(res.body.subtotal);
+    });
+
+    it('409 — cupón ya usado por el mismo usuario', async () => {
+      // El cupón fue aplicado en el test anterior por el mismo usuario
+      await request(app.getHttpServer())
+        .post('/v1/orders')
+        .send({
+          items: [{ productId, quantity: 1 }],
+          deliveryType: DeliveryType.PICKUP,
+          couponCode,
+        })
+        .expect(409);
+    });
+
+    it('404 — cupón inexistente', async () => {
+      await request(app.getHttpServer())
+        .post('/v1/orders')
+        .send({
+          items: [{ productId, quantity: 1 }],
+          deliveryType: DeliveryType.PICKUP,
+          couponCode: 'NOEXISTE',
+        })
+        .expect(404);
     });
   });
 
