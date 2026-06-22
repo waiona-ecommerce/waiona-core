@@ -46,17 +46,9 @@ export class PaymentsService {
     dto: CreatePaymentDto,
   ): Promise<PaymentResponseDto> {
     return this.dataSource.transaction(async (manager) => {
-      // lock only — no relations to avoid "FOR UPDATE on nullable outer join" PostgreSQL error
-      // el segundo request concurrente espera el commit del primero y verá el pago pendiente ya existente
-      const locked = await manager.findOne(OrderEntity, {
-        where: { id: dto.orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!locked) throw new NotFoundException('Orden no encontrada');
-
       const order = await manager.findOne(OrderEntity, {
         where: { id: dto.orderId },
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (!order) throw new NotFoundException('Orden no encontrada');
@@ -150,7 +142,10 @@ export class PaymentsService {
       // evita race condition entre dos notificaciones simultáneas del mismo pago
       await this.dataSource.transaction(async (manager) => {
         const payment = await manager.findOne(PaymentEntity, {
-          where: { orderId: Number(externalReference) },
+          where: {
+            orderId: Number(externalReference),
+            status: PaymentStatus.PENDING,
+          },
           lock: { mode: 'pessimistic_write' },
         });
 

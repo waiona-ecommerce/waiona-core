@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager, DataSource } from 'typeorm';
+import {
+  Repository,
+  EntityManager,
+  DataSource,
+  QueryFailedError,
+} from 'typeorm';
 
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
@@ -222,7 +227,17 @@ export class StockItemsService {
       stockCritical: dto.stockCritical,
     });
 
-    const saved = await this.stockItemRepository.save(stockItem);
+    let saved: StockItemEntity;
+    try {
+      saved = await this.stockItemRepository.save(stockItem);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          'Ya existe un stock para este producto en esta ubicación',
+        );
+      }
+      throw err;
+    }
 
     const withRelations = await this.stockItemRepository.findOne({
       where: { id: saved.id },
@@ -331,6 +346,7 @@ export class StockItemsService {
 
   async writeOffDamage(
     dto: CreateStockWriteOffDto,
+    reportedBy: number,
   ): Promise<StockItemWithMovementsResponseDto> {
     if (dto.quantity <= 0) {
       throw new BadRequestException('La cantidad debe ser mayor a 0');
@@ -373,7 +389,7 @@ export class StockItemsService {
         reason: dto.reason,
         description: dto.description ?? null,
         attachments: dto.attachments ?? null,
-        reportedBy: dto.reportedBy,
+        reportedBy,
       });
       await manager.save(StockWriteOffEntity, writeOff);
     });
@@ -423,27 +439,31 @@ export class StockItemsService {
     quantity: number,
     manager?: EntityManager,
   ): Promise<void> {
-    const repo =
-      manager?.getRepository(StockItemEntity) ?? this.stockItemRepository;
+    const execute = async (mgr: EntityManager): Promise<void> => {
+      const stockRepo = mgr.getRepository(StockItemEntity);
 
-    const stockItem = await repo.findOne({
-      where: { productId, locationId },
-      lock: { mode: 'pessimistic_write' },
-    });
+      const stockItem = await stockRepo.findOne({
+        where: { productId, locationId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!stockItem)
-      throw new NotFoundException(
-        `Stock no encontrado para el producto ${productId}`,
-      );
+      if (!stockItem)
+        throw new NotFoundException(
+          `Stock no encontrado para el producto ${productId}`,
+        );
 
-    if (stockItem.quantityCurrent - stockItem.quantityReserved < quantity) {
-      throw new BadRequestException(
-        `Stock disponible insuficiente para el producto ${productId}`,
-      );
-    }
+      if (stockItem.quantityCurrent - stockItem.quantityReserved < quantity) {
+        throw new BadRequestException(
+          `Stock disponible insuficiente para el producto ${productId}`,
+        );
+      }
 
-    stockItem.quantityReserved += quantity;
-    await repo.save(stockItem);
+      stockItem.quantityReserved += quantity;
+      await stockRepo.save(stockItem);
+    };
+
+    if (manager) await execute(manager);
+    else await this.dataSource.transaction(execute);
   }
 
   // ==========================

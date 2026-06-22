@@ -100,6 +100,16 @@ describe('ComboPricingService', () => {
         ConflictException,
       );
     });
+
+    it('should throw NotFoundException on FK violation (comboId not found)', async () => {
+      repo.findOne.mockResolvedValue(null);
+      marginRepo.findOne.mockResolvedValue(mockMargin);
+      repo.create.mockReturnValue(mockPricing());
+      repo.save.mockRejectedValue({ code: '23503' });
+      await expect(service.create(dto as any)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   describe('findAll', () => {

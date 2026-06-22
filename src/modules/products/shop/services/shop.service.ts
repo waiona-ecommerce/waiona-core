@@ -149,7 +149,33 @@ export class ShopService {
 
     candidates.sort((a, b) => a.entity.name.localeCompare(b.entity.name));
 
-    // Calcular precios para todos los candidatos para obtener total y paginación exactos
+    const hasPriceFilter = minPrice !== undefined || maxPrice !== undefined;
+
+    if (!hasPriceFilter) {
+      const total = candidates.length;
+      const totalPages = Math.ceil(total / limit);
+      const pageSlice = candidates.slice(skip, skip + limit);
+
+      const data = (
+        await Promise.all(
+          pageSlice.map((c) =>
+            c.kind === 'product'
+              ? this.buildProductListItem(c.entity, undefined, undefined)
+              : this.buildComboListItem(c.entity, undefined, undefined),
+          ),
+        )
+      ).filter((i): i is ShopItemResponseDto => i !== null);
+
+      return {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        data,
+      };
+    }
+
     const allItems = (
       await Promise.all(
         candidates.map((c) =>
@@ -440,12 +466,14 @@ export class ShopService {
     allCategories: { id: number; parentId?: number | null }[],
   ): number[] {
     const ids = [rootId];
+    const visited = new Set<number>([rootId]);
     const queue = [rootId];
     while (queue.length) {
       const parentId = queue.shift()!;
       for (const cat of allCategories) {
-        if (cat.parentId === parentId) {
+        if (cat.parentId === parentId && !visited.has(cat.id)) {
           ids.push(cat.id);
+          visited.add(cat.id);
           queue.push(cat.id);
         }
       }

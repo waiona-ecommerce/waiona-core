@@ -5,6 +5,10 @@ import { ProductEntity } from '../../product/entities/product.entity';
 
 @Entity('product_images')
 @Index(['productId'])
+@Index(['productId', 'position'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class ProductImageEntity extends BaseEntity {
   @Column({ name: 'product_id' })
   productId: number;

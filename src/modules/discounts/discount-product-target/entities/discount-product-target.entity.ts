@@ -5,7 +5,7 @@ import { ProductEntity } from '../../../products/product/entities/product.entity
 
 @Entity('discount_product_targets')
 @Index(['discountId'])
-@Index(['productId'])
+@Index(['productId'], { unique: true, where: '"deletedAt" IS NULL' })
 export class DiscountProductTargetEntity extends BaseEntity {
   // ==========================
   // FK discount

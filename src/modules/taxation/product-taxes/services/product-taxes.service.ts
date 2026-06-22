@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { ProductTaxEntity } from '../entities/product-taxes.entity';
 import { TaxEntity } from '../../taxes/entities/tax.entity';
@@ -60,9 +60,17 @@ export class ProductTaxesService {
       taxId: dto.taxId,
     });
 
-    const saved = await this.productTaxRepository.save(productTax);
-
-    return new ProductTaxResponseDto(await this.findEntity(saved.id));
+    try {
+      const saved = await this.productTaxRepository.save(productTax);
+      return new ProductTaxResponseDto(await this.findEntity(saved.id));
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `El impuesto ${dto.taxId} ya está asignado a este producto`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -137,9 +145,17 @@ export class ProductTaxesService {
     }
 
     const merged = this.productTaxRepository.merge(productTax, dto);
-    const updated = await this.productTaxRepository.save(merged);
-
-    return new ProductTaxResponseDto(await this.findEntity(updated.id));
+    try {
+      const updated = await this.productTaxRepository.save(merged);
+      return new ProductTaxResponseDto(await this.findEntity(updated.id));
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `El impuesto ${dto.taxId} ya está asignado a este producto`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================

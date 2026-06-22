@@ -60,7 +60,7 @@ export class CalculatePreviewDto {
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.01)
   @Max(100)
   couponValue?: number;
 }

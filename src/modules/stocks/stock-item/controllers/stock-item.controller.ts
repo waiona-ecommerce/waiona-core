@@ -36,6 +36,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import type { JwtPayload } from '../../../../common/decorators/current-user.decorator';
 
 @ApiTags('Stock Items')
 @ApiBearerAuth()
@@ -116,8 +118,9 @@ export class StockItemsController {
   @Post('write-off-damage')
   async writeOffDamage(
     @Body() dto: CreateStockWriteOffDto,
+    @CurrentUser() user: JwtPayload,
   ): Promise<StockItemWithMovementsResponseDto> {
-    return this.stockItemsService.writeOffDamage(dto);
+    return this.stockItemsService.writeOffDamage(dto, user.sub);
   }
 
   @ApiOperation({ summary: 'Dispatch reserved stock for an order' })

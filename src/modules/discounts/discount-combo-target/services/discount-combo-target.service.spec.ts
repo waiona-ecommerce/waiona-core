@@ -8,16 +8,13 @@ describe('DiscountComboTargetService', () => {
   let service: DiscountComboTargetService;
   let repo: any;
   let discountRepo: any;
-  let qb: any;
 
   const mockRepo = () => ({
-    find: jest.fn(),
     findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
     softDelete: jest.fn(),
-    createQueryBuilder: jest.fn(),
   });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
@@ -34,13 +31,6 @@ describe('DiscountComboTargetService', () => {
     }) as unknown as DiscountComboTargetEntity;
 
   beforeEach(async () => {
-    qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DiscountComboTargetService,
@@ -68,8 +58,7 @@ describe('DiscountComboTargetService', () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValueOnce(null); // validateUniqueTarget
-      repo.createQueryBuilder.mockReturnValue(qb);
-      qb.getOne.mockResolvedValue(null); // validateComboHasNoActiveDiscount
+      repo.findOne.mockResolvedValueOnce(null); // validateComboHasNoActiveDiscount
       repo.create.mockReturnValue(target);
       repo.save.mockResolvedValue(target);
       const result = await service.create(1, { comboId: 1 });
@@ -94,8 +83,7 @@ describe('DiscountComboTargetService', () => {
     it('should throw ConflictException if combo already has another active discount', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValueOnce(null); // validateUniqueTarget
-      repo.createQueryBuilder.mockReturnValue(qb);
-      qb.getOne.mockResolvedValue(mockTarget()); // validateComboHasNoActiveDiscount
+      repo.findOne.mockResolvedValueOnce(mockTarget()); // validateComboHasNoActiveDiscount
       await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );
@@ -127,11 +115,11 @@ describe('DiscountComboTargetService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete', async () => {
+    it('should delete target', async () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValue(target);
-      repo.softDelete.mockResolvedValue(undefined);
+      repo.softDelete.mockResolvedValue({ affected: 1 });
       await service.remove(1, 1);
       expect(repo.softDelete).toHaveBeenCalledWith(target.id);
     });

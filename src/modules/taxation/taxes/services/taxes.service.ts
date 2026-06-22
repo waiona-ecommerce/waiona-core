@@ -5,12 +5,10 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { TaxEntity } from '../entities/tax.entity';
-import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
 import { ProductTaxEntity } from '../../product-taxes/entities/product-taxes.entity';
-
 import { CreateTaxDto } from '../dto/create-tax.dto';
 import { UpdateTaxDto } from '../dto/update-tax.dto';
 import { TaxResponseDto } from '../dto/tax-response.dto';
@@ -22,98 +20,86 @@ export class TaxesService {
     @InjectRepository(TaxEntity)
     private taxRepository: Repository<TaxEntity>,
 
-    @InjectRepository(TaxTypeEntity)
-    private taxTypeRepository: Repository<TaxTypeEntity>,
-
     @InjectRepository(ProductTaxEntity)
     private productTaxRepository: Repository<ProductTaxEntity>,
   ) {}
 
-  // ==========================
-  // FIND ALL BY TAX TYPE
-  // ==========================
-
   async findAll(
-    taxTypeId: number,
     page = 1,
     limit = 20,
   ): Promise<PaginatedResponseDto<TaxResponseDto>> {
-    const taxType = await this.taxTypeRepository.findOne({
-      where: { id: taxTypeId },
-    });
-
-    if (!taxType) {
-      throw new NotFoundException(
-        `Tipo de impuesto con id ${taxTypeId} no encontrado`,
-      );
-    }
-
     const [entities, total] = await this.taxRepository.findAndCount({
-      where: { taxTypeId },
-      relations: ['taxType'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
 
     return new PaginatedResponseDto(
-      entities.map((entity) => new TaxResponseDto(entity)),
+      entities.map((e) => new TaxResponseDto(e)),
       total,
       page,
       limit,
     );
   }
 
-  // ==========================
-  // FIND BY ID
-  // ==========================
-
   async findById(id: number): Promise<TaxResponseDto> {
-    const entity = await this.findEntity(id);
-    return new TaxResponseDto(entity);
+    return new TaxResponseDto(await this.findEntity(id));
   }
 
-  // ==========================
-  // CREATE
-  // ==========================
-
-  async create(taxTypeId: number, dto: CreateTaxDto): Promise<TaxResponseDto> {
-    const taxType = await this.taxTypeRepository.findOne({
-      where: { id: taxTypeId },
+  async create(dto: CreateTaxDto): Promise<TaxResponseDto> {
+    const existing = await this.taxRepository.findOne({
+      where: { code: dto.code },
     });
-
-    if (!taxType) {
-      throw new NotFoundException(
-        `Tipo de impuesto con id ${taxTypeId} no encontrado`,
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe un impuesto con el código "${dto.code}"`,
       );
     }
 
-    const newEntity = this.taxRepository.create({
-      taxTypeId,
-      value: dto.value,
+    const entity = this.taxRepository.create({
+      ...dto,
       isGlobal: dto.isGlobal ?? false,
     });
-
-    const saved = await this.taxRepository.save(newEntity);
-
-    return new TaxResponseDto(await this.findEntity(saved.id));
+    try {
+      const saved = await this.taxRepository.save(entity);
+      return new TaxResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un impuesto con el código "${dto.code}"`,
+        );
+      }
+      throw err;
+    }
   }
-
-  // ==========================
-  // UPDATE
-  // ==========================
 
   async update(id: number, changes: UpdateTaxDto): Promise<TaxResponseDto> {
     const entity = await this.findEntity(id);
+
+    if (changes.code && changes.code !== entity.code) {
+      const existing = await this.taxRepository.findOne({
+        where: { code: changes.code },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Ya existe un impuesto con el código "${changes.code}"`,
+        );
+      }
+    }
+
     const merged = this.taxRepository.merge(entity, changes);
-    const saved = await this.taxRepository.save(merged);
-
-    return new TaxResponseDto(await this.findEntity(saved.id));
+    try {
+      const saved = await this.taxRepository.save(merged);
+      return new TaxResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un impuesto con el código "${changes.code}"`,
+        );
+      }
+      throw err;
+    }
   }
-
-  // ==========================
-  // DELETE
-  // ==========================
 
   async delete(id: number): Promise<void> {
     const entity = await this.findEntity(id);
@@ -121,7 +107,6 @@ export class TaxesService {
     const usage = await this.productTaxRepository.findOne({
       where: { taxId: entity.id },
     });
-
     if (usage) {
       throw new ConflictException(
         'El impuesto está asignado a uno o más productos y no puede eliminarse',
@@ -131,16 +116,8 @@ export class TaxesService {
     await this.taxRepository.softDelete(entity.id);
   }
 
-  // ==========================
-  // PRIVATE
-  // ==========================
-
   private async findEntity(id: number): Promise<TaxEntity> {
-    const entity = await this.taxRepository.findOne({
-      where: { id },
-      relations: ['taxType'],
-    });
-
+    const entity = await this.taxRepository.findOne({ where: { id } });
     if (!entity)
       throw new NotFoundException(`Impuesto con id ${id} no encontrado`);
     return entity;

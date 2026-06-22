@@ -125,7 +125,6 @@ describe('CategoryService', () => {
 
       const result = await service.create({
         name: 'Bebidas',
-        isActive: true,
       });
 
       expect(result.name).toBe('Bebidas');

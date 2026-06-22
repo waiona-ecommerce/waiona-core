@@ -127,7 +127,7 @@ export class ComboImageController {
   // GET ALL BY COMBO
   // ==========================
 
-  @Get('/combo/:comboId')
+  @Get('combo/:comboId')
   @ApiOperation({ summary: 'Listar imágenes de un combo' })
   @ApiParam({ name: 'comboId', type: Number })
   @ApiResponse({

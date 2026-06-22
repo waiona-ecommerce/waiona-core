@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { CouponProductTargetService } from '../../../coupons/coupon-product-target/services/coupon-product-target.service';
 import { CouponProductTargetEntity } from '../../../coupons/coupon-product-target/entities/coupon-product-target.entity';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
@@ -24,14 +28,17 @@ describe('CouponProductTargetService', () => {
     id: 1,
     code: 'FIJO500',
     isGlobal: false,
-    isDeleted: false,
+    deletedAt: null,
+    endsAt: null,
+    usageLimit: null,
+    usageCount: 0,
     ...overrides,
   });
   const mockTarget = (overrides = {}) => ({
     id: 1,
     couponId: 1,
     productId: 1,
-    isDeleted: false,
+    deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -103,6 +110,23 @@ describe('CouponProductTargetService', () => {
       );
     });
 
+    it('should throw BadRequestException if coupon is expired', async () => {
+      const past = new Date(Date.now() - 1000);
+      couponRepo.findOne.mockResolvedValue(mockCoupon({ endsAt: past }));
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if coupon is exhausted', async () => {
+      couponRepo.findOne.mockResolvedValue(
+        mockCoupon({ usageLimit: 10, usageCount: 10 }),
+      );
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
     it('should throw NotFoundException if product not found', async () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
       productRepo.findOne.mockResolvedValue(null);
@@ -115,17 +139,6 @@ describe('CouponProductTargetService', () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
       productRepo.findOne.mockResolvedValue(mockProduct());
       targetRepo.findOne.mockResolvedValue(mockTarget());
-      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
-        ConflictException,
-      );
-    });
-
-    it('should throw ConflictException if target exists as soft-deleted', async () => {
-      couponRepo.findOne.mockResolvedValue(mockCoupon());
-      productRepo.findOne.mockResolvedValue(mockProduct());
-      targetRepo.findOne.mockResolvedValue(
-        mockTarget({ deletedAt: new Date() }),
-      );
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );

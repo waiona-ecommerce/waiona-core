@@ -3,9 +3,12 @@ import { BaseEntity } from '../../../../common/entities/base.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
 
 @Entity('coupon_product_targets')
+@Index(['couponId', 'productId'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 @Index(['couponId'])
 @Index(['productId'])
-@Index(['couponId', 'productId'], { unique: true })
 export class CouponProductTargetEntity extends BaseEntity {
   @Column({
     name: 'coupon_id',

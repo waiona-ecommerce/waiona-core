@@ -14,7 +14,7 @@ export class CreateProductPricingDto {
 
   @ApiProperty({ example: 500 })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @Min(0.1)
   unitPrice: number;
 
   @ApiProperty({ example: 1, required: false, nullable: true })

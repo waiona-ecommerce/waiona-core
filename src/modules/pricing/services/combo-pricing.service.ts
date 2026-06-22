@@ -3,7 +3,10 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { PG_UNIQUE_VIOLATION } from '../../../common/constants/postgres-error-codes';
+import {
+  PG_UNIQUE_VIOLATION,
+  PG_FK_VIOLATION,
+} from '../../../common/constants/postgres-error-codes';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -54,6 +57,10 @@ export class ComboPricingService {
     } catch (err: any) {
       if (err.code === PG_UNIQUE_VIOLATION)
         throw new ConflictException('El combo ya tiene un pricing asignado');
+      if (err.code === PG_FK_VIOLATION)
+        throw new NotFoundException(
+          `Combo con id ${dto.comboId} no encontrado`,
+        );
       throw err;
     }
   }

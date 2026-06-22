@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
@@ -19,6 +19,13 @@ import { ComboEntity } from '../../src/modules/products/combos/entities/combo.en
 import { ComboItemEntity } from '../../src/modules/products/combos/entities/combo-item.entity';
 import { ComboImageEntity } from '../../src/modules/products/combo-images/entities/combo-image.entity';
 import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
+import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
+import { ProductPricingEntity } from '../../src/modules/pricing/entities/product-pricing.entity';
+import { StockItemEntity } from '../../src/modules/stocks/stock-item/entities/stock-item.entity';
+import { ProductTaxEntity } from '../../src/modules/taxation/product-taxes/entities/product-taxes.entity';
+import { DiscountProductTargetEntity } from '../../src/modules/discounts/discount-product-target/entities/discount-product-target.entity';
+import { CouponProductTargetEntity } from '../../src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
+import { OrderItemEntity } from '../../src/modules/orders/entities/order-item.entity';
 
 describe('Product (e2e)', () => {
   let app: INestApplication;
@@ -61,7 +68,41 @@ describe('Product (e2e)', () => {
         TypeOrmModule.forFeature([ProductEntity, CategoryEntity]),
       ],
       controllers: [ProductController],
-      providers: [ProductService],
+      providers: [
+        ProductService,
+        {
+          provide: getRepositoryToken(ComboItemEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(ProductImageEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(ProductPricingEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(StockItemEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(ProductTaxEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(DiscountProductTargetEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(CouponProductTargetEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(OrderItemEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })

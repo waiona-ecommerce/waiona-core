@@ -118,11 +118,9 @@ describe('PaymentsService', () => {
 
     it('should create a payment with MercadoPago preference', async () => {
       const payment = mockPayment();
-      // create() usa el patrón de dos queries: 1→ lock-only, 2→ full load, 3→ check pago existente
       mockTxManager.findOne
-        .mockResolvedValueOnce(mockOrder({ userId })) // lock
-        .mockResolvedValueOnce(mockOrder({ userId })) // full load
-        .mockResolvedValueOnce(null); // no existing payment
+        .mockResolvedValueOnce(mockOrder({ userId })) // order con lock
+        .mockResolvedValueOnce(null); // no existing pending payment
       mpProvider.createPreference.mockResolvedValue({
         id: 'pref_123',
         checkoutUrl: 'https://mp.com/checkout',
@@ -138,7 +136,7 @@ describe('PaymentsService', () => {
     });
 
     it('should throw NotFoundException if order not found', async () => {
-      mockTxManager.findOne.mockResolvedValueOnce(null); // lock returns null → 404
+      mockTxManager.findOne.mockResolvedValueOnce(null);
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(
         NotFoundException,
       );
@@ -146,9 +144,7 @@ describe('PaymentsService', () => {
 
     it('should throw BadRequestException if order is not PENDING', async () => {
       const confirmed = mockOrder({ userId, status: OrderStatus.CONFIRMED });
-      mockTxManager.findOne
-        .mockResolvedValueOnce(confirmed) // lock
-        .mockResolvedValueOnce(confirmed); // full load
+      mockTxManager.findOne.mockResolvedValueOnce(confirmed);
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(
         BadRequestException,
       );
@@ -156,9 +152,7 @@ describe('PaymentsService', () => {
 
     it('should throw ForbiddenException if client accesses another user order', async () => {
       const order = mockOrder({ userId: 1 }); // different from userId=99
-      mockTxManager.findOne
-        .mockResolvedValueOnce(order) // lock
-        .mockResolvedValueOnce(order); // full load
+      mockTxManager.findOne.mockResolvedValueOnce(order);
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(
         ForbiddenException,
       );
@@ -167,8 +161,7 @@ describe('PaymentsService', () => {
     it('should throw BadRequestException if order already has a pending payment', async () => {
       const order = mockOrder({ userId });
       mockTxManager.findOne
-        .mockResolvedValueOnce(order) // lock
-        .mockResolvedValueOnce(order) // full load
+        .mockResolvedValueOnce(order) // order con lock
         .mockResolvedValueOnce(mockPayment()); // existing pending payment
       await expect(service.create(userId, role, dto as any)).rejects.toThrow(
         BadRequestException,

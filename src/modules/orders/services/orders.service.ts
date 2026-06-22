@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
 
 import { OrderEntity } from '../entities/order.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
@@ -56,12 +56,6 @@ export class OrdersService {
     @InjectRepository(CouponEntity)
     private readonly couponRepo: Repository<CouponEntity>,
 
-    @InjectRepository(CouponProductTargetEntity)
-    private readonly couponProductTargetRepo: Repository<CouponProductTargetEntity>,
-
-    @InjectRepository(CouponComboTargetEntity)
-    private readonly couponComboTargetRepo: Repository<CouponComboTargetEntity>,
-
     private readonly stockItemsService: StockItemsService,
     private readonly calculationService: CalculationService,
     private readonly mailService: MailService,
@@ -101,12 +95,19 @@ export class OrdersService {
       );
     }
 
-    // 3. Calcular precios, validar stock y cupón ANTES de la transacción
+    // 3. Calcular precios y validar productos/combos ANTES de la transacción.
+    //    La selección de ubicación de stock se hace DENTRO de la transacción
+    //    para leer datos frescos y reducir la ventana de race condition.
+    //    reserveStock (pessimistic_write) serializa el acceso al stock final.
     const orderItems: OrderItemEntity[] = [];
-    const stockReservations: {
+    const productStockNeeds: {
+      orderItem: OrderItemEntity;
       productId: number;
-      locationId: number;
       quantity: number;
+    }[] = [];
+    const comboStockNeeds: {
+      orderItem: OrderItemEntity;
+      needs: { productId: number; quantity: number }[];
     }[] = [];
     let subtotal = 0;
     const couponItems: Array<{
@@ -125,11 +126,6 @@ export class OrdersService {
             `Producto con id ${item.productId} no encontrado`,
           );
 
-        const stockItem = await this.findAvailableStockItem(
-          item.productId,
-          item.quantity,
-        );
-
         const breakdown = await this.calculationService.calculateProduct({
           productId: item.productId,
         });
@@ -141,13 +137,13 @@ export class OrdersService {
           quantity: item.quantity,
           unitPrice: breakdown.unitPrice,
           finalPrice: itemSubtotal,
-          locationId: stockItem.locationId,
+          // locationId se asigna dentro de la transacción
         });
 
         orderItems.push(orderItem);
-        stockReservations.push({
+        productStockNeeds.push({
+          orderItem,
           productId: item.productId,
-          locationId: stockItem.locationId,
           quantity: item.quantity,
         });
         subtotal += itemSubtotal;
@@ -162,26 +158,6 @@ export class OrdersService {
             `Combo con id ${item.comboId} no encontrado`,
           );
 
-        const comboReservations: {
-          productId: number;
-          locationId: number;
-          quantity: number;
-        }[] = [];
-
-        for (const comboItem of combo.items) {
-          const stockItem = await this.findAvailableStockItem(
-            comboItem.productId,
-            item.quantity * comboItem.quantity,
-          );
-          const reservation = {
-            productId: comboItem.productId,
-            locationId: stockItem.locationId,
-            quantity: item.quantity * comboItem.quantity,
-          };
-          comboReservations.push(reservation);
-          stockReservations.push(reservation);
-        }
-
         const breakdown = await this.calculationService.calculateCombo({
           comboId: item.comboId,
         });
@@ -193,28 +169,77 @@ export class OrdersService {
           quantity: item.quantity,
           unitPrice: breakdown.unitPrice,
           finalPrice: itemSubtotal,
-          comboReservations,
+          // comboReservations se asigna dentro de la transacción
         });
 
         orderItems.push(orderItem);
+        comboStockNeeds.push({
+          orderItem,
+          needs: combo.items.map((ci) => ({
+            productId: ci.productId,
+            quantity: item.quantity * ci.quantity,
+          })),
+        });
         subtotal += itemSubtotal;
         couponItems.push({ comboId: item.comboId, subtotal: itemSubtotal });
       }
     }
 
-    const couponDiscount = dto.couponCode
-      ? await this.computeOrderCouponDiscount(dto.couponCode, couponItems)
-      : 0;
-
-    const total = Math.max(0, subtotal - couponDiscount);
-
-    // 4. 🔥 Transacción — guardar orden + reservar stock + registrar cupón de forma atómica
+    // 4. 🔥 Transacción — seleccionar stock con datos frescos, reservar, guardar orden y cupón
     const saved = await this.dataSource.transaction(async (manager) => {
-      // pessimistic lock sobre el cupón — previene race condition (TOCTOU):
-      // dos requests concurrentes con el mismo código esperan el lock en lugar de ambas pasar
+      // 4a. Seleccionar ubicaciones de stock dentro de la transacción
+      const stockReservations: {
+        productId: number;
+        locationId: number;
+        quantity: number;
+      }[] = [];
+
+      for (const { orderItem, productId, quantity } of productStockNeeds) {
+        const stockItem = await this.findAvailableStockItem(
+          productId,
+          quantity,
+          manager,
+        );
+        orderItem.locationId = stockItem.locationId;
+        stockReservations.push({
+          productId,
+          locationId: stockItem.locationId,
+          quantity,
+        });
+      }
+
+      for (const { orderItem, needs } of comboStockNeeds) {
+        const comboReservations: {
+          productId: number;
+          locationId: number;
+          quantity: number;
+        }[] = [];
+        for (const { productId, quantity } of needs) {
+          const stockItem = await this.findAvailableStockItem(
+            productId,
+            quantity,
+            manager,
+          );
+          comboReservations.push({
+            productId,
+            locationId: stockItem.locationId,
+            quantity,
+          });
+          stockReservations.push({
+            productId,
+            locationId: stockItem.locationId,
+            quantity,
+          });
+        }
+        orderItem.comboReservations = comboReservations;
+      }
+
+      // 4b. Validar y aplicar cupón
       let lockedCoupon: CouponEntity | null = null;
+      let couponDiscount = 0;
 
       if (dto.couponCode) {
+        // Lock del cupón — serializa concurrencia y garantiza datos frescos
         lockedCoupon = await manager.findOne(CouponEntity, {
           where: { code: dto.couponCode },
           lock: { mode: 'pessimistic_write' },
@@ -227,7 +252,8 @@ export class OrdersService {
         if (lockedCoupon.endsAt && now > lockedCoupon.endsAt)
           throw new BadRequestException('El cupón ha expirado');
         if (
-          lockedCoupon.usageLimit &&
+          lockedCoupon.usageLimit !== null &&
+          lockedCoupon.usageLimit !== undefined &&
           lockedCoupon.usageCount >= lockedCoupon.usageLimit
         )
           throw new BadRequestException(
@@ -240,6 +266,12 @@ export class OrdersService {
         if (alreadyUsed)
           throw new ConflictException('El usuario ya utilizó este cupón');
 
+        couponDiscount = await this.computeCouponDiscountWithManager(
+          lockedCoupon,
+          couponItems,
+          manager,
+        );
+
         if (couponDiscount === 0) {
           throw new BadRequestException(
             'El cupón no aplica a ningún ítem de esta orden',
@@ -247,7 +279,9 @@ export class OrdersService {
         }
       }
 
-      // guardar orden
+      const total = Math.max(0, subtotal - couponDiscount);
+
+      // 4c. Guardar orden
       const order = manager.create(OrderEntity, {
         user,
         items: orderItems,
@@ -263,7 +297,7 @@ export class OrdersService {
 
       const savedOrder = await manager.save(OrderEntity, order);
 
-      // reservar stock — atómico con el save de la orden
+      // 4d. Reservar stock — atómico con el save de la orden
       for (const reservation of stockReservations) {
         await this.stockItemsService.reserveStock(
           reservation.productId,
@@ -273,7 +307,7 @@ export class OrdersService {
         );
       }
 
-      // registrar uso del cupón — solo si efectivamente generó descuento
+      // 4e. Registrar uso del cupón — solo si efectivamente generó descuento
       if (lockedCoupon && couponDiscount > 0) {
         lockedCoupon.usageCount += 1;
         await manager.save(CouponEntity, lockedCoupon);
@@ -449,10 +483,11 @@ export class OrdersService {
   private async findAvailableStockItem(
     productId: number,
     quantity: number,
+    manager?: EntityManager,
   ): Promise<StockItemEntity> {
-    const items = await this.stockItemRepo.find({
-      where: { productId },
-    });
+    const items = manager
+      ? await manager.find(StockItemEntity, { where: { productId } })
+      : await this.stockItemRepo.find({ where: { productId } });
 
     if (!items.length) {
       throw new NotFoundException(
@@ -478,45 +513,44 @@ export class OrdersService {
   // PRIVATE — descuento de cupón sobre la orden
   // ==========================
 
-  private async computeOrderCouponDiscount(
-    couponCode: string,
+  private async computeCouponDiscountWithManager(
+    coupon: CouponEntity,
     items: Array<{ productId?: number; comboId?: number; subtotal: number }>,
+    manager: EntityManager,
   ): Promise<number> {
-    const now = new Date();
-
-    const coupon = await this.couponRepo.findOne({
-      where: { code: couponCode },
-    });
-    if (!coupon) return 0;
-    if (coupon.startsAt && now < coupon.startsAt) return 0;
-    if (coupon.endsAt && now > coupon.endsAt) return 0;
-    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return 0;
-
     const apply = (base: number) => base * (coupon.value / 100);
 
     if (coupon.isGlobal) {
-      const total = items.reduce((sum, i) => sum + i.subtotal, 0);
-      return apply(total);
+      return apply(items.reduce((sum, i) => sum + i.subtotal, 0));
     }
 
-    let eligibleSubtotal = 0;
-    for (const item of items) {
-      if (item.productId) {
-        const target = await this.couponProductTargetRepo.findOne({
-          where: { couponId: coupon.id, productId: item.productId },
-        });
-        if (target) eligibleSubtotal += item.subtotal;
-      }
-      if (item.comboId) {
-        const target = await this.couponComboTargetRepo.findOne({
-          where: { couponId: coupon.id, comboId: item.comboId },
-        });
-        if (target) eligibleSubtotal += item.subtotal;
-      }
-    }
+    const productIds = items.flatMap((i) => (i.productId ? [i.productId] : []));
+    const comboIds = items.flatMap((i) => (i.comboId ? [i.comboId] : []));
 
-    if (eligibleSubtotal === 0) return 0;
-    return apply(eligibleSubtotal);
+    const [productTargets, comboTargets] = await Promise.all([
+      productIds.length
+        ? manager.find(CouponProductTargetEntity, {
+            where: { couponId: coupon.id, productId: In(productIds) },
+          })
+        : Promise.resolve([]),
+      comboIds.length
+        ? manager.find(CouponComboTargetEntity, {
+            where: { couponId: coupon.id, comboId: In(comboIds) },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const eligibleProductIds = new Set(productTargets.map((t) => t.productId));
+    const eligibleComboIds = new Set(comboTargets.map((t) => t.comboId));
+
+    const eligibleSubtotal = items.reduce((sum, i) => {
+      if (i.productId && eligibleProductIds.has(i.productId))
+        return sum + i.subtotal;
+      if (i.comboId && eligibleComboIds.has(i.comboId)) return sum + i.subtotal;
+      return sum;
+    }, 0);
+
+    return eligibleSubtotal === 0 ? 0 : apply(eligibleSubtotal);
   }
 
   // ==========================
@@ -584,15 +618,20 @@ export class OrdersService {
       }
     }
 
-    if (order.coupon) {
-      const couponRepo = manager.getRepository(CouponEntity);
-      const usageRepo = manager.getRepository(CouponUsageEntity);
-      order.coupon.usageCount = Math.max(0, order.coupon.usageCount - 1);
-      await couponRepo.save(order.coupon);
-      await usageRepo.softDelete({
-        couponId: order.coupon.id,
-        orderId: order.id,
+    if (order.couponId) {
+      // Re-leer con lock para evitar lost update si dos cancelaciones son concurrentes
+      const coupon = await manager.findOne(CouponEntity, {
+        where: { id: order.couponId },
+        lock: { mode: 'pessimistic_write' },
       });
+      if (coupon) {
+        coupon.usageCount = Math.max(0, coupon.usageCount - 1);
+        await manager.save(CouponEntity, coupon);
+        await manager.softDelete(CouponUsageEntity, {
+          couponId: coupon.id,
+          orderId: order.id,
+        });
+      }
     }
   }
 

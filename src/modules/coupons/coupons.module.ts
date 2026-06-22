@@ -7,6 +7,7 @@ import { CouponComboTargetEntity } from './coupon-combo-target/entities/coupon-c
 import { CouponUsageEntity } from './usage/entities/coupon-usage.entity';
 import { ProductEntity } from '../products/product/entities/product.entity';
 import { ComboEntity } from '../products/combos/entities/combo.entity';
+import { UserEntity } from '../users/entities/user.entity';
 
 import { CouponService } from './coupon/services/coupon.service';
 import { CouponProductTargetService } from './coupon-product-target/services/coupon-product-target.service';
@@ -27,6 +28,7 @@ import { CouponComboTargetController } from './coupon-combo-target/controllers/c
       CouponUsageEntity,
       ProductEntity,
       ComboEntity,
+      UserEntity,
     ]),
   ],
   controllers: [

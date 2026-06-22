@@ -6,7 +6,6 @@ import {
   IsNumber,
   Min,
   Max,
-  IsDate,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -50,20 +49,4 @@ export class CreateDiscountDto {
   @Min(0.01)
   @Max(100)
   value: number;
-
-  // ==========================
-  // DATES
-  // ==========================
-
-  @ApiPropertyOptional({ example: '2025-11-01T00:00:00.000Z' })
-  @IsOptional()
-  @Type(() => Date)
-  @IsDate()
-  startsAt?: Date;
-
-  @ApiPropertyOptional({ example: '2025-11-30T23:59:59.000Z' })
-  @IsOptional()
-  @Type(() => Date)
-  @IsDate()
-  endsAt?: Date;
 }

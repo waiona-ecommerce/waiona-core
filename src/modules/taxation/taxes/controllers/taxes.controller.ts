@@ -17,7 +17,6 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiParam,
 } from '@nestjs/swagger';
 
 import { TaxesService } from '../services/taxes.service';
@@ -33,21 +32,19 @@ import { RolesGuard } from '../../../../common/guards/roles.guard';
 
 @ApiTags('Taxes')
 @ApiBearerAuth()
-@ApiParam({ name: 'taxTypeId', type: Number })
 @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller({ version: '1', path: 'tax-types/:taxTypeId/taxes' })
+@Controller({ version: '1', path: 'taxes' })
 export class TaxesController {
   constructor(private readonly taxesService: TaxesService) {}
 
-  @ApiOperation({ summary: 'List taxes for a tax type' })
+  @ApiOperation({ summary: 'List all taxes' })
   @ApiResponse({ status: 200, type: TaxResponseDto, isArray: true })
   @Get()
   findAll(
-    @Param('taxTypeId', ParseIntPipe) taxTypeId: number,
     @Query() { page, limit }: PaginationQueryDto,
   ): Promise<PaginatedResponseDto<TaxResponseDto>> {
-    return this.taxesService.findAll(taxTypeId, page, limit);
+    return this.taxesService.findAll(page, limit);
   }
 
   @ApiOperation({ summary: 'Get a tax by ID' })
@@ -60,16 +57,9 @@ export class TaxesController {
 
   @ApiOperation({ summary: 'Create a tax' })
   @ApiResponse({ status: 201, type: TaxResponseDto })
-  @ApiResponse({
-    status: 400,
-    description: 'Validation error or tax type not found',
-  })
   @Post()
-  create(
-    @Param('taxTypeId', ParseIntPipe) taxTypeId: number,
-    @Body() dto: CreateTaxDto,
-  ): Promise<TaxResponseDto> {
-    return this.taxesService.create(taxTypeId, dto);
+  create(@Body() dto: CreateTaxDto): Promise<TaxResponseDto> {
+    return this.taxesService.create(dto);
   }
 
   @ApiOperation({ summary: 'Update a tax' })

@@ -124,21 +124,14 @@ export class DiscountProductTargetService {
     }
   }
 
-  // 🔥 chequea que el producto no esté asociado a NINGÚN descuento activo (ni el target ni el descuento deben estar borrados)
   private async validateProductHasNoActiveDiscount(
     productId: number,
   ): Promise<void> {
-    const existing = await this.repo
-      .createQueryBuilder('target')
-      .innerJoin('target.discount', 'discount')
-      .where('target.productId = :productId', { productId })
-      .andWhere('target.deletedAt IS NULL')
-      .andWhere('discount.deletedAt IS NULL')
-      .getOne();
+    const existing = await this.repo.findOne({ where: { productId } });
 
     if (existing) {
       throw new ConflictException(
-        `El producto ${productId} ya tiene un descuento activo asignado`,
+        `El producto ${productId} ya tiene un descuento asignado`,
       );
     }
   }

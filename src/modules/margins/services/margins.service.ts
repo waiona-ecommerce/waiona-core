@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { MarginEntity } from '../entities/margin.entity';
 import { ProductPricingEntity } from '../../pricing/entities/product-pricing.entity';
@@ -32,9 +32,18 @@ export class MarginsService {
     await this.validateUniqueName(dto.name);
 
     const margin = this.marginRepository.create(dto);
-    const saved = await this.marginRepository.save(margin);
 
-    return new MarginResponseDto(saved);
+    try {
+      const saved = await this.marginRepository.save(margin);
+      return new MarginResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un margen con el nombre "${dto.name}"`,
+        );
+      }
+      throw err;
+    }
   }
 
   // GET ALL (no eliminados)
@@ -71,9 +80,18 @@ export class MarginsService {
     }
 
     const merged = this.marginRepository.merge(margin, dto);
-    const updated = await this.marginRepository.save(merged);
 
-    return new MarginResponseDto(updated);
+    try {
+      const updated = await this.marginRepository.save(merged);
+      return new MarginResponseDto(updated);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un margen con el nombre "${dto.name}"`,
+        );
+      }
+      throw err;
+    }
   }
 
   // SOFT DELETE

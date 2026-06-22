@@ -127,7 +127,7 @@ describe('ProductImageService', () => {
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
-    it('should delete from Cloudinary before soft delete when publicId exists', async () => {
+    it('should soft delete then delete from Cloudinary when publicId exists', async () => {
       const image = mockImage({ publicId: 'waiona/products/abc123' });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockStorageService.delete.mockResolvedValue(undefined);

@@ -30,14 +30,14 @@ import type { JwtPayload } from '../../../../common/decorators/current-user.deco
 
 @ApiTags('Coupon Usage')
 @ApiBearerAuth()
-@Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller({ version: '1', path: 'coupon-usage' })
 export class CouponUsageController {
   constructor(private readonly couponUsageService: CouponUsageService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Registrar uso de cupón en una orden' })
+  @Roles(RoleType.CLIENT)
+  @ApiOperation({ summary: 'Aplicar un cupón a una orden (solo cliente)' })
   @ApiResponse({ status: 201, type: CouponUsageResponseDto })
   @ApiResponse({
     status: 400,
@@ -53,6 +53,7 @@ export class CouponUsageController {
   }
 
   @Get()
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Listar todos los usos de cupones paginado' })
   @ApiResponse({ status: 200, type: CouponUsageResponseDto, isArray: true })
   findAll(
@@ -62,6 +63,7 @@ export class CouponUsageController {
   }
 
   @Get('coupon/:couponId')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Usos por cupón' })
   @ApiParam({ name: 'couponId', type: Number })
   @ApiResponse({ status: 200, type: CouponUsageResponseDto, isArray: true })
@@ -72,6 +74,7 @@ export class CouponUsageController {
   }
 
   @Get('user/:userId')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Usos por usuario' })
   @ApiParam({ name: 'userId', type: Number })
   @ApiResponse({ status: 200, type: CouponUsageResponseDto, isArray: true })

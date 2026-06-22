@@ -9,11 +9,13 @@ import {
 import { CouponUsageService } from '../../../coupons/usage/services/coupon-usage.service';
 import { CouponUsageEntity } from '../../../coupons/usage/entities/coupon-usage.entity';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
+import { UserEntity } from '../../../users/entities/user.entity';
 
 describe('CouponUsageService', () => {
   let service: CouponUsageService;
   let usageRepo: any;
   let couponRepo: any;
+  let userRepo: any;
 
   const mockUsageRepo = () => ({
     find: jest.fn(),
@@ -21,6 +23,7 @@ describe('CouponUsageService', () => {
     findAndCount: jest.fn(),
   });
   const mockCouponRepo = () => ({ findOne: jest.fn() });
+  const mockUserRepo = () => ({ findOne: jest.fn() });
 
   const mockEntityManager = {
     findOne: jest.fn(),
@@ -39,7 +42,7 @@ describe('CouponUsageService', () => {
       usageCount: 0,
       startsAt: null,
       endsAt: null,
-      isDeleted: false,
+      deletedAt: null,
       ...overrides,
     }) as unknown as CouponEntity;
 
@@ -51,6 +54,13 @@ describe('CouponUsageService', () => {
     appliedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...overrides,
+  });
+
+  const mockUser = (overrides = {}) => ({
+    id: 1,
+    email: 'user@test.com',
+    deletedAt: null,
     ...overrides,
   });
 
@@ -66,6 +76,10 @@ describe('CouponUsageService', () => {
           provide: getRepositoryToken(CouponEntity),
           useFactory: mockCouponRepo,
         },
+        {
+          provide: getRepositoryToken(UserEntity),
+          useFactory: mockUserRepo,
+        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -73,6 +87,7 @@ describe('CouponUsageService', () => {
     service = module.get<CouponUsageService>(CouponUsageService);
     usageRepo = module.get(getRepositoryToken(CouponUsageEntity));
     couponRepo = module.get(getRepositoryToken(CouponEntity));
+    userRepo = module.get(getRepositoryToken(UserEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -83,8 +98,8 @@ describe('CouponUsageService', () => {
     it('should create a usage and increment usageCount inside the transaction', async () => {
       const usage = mockUsage();
       mockEntityManager.findOne
-        .mockResolvedValueOnce(mockCoupon()) // coupon found with lock
-        .mockResolvedValueOnce(null); // not used before
+        .mockResolvedValueOnce(mockCoupon())
+        .mockResolvedValueOnce(null);
       mockEntityManager.create.mockReturnValue(usage);
       mockEntityManager.save.mockResolvedValue(usage);
 
@@ -132,8 +147,8 @@ describe('CouponUsageService', () => {
 
     it('should throw ConflictException if user already used the coupon', async () => {
       mockEntityManager.findOne
-        .mockResolvedValueOnce(mockCoupon()) // coupon
-        .mockResolvedValueOnce(mockUsage()); // already used
+        .mockResolvedValueOnce(mockCoupon())
+        .mockResolvedValueOnce(mockUsage());
       await expect(service.create(dto as any)).rejects.toThrow(
         ConflictException,
       );
@@ -166,9 +181,15 @@ describe('CouponUsageService', () => {
 
   describe('findByUser', () => {
     it('should return usages by userId', async () => {
+      userRepo.findOne.mockResolvedValue(mockUser());
       usageRepo.find.mockResolvedValue([mockUsage()]);
       const result = await service.findByUser(1);
       expect(result).toHaveLength(1);
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      userRepo.findOne.mockResolvedValue(null);
+      await expect(service.findByUser(999)).rejects.toThrow(NotFoundException);
     });
   });
 });

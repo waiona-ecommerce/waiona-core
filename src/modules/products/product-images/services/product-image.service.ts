@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
+import { Repository, Not, QueryFailedError } from 'typeorm';
 
 import { ProductImageEntity } from '../entities/product-image.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
@@ -44,11 +44,18 @@ export class ProductImageService {
 
     await this.assertPositionFree(dto.productId, dto.position);
 
-    const image = this.productImageRepository.create(dto);
-
-    const saved = await this.productImageRepository.save(image);
-
-    return new ProductImageResponseDto(saved);
+    try {
+      const image = this.productImageRepository.create(dto);
+      const saved = await this.productImageRepository.save(image);
+      return new ProductImageResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este producto`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -87,9 +94,18 @@ export class ProductImageService {
     }
 
     const merged = this.productImageRepository.merge(image, dto);
-    const updated = await this.productImageRepository.save(merged);
 
-    return new ProductImageResponseDto(updated);
+    try {
+      const updated = await this.productImageRepository.save(merged);
+      return new ProductImageResponseDto(updated);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este producto`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -120,7 +136,7 @@ export class ProductImageService {
       where: { id: dto.productId },
     });
     if (!stillExists) {
-      await this.storageService.delete(publicId);
+      await this.storageService.delete(publicId).catch(() => undefined);
       throw new NotFoundException(
         `Producto con id ${dto.productId} no encontrado`,
       );
@@ -128,20 +144,23 @@ export class ProductImageService {
 
     try {
       await this.assertPositionFree(dto.productId, dto.position);
+      const image = this.productImageRepository.create({
+        productId: dto.productId,
+        position: dto.position,
+        url,
+        publicId,
+      });
+      const saved = await this.productImageRepository.save(image);
+      return new ProductImageResponseDto(saved);
     } catch (err) {
-      await this.storageService.delete(publicId);
+      await this.storageService.delete(publicId).catch(() => undefined);
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este producto`,
+        );
+      }
       throw err;
     }
-
-    const image = this.productImageRepository.create({
-      productId: dto.productId,
-      position: dto.position,
-      url,
-      publicId,
-    });
-    const saved = await this.productImageRepository.save(image);
-
-    return new ProductImageResponseDto(saved);
   }
 
   // ==========================
@@ -150,10 +169,10 @@ export class ProductImageService {
 
   async remove(id: number): Promise<void> {
     const image = await this.findEntity(id);
-    if (image.publicId) {
-      await this.storageService.delete(image.publicId);
-    }
     await this.productImageRepository.softDelete(image.id);
+    if (image.publicId) {
+      await this.storageService.delete(image.publicId).catch(() => undefined);
+    }
   }
 
   // ==========================

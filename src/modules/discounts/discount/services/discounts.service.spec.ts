@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { DiscountsService } from '../../discount/services/discounts.service';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
 import { DiscountProductTargetEntity } from '../../discount-product-target/entities/discount-product-target.entity';
@@ -25,8 +25,6 @@ describe('DiscountsService', () => {
     name: 'Promo 10%',
     description: 'Descuento de prueba',
     value: 10,
-    startsAt: null,
-    endsAt: null,
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -66,31 +64,6 @@ describe('DiscountsService', () => {
       const result = await service.create({ name: 'Promo', value: 10 });
       expect(result.value).toBe(10);
     });
-
-    it('should throw BadRequestException if startsAt >= endsAt', async () => {
-      const now = new Date();
-      const past = new Date(now.getTime() - 1000);
-      await expect(
-        service.create({
-          name: 'X',
-          value: 10,
-          startsAt: now,
-          endsAt: past,
-        } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if only startsAt is provided', async () => {
-      await expect(
-        service.create({ name: 'X', value: 10, startsAt: new Date() } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if only endsAt is provided', async () => {
-      await expect(
-        service.create({ name: 'X', value: 10, endsAt: new Date() } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
   });
 
   describe('findAll', () => {
@@ -119,35 +92,6 @@ describe('DiscountsService', () => {
       repo.findOne.mockResolvedValue(null);
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
-
-    it('should return status ACTIVE when no dates', async () => {
-      repo.findOne.mockResolvedValue(
-        mockDiscount({ startsAt: null, endsAt: null }),
-      );
-      expect((await service.findOne(1)).status).toBe('active');
-    });
-
-    it('should return status SCHEDULED when startsAt is in the future', async () => {
-      const future = new Date(Date.now() + 86400000);
-      repo.findOne.mockResolvedValue(
-        mockDiscount({
-          startsAt: future,
-          endsAt: new Date(Date.now() + 172800000),
-        }),
-      );
-      expect((await service.findOne(1)).status).toBe('scheduled');
-    });
-
-    it('should return status EXPIRED when endsAt is in the past', async () => {
-      const past = new Date(Date.now() - 86400000);
-      repo.findOne.mockResolvedValue(
-        mockDiscount({
-          startsAt: new Date(Date.now() - 172800000),
-          endsAt: past,
-        }),
-      );
-      expect((await service.findOne(1)).status).toBe('expired');
-    });
   });
 
   describe('update', () => {
@@ -167,19 +111,10 @@ describe('DiscountsService', () => {
         NotFoundException,
       );
     });
-
-    it('should throw BadRequestException if updating only startsAt on a discount with no endsAt', async () => {
-      repo.findOne.mockResolvedValue(
-        mockDiscount({ startsAt: null, endsAt: null }),
-      );
-      await expect(
-        service.update(1, { startsAt: new Date() } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
   });
 
   describe('remove', () => {
-    it('should soft delete discount and cascade to targets', async () => {
+    it('should soft delete discount and hard delete cascade targets', async () => {
       const entity = mockDiscount();
       repo.findOne.mockResolvedValue(entity);
       repo.softDelete.mockResolvedValue(undefined);

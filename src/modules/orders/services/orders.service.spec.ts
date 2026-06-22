@@ -13,8 +13,7 @@ import { OrderItemEntity } from '../entities/order-item.entity';
 import { ProductEntity } from '../../products/product/entities/product.entity';
 import { ComboEntity } from '../../products/combos/entities/combo.entity';
 import { CouponEntity } from '../../coupons/coupon/entities/coupon.entity';
-import { CouponProductTargetEntity } from '../../coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from '../../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
+import { CouponUsageEntity } from '../../coupons/usage/entities/coupon-usage.entity';
 import { StockItemEntity } from '../../stocks/stock-item/entities/stock-item.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { StockItemsService } from '../../stocks/stock-item/services/stock-item.service';
@@ -37,8 +36,6 @@ describe('OrdersService', () => {
   const mockProductRepo = () => ({ findOne: jest.fn() });
   const mockComboRepo = () => ({ findOne: jest.fn() });
   const mockCouponRepo = () => ({ findOne: jest.fn(), save: jest.fn() });
-  const mockCouponProductTargetRepo = () => ({ findOne: jest.fn() });
-  const mockCouponComboTargetRepo = () => ({ findOne: jest.fn() });
   const mockStockItemRepo = () => ({
     findOne: jest.fn(),
     find: jest.fn(),
@@ -70,8 +67,10 @@ describe('OrdersService', () => {
   };
   const mockEntityManager = {
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    softDelete: jest.fn(),
     getRepository: jest.fn(() => mockManagerRepo),
   };
   const mockDataSource = {
@@ -166,13 +165,11 @@ describe('OrdersService', () => {
   let orderRepo: any;
   let productRepo: any;
   let comboRepo: any;
-  let couponRepo: any;
-  let couponProductTargetRepo: any;
-  let stockItemRepo: any;
   let userRepo: any;
   let stockService: any;
   let calcService: any;
   let orderItemRepo: any;
+  let mailService: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -193,14 +190,6 @@ describe('OrdersService', () => {
           useFactory: mockCouponRepo,
         },
         {
-          provide: getRepositoryToken(CouponProductTargetEntity),
-          useFactory: mockCouponProductTargetRepo,
-        },
-        {
-          provide: getRepositoryToken(CouponComboTargetEntity),
-          useFactory: mockCouponComboTargetRepo,
-        },
-        {
           provide: getRepositoryToken(StockItemEntity),
           useFactory: mockStockItemRepo,
         },
@@ -216,15 +205,11 @@ describe('OrdersService', () => {
     orderRepo = module.get(getRepositoryToken(OrderEntity));
     productRepo = module.get(getRepositoryToken(ProductEntity));
     comboRepo = module.get(getRepositoryToken(ComboEntity));
-    couponRepo = module.get(getRepositoryToken(CouponEntity));
-    couponProductTargetRepo = module.get(
-      getRepositoryToken(CouponProductTargetEntity),
-    );
-    stockItemRepo = module.get(getRepositoryToken(StockItemEntity));
     userRepo = module.get(getRepositoryToken(UserEntity));
     stockService = module.get(StockItemsService);
     calcService = module.get(CalculationService);
     orderItemRepo = module.get(getRepositoryToken(OrderItemEntity));
+    mailService = module.get(MailService);
   });
 
   afterEach(() => {
@@ -247,9 +232,10 @@ describe('OrdersService', () => {
       const order = mockOrder();
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      stockItemRepo.find.mockResolvedValue([mockStock()]); // findAvailableStockItem usa find
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
+      // findAvailableStockItem ahora usa manager.find dentro de la transacción
+      mockEntityManager.find.mockResolvedValue([mockStock()]);
       mockEntityManager.create.mockReturnValue(order);
       mockEntityManager.save.mockResolvedValue(order);
       mockManagerRepo.findOne.mockResolvedValue(mockStock()); // reserveStock usa manager.getRepository().findOne
@@ -308,14 +294,27 @@ describe('OrdersService', () => {
       );
     });
 
+    it('should throw NotFoundException if no stock exists for product', async () => {
+      userRepo.findOne.mockResolvedValue(mockUser());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      calcService.calculateProduct.mockResolvedValue(mockBreakdown());
+      orderItemRepo.create.mockReturnValue({});
+      // manager.find devuelve array vacío → no hay stock items para ese producto
+      mockEntityManager.find.mockResolvedValue([]);
+      await expect(service.create(1, dto as any)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
     it('should throw BadRequestException if insufficient stock', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      // findAvailableStockItem usa find — stock con solo 1 disponible para pedido de 5
-      stockItemRepo.find.mockResolvedValue([
+      calcService.calculateProduct.mockResolvedValue(mockBreakdown());
+      orderItemRepo.create.mockReturnValue({});
+      // findAvailableStockItem usa manager.find dentro de la transacción
+      mockEntityManager.find.mockResolvedValue([
         mockStock({ quantityCurrent: 2, quantityReserved: 1 }),
       ]);
-      calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       await expect(
         service.create(1, {
           items: [{ productId: 1, quantity: 5 }],
@@ -327,10 +326,11 @@ describe('OrdersService', () => {
     it('should throw ConflictException if coupon already used by user', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      stockItemRepo.find.mockResolvedValue([mockStock()]);
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
-      // dentro de la transacción: findOne(CouponEntity) → cupón, findOne(CouponUsageEntity) → ya usado
+      // findAvailableStockItem dentro de la transacción
+      mockEntityManager.find.mockResolvedValue([mockStock()]);
+      // findOne(CouponEntity) → cupón, findOne(CouponUsageEntity) → ya usado
       mockEntityManager.findOne
         .mockResolvedValueOnce({
           id: 1,
@@ -350,11 +350,11 @@ describe('OrdersService', () => {
     it('should throw NotFoundException if coupon not found in transaction', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      stockItemRepo.find.mockResolvedValue([mockStock()]);
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
-      // computeOrderCouponDiscount: couponRepo.findOne devuelve undefined → retorna 0 silenciosamente
-      // dentro de la transacción: locked coupon → null → NotFoundException
+      // findAvailableStockItem dentro de la transacción
+      mockEntityManager.find.mockResolvedValue([mockStock()]);
+      // findOne(CouponEntity) → null → NotFoundException
       mockEntityManager.findOne.mockResolvedValueOnce(null);
 
       await expect(
@@ -365,9 +365,9 @@ describe('OrdersService', () => {
     it('should throw BadRequestException if coupon is expired', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      stockItemRepo.find.mockResolvedValue([mockStock()]);
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
+      mockEntityManager.find.mockResolvedValue([mockStock()]);
       mockEntityManager.findOne.mockResolvedValueOnce({
         id: 1,
         code: 'VENCIDO',
@@ -385,9 +385,9 @@ describe('OrdersService', () => {
     it('should throw BadRequestException if coupon usage limit is reached', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      stockItemRepo.find.mockResolvedValue([mockStock()]);
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
+      mockEntityManager.find.mockResolvedValue([mockStock()]);
       mockEntityManager.findOne.mockResolvedValueOnce({
         id: 1,
         code: 'AGOTADO',
@@ -405,22 +405,13 @@ describe('OrdersService', () => {
     it('should throw BadRequestException if coupon does not apply to any item', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       productRepo.findOne.mockResolvedValue(mockProduct());
-      stockItemRepo.find.mockResolvedValue([mockStock()]);
       calcService.calculateProduct.mockResolvedValue(mockBreakdown());
       orderItemRepo.create.mockReturnValue({});
-      // computeOrderCouponDiscount: cupón válido no global, sin target para este producto → retorna 0
-      couponRepo.findOne.mockResolvedValueOnce({
-        id: 1,
-        code: 'NOAPLICA',
-        value: 10,
-        isGlobal: false,
-        usageLimit: null,
-        usageCount: 0,
-        startsAt: null,
-        endsAt: null,
-      });
-      couponProductTargetRepo.findOne.mockResolvedValueOnce(null);
-      // dentro de la transacción: cupón válido, sin uso previo, pero couponDiscount === 0
+      // findAvailableStockItem (stock) → producto válido; luego target query devuelve []
+      mockEntityManager.find
+        .mockResolvedValueOnce([mockStock()]) // stock para el producto
+        .mockResolvedValueOnce([]); // CouponProductTargetEntity: sin targets
+      // cupón válido no global, sin uso previo
       mockEntityManager.findOne
         .mockResolvedValueOnce({
           id: 1,
@@ -437,6 +428,200 @@ describe('OrdersService', () => {
       await expect(
         service.create(1, { ...dto, couponCode: 'NOAPLICA' } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should create an order with a global coupon, increment usageCount, and register usage', async () => {
+      const coupon = {
+        id: 5,
+        code: 'GLOBAL10',
+        value: 10,
+        isGlobal: true,
+        usageLimit: 100,
+        usageCount: 5,
+        startsAt: null,
+        endsAt: null,
+      };
+      const order = mockOrder({
+        subtotal: 653.4,
+        total: 588.06,
+        couponDiscount: 65.34,
+      });
+
+      userRepo.findOne.mockResolvedValue(mockUser());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      calcService.calculateProduct.mockResolvedValue(mockBreakdown());
+      orderItemRepo.create.mockReturnValue({});
+
+      // Dentro de la transacción:
+      // 1. manager.find(StockItemEntity) → stock OK
+      // 2. findOne(CouponEntity) con lock → cupón válido
+      // 3. findOne(CouponUsageEntity) → null (no usado antes)
+      mockEntityManager.find.mockResolvedValue([mockStock()]);
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(coupon)
+        .mockResolvedValueOnce(null);
+
+      const mockUsage = { couponId: 5, userId: 1, orderId: 1 };
+      mockEntityManager.create
+        .mockReturnValueOnce(order) // manager.create(OrderEntity, ...)
+        .mockReturnValueOnce(mockUsage); // manager.create(CouponUsageEntity, ...)
+      mockEntityManager.save
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce({ ...coupon, usageCount: 6 })
+        .mockResolvedValueOnce(undefined);
+      mockManagerRepo.findOne.mockResolvedValue(mockStock());
+      mockManagerRepo.save.mockResolvedValue(undefined);
+      stockService.reserveStock.mockResolvedValue(undefined);
+
+      const result = await service.create(1, {
+        ...dto,
+        couponCode: 'GLOBAL10',
+      });
+
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponEntity,
+        expect.objectContaining({ usageCount: 6 }),
+      );
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponUsageEntity,
+        expect.objectContaining({ couponId: 5, userId: 1 }),
+      );
+      expect(result.id).toBe(1);
+    });
+
+    it('should apply a non-global coupon targeting a specific product', async () => {
+      const coupon = {
+        id: 2,
+        code: 'PROD10',
+        value: 10,
+        isGlobal: false,
+        usageLimit: null,
+        usageCount: 0,
+        startsAt: null,
+        endsAt: null,
+      };
+      const order = mockOrder({
+        subtotal: 1306.8,
+        total: 1176.12,
+        couponDiscount: 130.68,
+      });
+      const mockUsage = { couponId: 2, userId: 1, orderId: 1 };
+
+      userRepo.findOne.mockResolvedValue(mockUser());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      calcService.calculateProduct.mockResolvedValue(mockBreakdown());
+      orderItemRepo.create.mockReturnValue({});
+
+      // Dentro de la transacción:
+      // 1. manager.find(StockItemEntity) → stock OK
+      // 2. manager.find(CouponProductTargetEntity) → target encontrado
+      mockEntityManager.find
+        .mockResolvedValueOnce([mockStock()])
+        .mockResolvedValueOnce([{ couponId: 2, productId: 1 }]);
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(coupon) // cupón con lock
+        .mockResolvedValueOnce(null); // sin uso previo
+      mockEntityManager.create
+        .mockReturnValueOnce(order)
+        .mockReturnValueOnce(mockUsage);
+      mockEntityManager.save
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce({ ...coupon, usageCount: 1 })
+        .mockResolvedValueOnce(undefined);
+      stockService.reserveStock.mockResolvedValue(undefined);
+
+      const result = await service.create(1, {
+        items: [{ productId: 1, quantity: 2 }],
+        deliveryType: DeliveryType.PICKUP,
+        couponCode: 'PROD10',
+      });
+
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponEntity,
+        expect.objectContaining({ usageCount: 1 }),
+      );
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponUsageEntity,
+        expect.objectContaining({ couponId: 2 }),
+      );
+      expect(result.id).toBe(1);
+    });
+
+    it('should apply a non-global coupon targeting a specific combo', async () => {
+      const coupon = {
+        id: 3,
+        code: 'COMBO10',
+        value: 10,
+        isGlobal: false,
+        usageLimit: null,
+        usageCount: 0,
+        startsAt: null,
+        endsAt: null,
+      };
+      const combo = mockCombo();
+      const order = mockComboOrder({
+        subtotal: 653.4,
+        total: 588.06,
+        couponDiscount: 65.34,
+      });
+      const mockUsage = { couponId: 3, userId: 1, orderId: 1 };
+      const stockForProduct10 = mockStock({
+        productId: 10,
+        locationId: 3,
+        quantityCurrent: 10,
+        quantityReserved: 0,
+      });
+      const stockForProduct11 = mockStock({
+        productId: 11,
+        locationId: 3,
+        quantityCurrent: 10,
+        quantityReserved: 0,
+      });
+
+      userRepo.findOne.mockResolvedValue(mockUser());
+      comboRepo.findOne.mockResolvedValue(combo);
+      calcService.calculateCombo.mockResolvedValue(mockBreakdown());
+      orderItemRepo.create.mockReturnValue({
+        combo,
+        quantity: 1,
+        comboReservations: [],
+      });
+
+      // Dentro de la transacción:
+      // 1. manager.find(StockItemEntity, productId:10)
+      // 2. manager.find(StockItemEntity, productId:11)
+      // 3. manager.find(CouponComboTargetEntity) → target encontrado
+      mockEntityManager.find
+        .mockResolvedValueOnce([stockForProduct10])
+        .mockResolvedValueOnce([stockForProduct11])
+        .mockResolvedValueOnce([{ couponId: 3, comboId: 1 }]);
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(coupon) // cupón con lock
+        .mockResolvedValueOnce(null); // sin uso previo
+      mockEntityManager.create
+        .mockReturnValueOnce(order)
+        .mockReturnValueOnce(mockUsage);
+      mockEntityManager.save
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce({ ...coupon, usageCount: 1 })
+        .mockResolvedValueOnce(undefined);
+      stockService.reserveStock.mockResolvedValue(undefined);
+
+      const result = await service.create(1, {
+        items: [{ comboId: 1, quantity: 1 }],
+        deliveryType: DeliveryType.PICKUP,
+        couponCode: 'COMBO10',
+      });
+
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponEntity,
+        expect.objectContaining({ usageCount: 1 }),
+      );
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponUsageEntity,
+        expect.objectContaining({ couponId: 3 }),
+      );
+      expect(result.id).toBe(1);
     });
 
     it('should create an order with combo and populate comboReservations', async () => {
@@ -457,10 +642,12 @@ describe('OrdersService', () => {
 
       userRepo.findOne.mockResolvedValue(mockUser());
       comboRepo.findOne.mockResolvedValue(combo);
-      stockItemRepo.find
-        .mockResolvedValueOnce([stockForProduct10]) // findAvailableStockItem para productId 10
-        .mockResolvedValueOnce([stockForProduct11]); // findAvailableStockItem para productId 11
       calcService.calculateCombo.mockResolvedValue(mockBreakdown());
+
+      // findAvailableStockItem ahora usa manager.find dentro de la transacción
+      mockEntityManager.find
+        .mockResolvedValueOnce([stockForProduct10]) // stock para productId 10
+        .mockResolvedValueOnce([stockForProduct11]); // stock para productId 11
 
       const createdItem = { combo, quantity: 1, comboReservations: [] };
       orderItemRepo.create.mockReturnValue(createdItem);
@@ -475,14 +662,12 @@ describe('OrdersService', () => {
         deliveryType: DeliveryType.PICKUP,
       });
 
-      // comboReservations deben haberse pasado al orderItemRepo.create
-      expect(orderItemRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          comboReservations: expect.arrayContaining([
-            expect.objectContaining({ productId: 10, locationId: 3 }),
-            expect.objectContaining({ productId: 11, locationId: 3 }),
-          ]),
-        }),
+      // comboReservations deben haberse asignado al orderItem dentro de la transacción
+      expect(createdItem.comboReservations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ productId: 10, locationId: 3 }),
+          expect.objectContaining({ productId: 11, locationId: 3 }),
+        ]),
       );
       expect(result.id).toBe(1);
     });
@@ -571,10 +756,12 @@ describe('OrdersService', () => {
 
     it('should dispatch stock when status is DISPATCHED (product item)', async () => {
       const order = mockOrder({ status: OrderStatus.CONFIRMED });
+      const dispatched = {
+        ...mockOrder({ status: OrderStatus.DISPATCHED }),
+        user: { email: 'juan@test.com', profile: { name: 'Juan' } },
+      };
       mockEntityManager.findOne.mockResolvedValue(order);
-      mockEntityManager.save.mockResolvedValue(
-        mockOrder({ status: OrderStatus.DISPATCHED }),
-      );
+      mockEntityManager.save.mockResolvedValue(dispatched);
       stockService.dispatchStock.mockResolvedValue(undefined);
 
       await service.updateStatus(1, { status: OrderStatus.DISPATCHED });
@@ -584,6 +771,11 @@ describe('OrdersService', () => {
         1,
         1,
         expect.anything(),
+      );
+      expect(mailService.sendOrderDispatchedEmail).toHaveBeenCalledWith(
+        'juan@test.com',
+        'Juan',
+        1,
       );
     });
 
@@ -616,10 +808,12 @@ describe('OrdersService', () => {
 
     it('should release stock when status is CANCELLED (product item)', async () => {
       const order = mockOrder({ status: OrderStatus.CONFIRMED });
+      const cancelled = {
+        ...mockOrder({ status: OrderStatus.CANCELLED }),
+        user: { email: 'juan@test.com', profile: { name: 'Juan' } },
+      };
       mockEntityManager.findOne.mockResolvedValue(order);
-      mockEntityManager.save.mockResolvedValue(
-        mockOrder({ status: OrderStatus.CANCELLED }),
-      );
+      mockEntityManager.save.mockResolvedValue(cancelled);
       stockService.releaseReservation.mockResolvedValue(undefined);
 
       await service.updateStatus(1, { status: OrderStatus.CANCELLED });
@@ -629,6 +823,11 @@ describe('OrdersService', () => {
         1,
         1,
         expect.anything(),
+      );
+      expect(mailService.sendOrderCancelledEmail).toHaveBeenCalledWith(
+        'juan@test.com',
+        'Juan',
+        1,
       );
     });
 
@@ -664,6 +863,40 @@ describe('OrdersService', () => {
       await expect(
         service.updateStatus(999, { status: OrderStatus.CONFIRMED } as any),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should send confirmation email when status is CONFIRMED and user has profile', async () => {
+      const order = mockOrder({ status: OrderStatus.PENDING });
+      const confirmed = {
+        ...mockOrder({ status: OrderStatus.CONFIRMED }),
+        user: { email: 'juan@test.com', profile: { name: 'Juan' } },
+      };
+      mockEntityManager.findOne.mockResolvedValue(order);
+      mockEntityManager.save.mockResolvedValue(confirmed);
+
+      await service.updateStatus(1, { status: OrderStatus.CONFIRMED });
+      expect(mailService.sendOrderConfirmedEmail).toHaveBeenCalledWith(
+        'juan@test.com',
+        'Juan',
+        1,
+      );
+    });
+
+    it('should send delivered email when status is DELIVERED', async () => {
+      const order = mockOrder({ status: OrderStatus.DISPATCHED });
+      const delivered = {
+        ...mockOrder({ status: OrderStatus.DELIVERED }),
+        user: { email: 'juan@test.com', profile: { name: 'Juan' } },
+      };
+      mockEntityManager.findOne.mockResolvedValue(order);
+      mockEntityManager.save.mockResolvedValue(delivered);
+
+      await service.updateStatus(1, { status: OrderStatus.DELIVERED });
+      expect(mailService.sendOrderDeliveredEmail).toHaveBeenCalledWith(
+        'juan@test.com',
+        'Juan',
+        1,
+      );
     });
   });
 
@@ -712,6 +945,38 @@ describe('OrdersService', () => {
         expect.objectContaining({ status: OrderStatus.CANCELLED }),
       );
       expect(stockService.releaseReservation).toHaveBeenCalled();
+    });
+
+    it('should revert coupon usage when cancelling an order with a coupon', async () => {
+      const coupon = { id: 5, code: 'PROMO10', usageCount: 3 };
+      const orderWithCoupon = mockOrder({
+        status: OrderStatus.PENDING,
+        couponId: 5,
+        coupon,
+      });
+
+      // 1. findOne(OrderEntity) lock check → orderWithCoupon
+      // 2. findOne(OrderEntity) full load with relations → orderWithCoupon
+      // 3. findOne(CouponEntity) con lock dentro de handleCancellation → coupon
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(orderWithCoupon)
+        .mockResolvedValueOnce(orderWithCoupon)
+        .mockResolvedValueOnce(coupon);
+      mockEntityManager.save.mockResolvedValue(undefined);
+      mockEntityManager.softDelete.mockResolvedValue(undefined);
+      stockService.releaseReservation.mockResolvedValue(undefined);
+
+      await service.releaseStockForOrder(1);
+
+      expect(stockService.releaseReservation).toHaveBeenCalled();
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponEntity,
+        expect.objectContaining({ usageCount: 2 }),
+      );
+      expect(mockEntityManager.softDelete).toHaveBeenCalledWith(
+        CouponUsageEntity,
+        expect.objectContaining({ couponId: 5, orderId: 1 }),
+      );
     });
 
     it('should use provided manager directly when manager is given', async () => {

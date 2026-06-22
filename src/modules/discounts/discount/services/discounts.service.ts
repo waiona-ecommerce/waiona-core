@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -33,13 +29,9 @@ export class DiscountsService {
   // ==========================
 
   async create(dto: CreateDiscountDto): Promise<DiscountResponseDto> {
-    this.validateDates(dto.startsAt, dto.endsAt);
-
     const discount = this.discountRepository.create({
       name: dto.name,
       description: dto.description,
-      startsAt: dto.startsAt,
-      endsAt: dto.endsAt,
       value: dto.value,
     });
 
@@ -89,16 +81,9 @@ export class DiscountsService {
   ): Promise<DiscountResponseDto> {
     const discount = await this.findEntity(id);
 
-    const startsAt = dto.startsAt ?? discount.startsAt;
-    const endsAt = dto.endsAt ?? discount.endsAt;
-
-    this.validateDates(startsAt, endsAt);
-
     discount.name = dto.name ?? discount.name;
     discount.description = dto.description ?? discount.description;
     discount.value = dto.value ?? discount.value;
-    discount.startsAt = startsAt ?? null;
-    discount.endsAt = endsAt ?? null;
 
     const updated = await this.discountRepository.save(discount);
 
@@ -106,7 +91,7 @@ export class DiscountsService {
   }
 
   // ==========================
-  // DELETE (soft)
+  // DELETE (soft) — hard delete en cascade de targets para liberar unique index
   // ==========================
 
   async remove(id: number): Promise<void> {
@@ -130,26 +115,5 @@ export class DiscountsService {
     }
 
     return discount;
-  }
-
-  private validateDates(startsAt?: Date | null, endsAt?: Date | null): void {
-    const hasStart = startsAt != null;
-    const hasEnd = endsAt != null;
-
-    if (hasStart !== hasEnd) {
-      throw new BadRequestException(
-        'Debe especificar tanto la fecha de inicio como la de fin, o ninguna',
-      );
-    }
-
-    if (
-      startsAt != null &&
-      endsAt != null &&
-      new Date(startsAt) >= new Date(endsAt)
-    ) {
-      throw new BadRequestException(
-        'La fecha de inicio debe ser anterior a la fecha de fin',
-      );
-    }
   }
 }

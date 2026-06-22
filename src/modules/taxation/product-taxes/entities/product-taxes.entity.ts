@@ -1,10 +1,11 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
 import { ProductEntity } from '../../../products/product/entities/product.entity';
 import { TaxEntity } from '../../taxes/entities/tax.entity';
 import { BaseEntity } from '../../../../common/entities/base.entity';
 
 @Entity('product_taxes')
+@Index(['productId', 'taxId'], { unique: true, where: '"deletedAt" IS NULL' })
 export class ProductTaxEntity extends BaseEntity {
   @Column({
     name: 'product_id',

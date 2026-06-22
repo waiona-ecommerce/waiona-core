@@ -1,13 +1,15 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { TaxEntity } from '../entities/tax.entity';
-import { TaxTypeResponseDto } from '../../tax-types/dto/tax-type-response.dto';
 
 export class TaxResponseDto {
   @ApiProperty()
   id: number;
 
   @ApiProperty()
-  taxTypeId: number;
+  code: string;
+
+  @ApiProperty()
+  name: string;
 
   @ApiProperty()
   value: number;
@@ -21,19 +23,13 @@ export class TaxResponseDto {
   @ApiProperty()
   updatedAt: Date;
 
-  @ApiPropertyOptional({ type: () => TaxTypeResponseDto })
-  taxType?: TaxTypeResponseDto;
-
   constructor(entity: TaxEntity) {
     this.id = entity.id;
-    this.taxTypeId = entity.taxTypeId;
+    this.code = entity.code;
+    this.name = entity.name;
     this.value = Number(entity.value);
     this.isGlobal = entity.isGlobal;
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;
-
-    if (entity.taxType) {
-      this.taxType = TaxTypeResponseDto.fromEntity(entity.taxType);
-    }
   }
 }

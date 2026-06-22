@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { CouponComboTargetEntity } from '../entities/coupon-combo-target.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
@@ -34,6 +35,7 @@ export class CouponComboTargetService {
   ): Promise<CouponComboTargetResponseDto> {
     const coupon = await this.findCoupon(couponId);
     this.validateCouponNotGlobal(coupon);
+    this.validateCouponUsable(coupon);
     await this.validateComboExists(dto.comboId);
     await this.validateUniqueTarget(couponId, dto.comboId);
 
@@ -42,9 +44,17 @@ export class CouponComboTargetService {
       comboId: dto.comboId,
     });
 
-    const saved = await this.repo.save(entity);
-
-    return new CouponComboTargetResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new CouponComboTargetResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `El combo ${dto.comboId} ya es un target del cupón ${couponId}`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -126,13 +136,30 @@ export class CouponComboTargetService {
     }
   }
 
+  private validateCouponUsable(coupon: CouponEntity): void {
+    const now = new Date();
+    if (coupon.endsAt && now > coupon.endsAt) {
+      throw new BadRequestException(
+        'No se pueden asignar targets a un cupón expirado',
+      );
+    }
+    if (
+      coupon.usageLimit !== null &&
+      coupon.usageLimit !== undefined &&
+      coupon.usageCount >= coupon.usageLimit
+    ) {
+      throw new BadRequestException(
+        'No se pueden asignar targets a un cupón agotado',
+      );
+    }
+  }
+
   private async validateUniqueTarget(
     couponId: number,
     comboId: number,
   ): Promise<void> {
     const existing = await this.repo.findOne({
       where: { couponId, comboId },
-      withDeleted: true,
     });
 
     if (existing) {

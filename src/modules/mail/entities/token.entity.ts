@@ -1,15 +1,15 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 
-import { BaseEntity } from '../../../common/entities/base.entity';
+import { BaseAuditEntity } from '../../../common/entities/base.audit.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { TokenType } from '../enum/token-type.enum';
 
 @Entity('tokens')
-@Index(['token'], { unique: true })
+@Index(['tokenHash'], { unique: true })
 @Index(['userId', 'type'])
-export class TokenEntity extends BaseEntity {
-  @Column({ type: 'varchar', length: 255, nullable: false })
-  token: string;
+export class TokenEntity extends BaseAuditEntity {
+  @Column({ name: 'token_hash', type: 'varchar', length: 64, nullable: false })
+  tokenHash: string;
 
   @Column({ type: 'enum', enum: TokenType, nullable: false })
   type: TokenType;

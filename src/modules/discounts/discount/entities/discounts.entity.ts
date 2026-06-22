@@ -1,10 +1,8 @@
-import { Entity, Column, Index } from 'typeorm';
+import { Entity, Column } from 'typeorm';
 
 import { BaseEntity } from '../../../../common/entities/base.entity';
 
 @Entity('discounts')
-@Index(['startsAt'])
-@Index(['endsAt'])
 export class DiscountEntity extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -17,7 +15,7 @@ export class DiscountEntity extends BaseEntity {
     type: 'varchar',
     length: 500,
     nullable: true,
-    default: null, // 🔥 explícito para consistencia con DB
+    default: null,
   })
   description?: string;
 
@@ -26,26 +24,9 @@ export class DiscountEntity extends BaseEntity {
     scale: 2,
     nullable: false,
     transformer: {
-      // 🔥 TypeORM devuelve decimals como string — esto evita castear en cada lugar
       to: (value: number) => value,
       from: (value: string) => Number(value),
     },
   })
   value: number;
-
-  @Column({
-    name: 'starts_at',
-    type: 'timestamp',
-    nullable: true,
-    default: null,
-  })
-  startsAt?: Date | null; // 🔥 idem
-
-  @Column({
-    name: 'ends_at',
-    type: 'timestamp',
-    nullable: true,
-    default: null,
-  })
-  endsAt?: Date | null; // 🔥 idem
 }

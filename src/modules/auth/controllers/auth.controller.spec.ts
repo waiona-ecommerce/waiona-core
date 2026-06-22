@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
 import { RoleType } from '../../../common/enums/role-type.enum';
+import { UserResponseDto } from '../../users/dto/user-response.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -94,7 +95,7 @@ describe('AuthController', () => {
   // ==========================
 
   describe('login', () => {
-    it('should return user, access_token and refresh_token', async () => {
+    it('should return UserResponseDto, access_token and refresh_token', async () => {
       const user = mockUser();
       const req = { user } as any;
 
@@ -103,7 +104,8 @@ describe('AuthController', () => {
       expect(service.login).toHaveBeenCalledWith(user);
       expect(result.access_token).toBe('mock_access');
       expect(result.refresh_token).toBe('mock_refresh');
-      expect(result.user).toBe(user);
+      expect(result.user).toBeInstanceOf(UserResponseDto);
+      expect(result.user.email).toBe(user.email);
     });
   });
 

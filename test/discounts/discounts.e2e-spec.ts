@@ -34,12 +34,7 @@ import { ProductMeasurementUnit } from '../../src/modules/products/product/enums
 describe('Discounts (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-
-  // IDs de datos base para los target tests
-  let productId: number;
-  let product2Id: number;
-  let comboId: number;
-  let combo2Id: number;
+  let categoryId: number;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -105,49 +100,11 @@ describe('Discounts (e2e)', () => {
     await app.init();
     dataSource = moduleFixture.get(DataSource);
 
-    // Seed: categoría compartida por productos y combos
     const category = await dataSource.manager.save(CategoryEntity, {
       name: 'Test Category',
       isActive: true,
     });
-
-    // Seed: dos productos para testear conflictos de target
-    const product = await dataSource.manager.save(ProductEntity, {
-      sku: 'DISC-PROD-001',
-      name: 'Producto Test 1',
-      description: 'Descripción',
-      isActive: true,
-      categoryId: category.id,
-      measurementUnit: ProductMeasurementUnit.UNIT,
-    });
-    productId = product.id;
-
-    const product2 = await dataSource.manager.save(ProductEntity, {
-      sku: 'DISC-PROD-002',
-      name: 'Producto Test 2',
-      description: 'Descripción',
-      isActive: true,
-      categoryId: category.id,
-      measurementUnit: ProductMeasurementUnit.UNIT,
-    });
-    product2Id = product2.id;
-
-    // Seed: dos combos para testear conflictos de target
-    const combo = await dataSource.manager.save(ComboEntity, {
-      name: 'Combo Test 1',
-      description: 'Descripción',
-      isActive: true,
-      categoryId: category.id,
-    });
-    comboId = combo.id;
-
-    const combo2 = await dataSource.manager.save(ComboEntity, {
-      name: 'Combo Test 2',
-      description: 'Descripción',
-      isActive: true,
-      categoryId: category.id,
-    });
-    combo2Id = combo2.id;
+    categoryId = category.id;
   }, 30000);
 
   afterAll(async () => {
@@ -160,7 +117,7 @@ describe('Discounts (e2e)', () => {
   // ================================================================
 
   describe('POST /discounts', () => {
-    it('201 — descuento porcentual sin fechas (ACTIVE)', async () => {
+    it('201 — crea descuento porcentual', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/discounts')
         .send({ name: 'Black Friday', value: 20 })
@@ -169,41 +126,6 @@ describe('Discounts (e2e)', () => {
       expect(res.body.id).toBeDefined();
       expect(res.body.name).toBe('BLACK FRIDAY');
       expect(res.body.value).toBe(20);
-      expect(res.body.status).toBe('active');
-    });
-
-    it('201 — descuento porcentual con fechas futuras (SCHEDULED)', async () => {
-      const future1 = new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString();
-      const future2 = new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString();
-
-      const res = await request(app.getHttpServer())
-        .post('/v1/discounts')
-        .send({
-          name: 'Promo Programada',
-          value: 15,
-          startsAt: future1,
-          endsAt: future2,
-        })
-        .expect(201);
-
-      expect(res.body.status).toBe('scheduled');
-    });
-
-    it('201 — descuento porcentual con fechas pasadas (EXPIRED)', async () => {
-      const past1 = new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString();
-      const past2 = new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString();
-
-      const res = await request(app.getHttpServer())
-        .post('/v1/discounts')
-        .send({
-          name: 'Promo Expirada',
-          value: 5,
-          startsAt: past1,
-          endsAt: past2,
-        })
-        .expect(201);
-
-      expect(res.body.status).toBe('expired');
     });
 
     it('400 — campo desconocido isPercentage rechazado', async () => {
@@ -231,31 +153,6 @@ describe('Discounts (e2e)', () => {
       await request(app.getHttpServer())
         .post('/v1/discounts')
         .send({ name: 'Inválido', value: 110 })
-        .expect(400);
-    });
-
-    it('400 — startsAt posterior a endsAt', async () => {
-      await request(app.getHttpServer())
-        .post('/v1/discounts')
-        .send({
-          name: 'Fechas inválidas',
-          value: 10,
-          startsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
-          endsAt: new Date(Date.now()).toISOString(),
-        })
-        .expect(400);
-    });
-
-    it('400 — startsAt igual a endsAt (rango vacío)', async () => {
-      const same = new Date().toISOString();
-      await request(app.getHttpServer())
-        .post('/v1/discounts')
-        .send({
-          name: 'Rango vacío',
-          value: 10,
-          startsAt: same,
-          endsAt: same,
-        })
         .expect(400);
     });
   });
@@ -308,7 +205,6 @@ describe('Discounts (e2e)', () => {
 
       expect(res.body.id).toBe(createRes.body.id);
       expect(res.body.name).toBe('PARA BUSCAR POR ID');
-      expect(res.body.status).toBe('active');
     });
 
     it('404 — si el descuento no existe', async () => {
@@ -331,7 +227,6 @@ describe('Discounts (e2e)', () => {
 
       expect(res.body.name).toBe('NOMBRE ACTUALIZADO');
       expect(res.body.value).toBe(10);
-      expect(res.body.status).toBeDefined();
     });
 
     it('200 — actualiza el value', async () => {
@@ -345,7 +240,6 @@ describe('Discounts (e2e)', () => {
         .expect(200);
 
       expect(res.body.value).toBe(30);
-      expect(res.body.status).toBeDefined();
     });
 
     it('400 — value superior a 100 en update', async () => {
@@ -356,20 +250,6 @@ describe('Discounts (e2e)', () => {
       await request(app.getHttpServer())
         .patch(`/v1/discounts/${createRes.body.id}`)
         .send({ value: 150 })
-        .expect(400);
-    });
-
-    it('400 — startsAt posterior a endsAt en update', async () => {
-      const createRes = await request(app.getHttpServer())
-        .post('/v1/discounts')
-        .send({ name: 'Para fechas inválidas update', value: 10 });
-
-      await request(app.getHttpServer())
-        .patch(`/v1/discounts/${createRes.body.id}`)
-        .send({
-          startsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
-          endsAt: new Date(Date.now()).toISOString(),
-        })
         .expect(400);
     });
 
@@ -423,14 +303,23 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento para producto', value: 10 });
 
+      const product = await dataSource.manager.save(ProductEntity, {
+        sku: 'DISC-POST-PROD-001',
+        name: 'Producto Post 1',
+        description: 'Descripción',
+        isActive: true,
+        categoryId,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
+
       const res = await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
-        .send({ productId })
+        .send({ productId: product.id })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.discountId).toBe(discountRes.body.id);
-      expect(res.body.productId).toBe(productId);
+      expect(res.body.productId).toBe(product.id);
       expect(res.body.createdAt).toBeDefined();
     });
 
@@ -439,13 +328,23 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento duplicado producto', value: 10 });
 
-      await request(app.getHttpServer())
-        .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
-        .send({ productId: product2Id });
+      const product = await dataSource.manager.save(ProductEntity, {
+        sku: 'DISC-POST-PROD-002',
+        name: 'Producto Post 2',
+        description: 'Descripción',
+        isActive: true,
+        categoryId,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
-        .send({ productId: product2Id })
+        .send({ productId: product.id })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
+        .send({ productId: product.id })
         .expect(409);
     });
 
@@ -458,32 +357,30 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento B para conflicto', value: 20 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const extraProduct = await dataSource.manager.save(ProductEntity, {
+      const product = await dataSource.manager.save(ProductEntity, {
         sku: 'DISC-CONFLICT-001',
         name: 'Producto Conflicto',
         description: 'Descripción',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discount1Res.body.id}/targets/products`)
-        .send({ productId: extraProduct.id });
+        .send({ productId: product.id })
+        .expect(201);
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discount2Res.body.id}/targets/products`)
-        .send({ productId: extraProduct.id })
+        .send({ productId: product.id })
         .expect(409);
     });
 
     it('404 — si el descuento no existe', async () => {
       await request(app.getHttpServer())
         .post('/v1/discounts/999999/targets/products')
-        .send({ productId })
+        .send({ productId: 1 })
         .expect(404);
     });
 
@@ -505,21 +402,19 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento GET productos', value: 10 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const extraProduct = await dataSource.manager.save(ProductEntity, {
+      const product = await dataSource.manager.save(ProductEntity, {
         sku: 'DISC-GET-001',
         name: 'Producto GET',
         description: 'Descripción',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
-        .send({ productId: extraProduct.id });
+        .send({ productId: product.id })
+        .expect(201);
 
       const res = await request(app.getHttpServer())
         .get(`/v1/discounts/${discountRes.body.id}/targets/products`)
@@ -527,7 +422,7 @@ describe('Discounts (e2e)', () => {
 
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      expect(res.body.data[0].productId).toBe(extraProduct.id);
+      expect(res.body.data[0].productId).toBe(product.id);
     });
 
     it('200 — retorna array vacío si no hay targets', async () => {
@@ -550,30 +445,28 @@ describe('Discounts (e2e)', () => {
   });
 
   describe('DELETE /discounts/:id/targets/products/:productId', () => {
-    it('204 — elimina el target (soft delete) y ya no aparece en el listado', async () => {
+    it('204 — elimina el target y ya no aparece en el listado', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
         .send({ name: 'Descuento DELETE producto', value: 10 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const extraProduct = await dataSource.manager.save(ProductEntity, {
+      const product = await dataSource.manager.save(ProductEntity, {
         sku: 'DISC-DEL-PROD-001',
         name: 'Producto a desasignar',
         description: 'Descripción',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/products`)
-        .send({ productId: extraProduct.id });
+        .send({ productId: product.id })
+        .expect(201);
 
       await request(app.getHttpServer())
         .delete(
-          `/v1/discounts/${discountRes.body.id}/targets/products/${extraProduct.id}`,
+          `/v1/discounts/${discountRes.body.id}/targets/products/${product.id}`,
         )
         .expect(204);
 
@@ -602,29 +495,27 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento reasign prod 2', value: 20 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const p = await dataSource.manager.save(ProductEntity, {
+      const product = await dataSource.manager.save(ProductEntity, {
         sku: 'DISC-REASIGN-PROD-001',
         name: 'Producto Reasignable',
         description: 'X',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
         measurementUnit: ProductMeasurementUnit.UNIT,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${d1.body.id}/targets/products`)
-        .send({ productId: p.id });
+        .send({ productId: product.id })
+        .expect(201);
 
       await request(app.getHttpServer())
-        .delete(`/v1/discounts/${d1.body.id}/targets/products/${p.id}`)
+        .delete(`/v1/discounts/${d1.body.id}/targets/products/${product.id}`)
         .expect(204);
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${d2.body.id}/targets/products`)
-        .send({ productId: p.id })
+        .send({ productId: product.id })
         .expect(201);
     });
   });
@@ -639,14 +530,21 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento para combo', value: 10 });
 
+      const combo = await dataSource.manager.save(ComboEntity, {
+        name: 'Combo Post 1',
+        description: 'Descripción',
+        isActive: true,
+        categoryId,
+      });
+
       const res = await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
-        .send({ comboId })
+        .send({ comboId: combo.id })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.discountId).toBe(discountRes.body.id);
-      expect(res.body.comboId).toBe(comboId);
+      expect(res.body.comboId).toBe(combo.id);
       expect(res.body.createdAt).toBeDefined();
     });
 
@@ -655,13 +553,21 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento duplicado combo', value: 10 });
 
-      await request(app.getHttpServer())
-        .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
-        .send({ comboId: combo2Id });
+      const combo = await dataSource.manager.save(ComboEntity, {
+        name: 'Combo Post 2',
+        description: 'Descripción',
+        isActive: true,
+        categoryId,
+      });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
-        .send({ comboId: combo2Id })
+        .send({ comboId: combo.id })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
+        .send({ comboId: combo.id })
         .expect(409);
     });
 
@@ -674,30 +580,28 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento B combo conflicto', value: 20 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const extraCombo = await dataSource.manager.save(ComboEntity, {
+      const combo = await dataSource.manager.save(ComboEntity, {
         name: 'Combo Conflicto',
         description: 'Descripción',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discount1Res.body.id}/targets/combos`)
-        .send({ comboId: extraCombo.id });
+        .send({ comboId: combo.id })
+        .expect(201);
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discount2Res.body.id}/targets/combos`)
-        .send({ comboId: extraCombo.id })
+        .send({ comboId: combo.id })
         .expect(409);
     });
 
     it('404 — si el descuento no existe', async () => {
       await request(app.getHttpServer())
         .post('/v1/discounts/999999/targets/combos')
-        .send({ comboId })
+        .send({ comboId: 1 })
         .expect(404);
     });
 
@@ -719,19 +623,17 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento GET combos', value: 10 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const extraCombo = await dataSource.manager.save(ComboEntity, {
+      const combo = await dataSource.manager.save(ComboEntity, {
         name: 'Combo GET',
         description: 'Descripción',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
-        .send({ comboId: extraCombo.id });
+        .send({ comboId: combo.id })
+        .expect(201);
 
       const res = await request(app.getHttpServer())
         .get(`/v1/discounts/${discountRes.body.id}/targets/combos`)
@@ -739,7 +641,7 @@ describe('Discounts (e2e)', () => {
 
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      expect(res.body.data[0].comboId).toBe(extraCombo.id);
+      expect(res.body.data[0].comboId).toBe(combo.id);
     });
 
     it('200 — retorna array vacío si no hay targets', async () => {
@@ -762,28 +664,26 @@ describe('Discounts (e2e)', () => {
   });
 
   describe('DELETE /discounts/:id/targets/combos/:comboId', () => {
-    it('204 — elimina el target (soft delete) y ya no aparece en el listado', async () => {
+    it('204 — elimina el target y ya no aparece en el listado', async () => {
       const discountRes = await request(app.getHttpServer())
         .post('/v1/discounts')
         .send({ name: 'Descuento DELETE combo', value: 10 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const extraCombo = await dataSource.manager.save(ComboEntity, {
+      const combo = await dataSource.manager.save(ComboEntity, {
         name: 'Combo a desasignar',
         description: 'Descripción',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${discountRes.body.id}/targets/combos`)
-        .send({ comboId: extraCombo.id });
+        .send({ comboId: combo.id })
+        .expect(201);
 
       await request(app.getHttpServer())
         .delete(
-          `/v1/discounts/${discountRes.body.id}/targets/combos/${extraCombo.id}`,
+          `/v1/discounts/${discountRes.body.id}/targets/combos/${combo.id}`,
         )
         .expect(204);
 
@@ -812,27 +712,25 @@ describe('Discounts (e2e)', () => {
         .post('/v1/discounts')
         .send({ name: 'Descuento reasign combo 2', value: 20 });
 
-      const category = await dataSource.manager.findOne(CategoryEntity, {
-        where: { name: 'Test Category' },
-      });
-      const c = await dataSource.manager.save(ComboEntity, {
+      const combo = await dataSource.manager.save(ComboEntity, {
         name: 'Combo Reasignable',
         description: 'X',
         isActive: true,
-        categoryId: category!.id,
+        categoryId,
       });
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${d1.body.id}/targets/combos`)
-        .send({ comboId: c.id });
+        .send({ comboId: combo.id })
+        .expect(201);
 
       await request(app.getHttpServer())
-        .delete(`/v1/discounts/${d1.body.id}/targets/combos/${c.id}`)
+        .delete(`/v1/discounts/${d1.body.id}/targets/combos/${combo.id}`)
         .expect(204);
 
       await request(app.getHttpServer())
         .post(`/v1/discounts/${d2.body.id}/targets/combos`)
-        .send({ comboId: c.id })
+        .send({ comboId: combo.id })
         .expect(201);
     });
   });

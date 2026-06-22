@@ -1,7 +1,6 @@
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   IsInt,
   Min,
   MaxLength,
@@ -29,16 +28,12 @@ export class CreateCategoryDto {
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   @IsString({ message: 'La descripción debe ser texto' })
+  @IsNotEmpty({ message: 'La descripción no puede estar vacía' })
   @MinLength(5, { message: 'La descripción debe tener al menos 5 caracteres' })
   @MaxLength(255, {
     message: 'La descripción no puede superar los 255 caracteres',
   })
   description?: string;
-
-  @ApiPropertyOptional({ example: true, default: true })
-  @IsOptional()
-  @IsBoolean({ message: 'isActive debe ser un valor booleano' })
-  isActive?: boolean;
 
   @ApiPropertyOptional({ example: 1, minimum: 1, nullable: true })
   @IsOptional()

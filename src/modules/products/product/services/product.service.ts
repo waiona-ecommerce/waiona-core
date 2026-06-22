@@ -6,11 +6,18 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { ProductEntity } from '../entities/product.entity';
 import { CategoryEntity } from '../../categories/entities/category.entity';
 import { ComboItemEntity } from '../../combos/entities/combo-item.entity';
+import { ProductImageEntity } from '../../product-images/entities/product-image.entity';
+import { ProductPricingEntity } from '../../../pricing/entities/product-pricing.entity';
+import { StockItemEntity } from '../../../stocks/stock-item/entities/stock-item.entity';
+import { ProductTaxEntity } from '../../../taxation/product-taxes/entities/product-taxes.entity';
+import { DiscountProductTargetEntity } from '../../../discounts/discount-product-target/entities/discount-product-target.entity';
+import { CouponProductTargetEntity } from '../../../coupons/coupon-product-target/entities/coupon-product-target.entity';
+import { OrderItemEntity } from '../../../orders/entities/order-item.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductResponseDto } from '../dto/product-response.dto';
@@ -27,6 +34,27 @@ export class ProductService {
 
     @InjectRepository(ComboItemEntity)
     private readonly comboItemRepository: Repository<ComboItemEntity>,
+
+    @InjectRepository(ProductImageEntity)
+    private readonly productImageRepository: Repository<ProductImageEntity>,
+
+    @InjectRepository(ProductPricingEntity)
+    private readonly productPricingRepository: Repository<ProductPricingEntity>,
+
+    @InjectRepository(StockItemEntity)
+    private readonly stockItemRepository: Repository<StockItemEntity>,
+
+    @InjectRepository(ProductTaxEntity)
+    private readonly productTaxRepository: Repository<ProductTaxEntity>,
+
+    @InjectRepository(DiscountProductTargetEntity)
+    private readonly discountProductTargetRepository: Repository<DiscountProductTargetEntity>,
+
+    @InjectRepository(CouponProductTargetEntity)
+    private readonly couponProductTargetRepository: Repository<CouponProductTargetEntity>,
+
+    @InjectRepository(OrderItemEntity)
+    private readonly orderItemRepository: Repository<OrderItemEntity>,
   ) {}
 
   // ==========================
@@ -83,13 +111,20 @@ export class ProductService {
 
     const product = this.productRepository.create({
       ...dto,
-      sku: dto.sku.toUpperCase(),
       isActive: dto.isActive ?? true,
     });
 
-    const saved = await this.productRepository.save(product);
-
-    return new ProductResponseDto(await this.findOne(saved.id));
+    try {
+      const saved = await this.productRepository.save(product);
+      return new ProductResponseDto(await this.findOne(saved.id));
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un producto con el SKU ${dto.sku}`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -116,14 +151,21 @@ export class ProductService {
           `Ya existe un producto con el SKU ${changes.sku}`,
         );
       }
-
-      changes.sku = changes.sku.toUpperCase();
     }
 
     const merged = this.productRepository.merge(product, changes);
 
-    await this.productRepository.save(merged);
-    return new ProductResponseDto(await this.findOne(merged.id));
+    try {
+      await this.productRepository.save(merged);
+      return new ProductResponseDto(await this.findOne(merged.id));
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe un producto con el SKU ${changes.sku}`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -131,22 +173,51 @@ export class ProductService {
   // ==========================
 
   async delete(id: number): Promise<void> {
-    const product = await this.findOne(id);
+    await this.findOne(id);
 
-    const comboItemCount = await this.comboItemRepository.count({
-      where: { productId: id },
-    });
-    if (comboItemCount > 0) {
+    const [
+      imageCount,
+      pricingCount,
+      stockCount,
+      taxCount,
+      discountCount,
+      couponCount,
+      orderItemCount,
+      comboItemCount,
+    ] = await Promise.all([
+      this.productImageRepository.count({ where: { productId: id } }),
+      this.productPricingRepository.count({ where: { productId: id } }),
+      this.stockItemRepository.count({ where: { productId: id } }),
+      this.productTaxRepository.count({ where: { productId: id } }),
+      this.discountProductTargetRepository.count({ where: { productId: id } }),
+      this.couponProductTargetRepository.count({ where: { productId: id } }),
+      this.orderItemRepository.count({ where: { productId: id } }),
+      this.comboItemRepository.count({ where: { productId: id } }),
+    ]);
+
+    const blocking: string[] = [];
+    if (imageCount > 0) blocking.push(`${imageCount} imagen(es)`);
+    if (pricingCount > 0) blocking.push(`precio configurado`);
+    if (stockCount > 0) blocking.push(`${stockCount} ítem(s) de stock`);
+    if (taxCount > 0) blocking.push(`${taxCount} impuesto(s) asignado(s)`);
+    if (discountCount > 0) blocking.push(`un descuento asignado`);
+    if (couponCount > 0) blocking.push(`${couponCount} cupón(es) asignado(s)`);
+    if (orderItemCount > 0)
+      blocking.push(`${orderItemCount} orden(es) que lo incluyen`);
+    if (comboItemCount > 0)
+      blocking.push(`${comboItemCount} combo(s) que lo incluyen`);
+
+    if (blocking.length > 0) {
       throw new ConflictException(
-        `No se puede eliminar: el producto está incluido en ${comboItemCount} combo(s)`,
+        `No se puede eliminar el producto: tiene ${blocking.join(', ')}`,
       );
     }
 
-    await this.productRepository.softDelete(product.id);
+    await this.productRepository.softDelete(id);
   }
 
   // ==========================
-  // PRIVATE FIND ONE
+  // PRIVATE
   // ==========================
 
   private async validateCategoryExists(categoryId: number): Promise<void> {

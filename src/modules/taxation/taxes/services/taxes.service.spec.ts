@@ -3,16 +3,14 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { TaxesService } from './taxes.service';
 import { TaxEntity } from '../entities/tax.entity';
-import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
 import { ProductTaxEntity } from '../../product-taxes/entities/product-taxes.entity';
+
 describe('TaxesService', () => {
   let service: TaxesService;
   let taxRepo: any;
-  let taxTypeRepo: any;
   let productTaxRepo: any;
 
   const mockTaxRepo = () => ({
-    find: jest.fn(),
     findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
@@ -20,22 +18,15 @@ describe('TaxesService', () => {
     merge: jest.fn(),
     softDelete: jest.fn(),
   });
-  const mockTaxTypeRepo = () => ({ findOne: jest.fn() });
+  const mockProductTaxRepo = () => ({ findOne: jest.fn() });
 
-  const mockTaxType = () => ({
-    id: 1,
-    code: 'IVA',
-    name: 'IVA',
-    deletedAt: null,
-  });
   const mockTax = (overrides = {}): TaxEntity =>
     ({
       id: 1,
-      taxTypeId: 1,
+      code: 'IVA',
+      name: 'IMPUESTO AL VALOR AGREGADO',
       value: 21,
-      isGlobal: false,
       deletedAt: null,
-      taxType: mockTaxType(),
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -47,54 +38,35 @@ describe('TaxesService', () => {
         TaxesService,
         { provide: getRepositoryToken(TaxEntity), useFactory: mockTaxRepo },
         {
-          provide: getRepositoryToken(TaxTypeEntity),
-          useFactory: mockTaxTypeRepo,
-        },
-        {
           provide: getRepositoryToken(ProductTaxEntity),
-          useValue: { findOne: jest.fn() },
+          useFactory: mockProductTaxRepo,
         },
       ],
     }).compile();
 
     service = module.get<TaxesService>(TaxesService);
     taxRepo = module.get(getRepositoryToken(TaxEntity));
-    taxTypeRepo = module.get(getRepositoryToken(TaxTypeEntity));
     productTaxRepo = module.get(getRepositoryToken(ProductTaxEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
 
-  // ==========================
-  // findAll
-  // ==========================
   describe('findAll', () => {
-    it('should return taxes by taxTypeId', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
+    it('should return paginated taxes', async () => {
       taxRepo.findAndCount.mockResolvedValue([[mockTax()], 1]);
-      const result = await service.findAll(1);
+      const result = await service.findAll();
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].value).toBe(21);
+      expect(result.data[0].code).toBe('IVA');
       expect(result.total).toBe(1);
     });
 
-    it('should return empty data when taxType exists but has no taxes', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
+    it('should return empty page', async () => {
       taxRepo.findAndCount.mockResolvedValue([[], 0]);
-      const result = await service.findAll(1);
+      const result = await service.findAll();
       expect(result.data).toEqual([]);
-      expect(result.total).toBe(0);
-    });
-
-    it('should throw NotFoundException if taxTypeId does not exist', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(null);
-      await expect(service.findAll(999)).rejects.toThrow(NotFoundException);
     });
   });
 
-  // ==========================
-  // findById
-  // ==========================
   describe('findById', () => {
     it('should return a tax by id', async () => {
       taxRepo.findOne.mockResolvedValue(mockTax());
@@ -109,64 +81,66 @@ describe('TaxesService', () => {
     });
   });
 
-  // ==========================
-  // create
-  // ==========================
   describe('create', () => {
     it('should create a tax', async () => {
       const tax = mockTax();
-      taxTypeRepo.findOne.mockResolvedValue(mockTaxType());
+      taxRepo.findOne.mockResolvedValue(null);
       taxRepo.create.mockReturnValue(tax);
       taxRepo.save.mockResolvedValue(tax);
-      taxRepo.findOne.mockResolvedValue(tax);
-
-      const result = await service.create(1, { value: 21 });
+      const result = await service.create({
+        code: 'IVA',
+        name: 'IMPUESTO AL VALOR AGREGADO',
+        value: 21,
+      });
+      expect(result.code).toBe('IVA');
       expect(result.value).toBe(21);
     });
 
-    it('should throw NotFoundException if taxType not found', async () => {
-      taxTypeRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(999, { value: 21 })).rejects.toThrow(
-        NotFoundException,
-      );
+    it('should throw ConflictException if code already exists', async () => {
+      taxRepo.findOne.mockResolvedValue(mockTax());
+      await expect(
+        service.create({
+          code: 'IVA',
+          name: 'IMPUESTO AL VALOR AGREGADO',
+          value: 21,
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
-  // ==========================
-  // update
-  // ==========================
   describe('update', () => {
-    it('should update a tax', async () => {
+    it('should update a tax value', async () => {
       const tax = mockTax();
       const updated = mockTax({ value: 10.5 });
-      taxRepo.findOne.mockResolvedValueOnce(tax).mockResolvedValueOnce(updated);
+      taxRepo.findOne.mockResolvedValueOnce(tax);
       taxRepo.merge.mockReturnValue(updated);
       taxRepo.save.mockResolvedValue(updated);
-
       const result = await service.update(1, { value: 10.5 });
       expect(result.value).toBe(10.5);
     });
 
+    it('should throw ConflictException if new code already exists', async () => {
+      taxRepo.findOne
+        .mockResolvedValueOnce(mockTax({ code: 'IVA' }))
+        .mockResolvedValueOnce(mockTax({ code: 'IIBB' }));
+      await expect(service.update(1, { code: 'IIBB' })).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
     it('should throw NotFoundException if tax not found', async () => {
       taxRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.update(999, {})).rejects.toThrow(NotFoundException);
     });
   });
 
-  // ==========================
-  // delete
-  // ==========================
   describe('delete', () => {
     it('should soft delete a tax with no product assignments', async () => {
       const tax = mockTax();
       taxRepo.findOne.mockResolvedValue(tax);
       productTaxRepo.findOne.mockResolvedValue(null);
       taxRepo.softDelete.mockResolvedValue({ affected: 1 });
-
       await service.delete(1);
-
       expect(taxRepo.softDelete).toHaveBeenCalledWith(tax.id);
     });
 
@@ -177,7 +151,6 @@ describe('TaxesService', () => {
         taxId: 1,
         productId: 5,
       });
-
       await expect(service.delete(1)).rejects.toThrow(ConflictException);
     });
 

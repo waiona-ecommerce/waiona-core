@@ -5,7 +5,7 @@ import { MarginEntity } from '../../margins/entities/margin.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 @Entity('combo_pricing')
-@Index(['comboId'], { unique: true })
+@Index(['comboId'], { unique: true, where: '"deletedAt" IS NULL' })
 export class ComboPricingEntity extends BaseEntity {
   @Column({
     name: 'combo_id',
