@@ -165,7 +165,6 @@ describe('OrdersService', () => {
   let orderRepo: any;
   let productRepo: any;
   let comboRepo: any;
-  let stockItemRepo: any;
   let userRepo: any;
   let stockService: any;
   let calcService: any;
@@ -206,7 +205,6 @@ describe('OrdersService', () => {
     orderRepo = module.get(getRepositoryToken(OrderEntity));
     productRepo = module.get(getRepositoryToken(ProductEntity));
     comboRepo = module.get(getRepositoryToken(ComboEntity));
-    stockItemRepo = module.get(getRepositoryToken(StockItemEntity));
     userRepo = module.get(getRepositoryToken(UserEntity));
     stockService = module.get(StockItemsService);
     calcService = module.get(CalculationService);
@@ -303,7 +301,9 @@ describe('OrdersService', () => {
       orderItemRepo.create.mockReturnValue({});
       // manager.find devuelve array vacío → no hay stock items para ese producto
       mockEntityManager.find.mockResolvedValue([]);
-      await expect(service.create(1, dto as any)).rejects.toThrow(NotFoundException);
+      await expect(service.create(1, dto as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if insufficient stock', async () => {
@@ -463,7 +463,7 @@ describe('OrdersService', () => {
 
       const mockUsage = { couponId: 5, userId: 1, orderId: 1 };
       mockEntityManager.create
-        .mockReturnValueOnce(order)      // manager.create(OrderEntity, ...)
+        .mockReturnValueOnce(order) // manager.create(OrderEntity, ...)
         .mockReturnValueOnce(mockUsage); // manager.create(CouponUsageEntity, ...)
       mockEntityManager.save
         .mockResolvedValueOnce(order)
@@ -473,7 +473,10 @@ describe('OrdersService', () => {
       mockManagerRepo.save.mockResolvedValue(undefined);
       stockService.reserveStock.mockResolvedValue(undefined);
 
-      const result = await service.create(1, { ...dto, couponCode: 'GLOBAL10' });
+      const result = await service.create(1, {
+        ...dto,
+        couponCode: 'GLOBAL10',
+      });
 
       expect(mockEntityManager.save).toHaveBeenCalledWith(
         CouponEntity,
@@ -497,7 +500,11 @@ describe('OrdersService', () => {
         startsAt: null,
         endsAt: null,
       };
-      const order = mockOrder({ subtotal: 1306.8, total: 1176.12, couponDiscount: 130.68 });
+      const order = mockOrder({
+        subtotal: 1306.8,
+        total: 1176.12,
+        couponDiscount: 130.68,
+      });
       const mockUsage = { couponId: 2, userId: 1, orderId: 1 };
 
       userRepo.findOne.mockResolvedValue(mockUser());
@@ -512,8 +519,8 @@ describe('OrdersService', () => {
         .mockResolvedValueOnce([mockStock()])
         .mockResolvedValueOnce([{ couponId: 2, productId: 1 }]);
       mockEntityManager.findOne
-        .mockResolvedValueOnce(coupon)  // cupón con lock
-        .mockResolvedValueOnce(null);   // sin uso previo
+        .mockResolvedValueOnce(coupon) // cupón con lock
+        .mockResolvedValueOnce(null); // sin uso previo
       mockEntityManager.create
         .mockReturnValueOnce(order)
         .mockReturnValueOnce(mockUsage);
@@ -552,15 +559,33 @@ describe('OrdersService', () => {
         endsAt: null,
       };
       const combo = mockCombo();
-      const order = mockComboOrder({ subtotal: 653.4, total: 588.06, couponDiscount: 65.34 });
+      const order = mockComboOrder({
+        subtotal: 653.4,
+        total: 588.06,
+        couponDiscount: 65.34,
+      });
       const mockUsage = { couponId: 3, userId: 1, orderId: 1 };
-      const stockForProduct10 = mockStock({ productId: 10, locationId: 3, quantityCurrent: 10, quantityReserved: 0 });
-      const stockForProduct11 = mockStock({ productId: 11, locationId: 3, quantityCurrent: 10, quantityReserved: 0 });
+      const stockForProduct10 = mockStock({
+        productId: 10,
+        locationId: 3,
+        quantityCurrent: 10,
+        quantityReserved: 0,
+      });
+      const stockForProduct11 = mockStock({
+        productId: 11,
+        locationId: 3,
+        quantityCurrent: 10,
+        quantityReserved: 0,
+      });
 
       userRepo.findOne.mockResolvedValue(mockUser());
       comboRepo.findOne.mockResolvedValue(combo);
       calcService.calculateCombo.mockResolvedValue(mockBreakdown());
-      orderItemRepo.create.mockReturnValue({ combo, quantity: 1, comboReservations: [] });
+      orderItemRepo.create.mockReturnValue({
+        combo,
+        quantity: 1,
+        comboReservations: [],
+      });
 
       // Dentro de la transacción:
       // 1. manager.find(StockItemEntity, productId:10)
@@ -571,8 +596,8 @@ describe('OrdersService', () => {
         .mockResolvedValueOnce([stockForProduct11])
         .mockResolvedValueOnce([{ couponId: 3, comboId: 1 }]);
       mockEntityManager.findOne
-        .mockResolvedValueOnce(coupon)  // cupón con lock
-        .mockResolvedValueOnce(null);   // sin uso previo
+        .mockResolvedValueOnce(coupon) // cupón con lock
+        .mockResolvedValueOnce(null); // sin uso previo
       mockEntityManager.create
         .mockReturnValueOnce(order)
         .mockReturnValueOnce(mockUsage);
