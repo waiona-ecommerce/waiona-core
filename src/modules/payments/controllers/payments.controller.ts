@@ -166,6 +166,11 @@ export class PaymentsController {
     const v1 = v1Part.split('=')[1];
     const dataId = query['data.id'] ?? query['id'] ?? '';
 
+    const tsMs = Number(ts) * 1000;
+    if (isNaN(tsMs) || Math.abs(Date.now() - tsMs) > 5 * 60 * 1000) {
+      throw new UnauthorizedException('Webhook de MercadoPago expirado o con timestamp inválido');
+    }
+
     // manifest a firmar: id:<dataId>;request-id:<xRequestId>;ts:<ts>;
     const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
     const expected = createHmac('sha256', secret)

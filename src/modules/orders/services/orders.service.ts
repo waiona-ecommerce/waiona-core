@@ -95,12 +95,19 @@ export class OrdersService {
       );
     }
 
-    // 3. Calcular precios, validar stock y cupón ANTES de la transacción
+    // 3. Calcular precios y validar productos/combos ANTES de la transacción.
+    //    La selección de ubicación de stock se hace DENTRO de la transacción
+    //    para leer datos frescos y reducir la ventana de race condition.
+    //    reserveStock (pessimistic_write) serializa el acceso al stock final.
     const orderItems: OrderItemEntity[] = [];
-    const stockReservations: {
+    const productStockNeeds: {
+      orderItem: OrderItemEntity;
       productId: number;
-      locationId: number;
       quantity: number;
+    }[] = [];
+    const comboStockNeeds: {
+      orderItem: OrderItemEntity;
+      needs: { productId: number; quantity: number }[];
     }[] = [];
     let subtotal = 0;
     const couponItems: Array<{
@@ -119,11 +126,6 @@ export class OrdersService {
             `Producto con id ${item.productId} no encontrado`,
           );
 
-        const stockItem = await this.findAvailableStockItem(
-          item.productId,
-          item.quantity,
-        );
-
         const breakdown = await this.calculationService.calculateProduct({
           productId: item.productId,
         });
@@ -135,13 +137,13 @@ export class OrdersService {
           quantity: item.quantity,
           unitPrice: breakdown.unitPrice,
           finalPrice: itemSubtotal,
-          locationId: stockItem.locationId,
+          // locationId se asigna dentro de la transacción
         });
 
         orderItems.push(orderItem);
-        stockReservations.push({
+        productStockNeeds.push({
+          orderItem,
           productId: item.productId,
-          locationId: stockItem.locationId,
           quantity: item.quantity,
         });
         subtotal += itemSubtotal;
@@ -156,26 +158,6 @@ export class OrdersService {
             `Combo con id ${item.comboId} no encontrado`,
           );
 
-        const comboReservations: {
-          productId: number;
-          locationId: number;
-          quantity: number;
-        }[] = [];
-
-        for (const comboItem of combo.items) {
-          const stockItem = await this.findAvailableStockItem(
-            comboItem.productId,
-            item.quantity * comboItem.quantity,
-          );
-          const reservation = {
-            productId: comboItem.productId,
-            locationId: stockItem.locationId,
-            quantity: item.quantity * comboItem.quantity,
-          };
-          comboReservations.push(reservation);
-          stockReservations.push(reservation);
-        }
-
         const breakdown = await this.calculationService.calculateCombo({
           comboId: item.comboId,
         });
@@ -187,22 +169,77 @@ export class OrdersService {
           quantity: item.quantity,
           unitPrice: breakdown.unitPrice,
           finalPrice: itemSubtotal,
-          comboReservations,
+          // comboReservations se asigna dentro de la transacción
         });
 
         orderItems.push(orderItem);
+        comboStockNeeds.push({
+          orderItem,
+          needs: combo.items.map((ci) => ({
+            productId: ci.productId,
+            quantity: item.quantity * ci.quantity,
+          })),
+        });
         subtotal += itemSubtotal;
         couponItems.push({ comboId: item.comboId, subtotal: itemSubtotal });
       }
     }
 
-    // 4. 🔥 Transacción — guardar orden + reservar stock + registrar cupón de forma atómica
+    // 4. 🔥 Transacción — seleccionar stock con datos frescos, reservar, guardar orden y cupón
     const saved = await this.dataSource.transaction(async (manager) => {
+      // 4a. Seleccionar ubicaciones de stock dentro de la transacción
+      const stockReservations: {
+        productId: number;
+        locationId: number;
+        quantity: number;
+      }[] = [];
+
+      for (const { orderItem, productId, quantity } of productStockNeeds) {
+        const stockItem = await this.findAvailableStockItem(
+          productId,
+          quantity,
+          manager,
+        );
+        orderItem.locationId = stockItem.locationId;
+        stockReservations.push({
+          productId,
+          locationId: stockItem.locationId,
+          quantity,
+        });
+      }
+
+      for (const { orderItem, needs } of comboStockNeeds) {
+        const comboReservations: {
+          productId: number;
+          locationId: number;
+          quantity: number;
+        }[] = [];
+        for (const { productId, quantity } of needs) {
+          const stockItem = await this.findAvailableStockItem(
+            productId,
+            quantity,
+            manager,
+          );
+          comboReservations.push({
+            productId,
+            locationId: stockItem.locationId,
+            quantity,
+          });
+          stockReservations.push({
+            productId,
+            locationId: stockItem.locationId,
+            quantity,
+          });
+        }
+        orderItem.comboReservations = comboReservations;
+      }
+
+      // 4b. Validar y aplicar cupón
       let lockedCoupon: CouponEntity | null = null;
       let couponDiscount = 0;
 
       if (dto.couponCode) {
-        // Lock del cupón primero — serializa concurrencia y garantiza datos frescos
+        // Lock del cupón — serializa concurrencia y garantiza datos frescos
         lockedCoupon = await manager.findOne(CouponEntity, {
           where: { code: dto.couponCode },
           lock: { mode: 'pessimistic_write' },
@@ -229,7 +266,6 @@ export class OrdersService {
         if (alreadyUsed)
           throw new ConflictException('El usuario ya utilizó este cupón');
 
-        // Calcular descuento con datos frescos del cupón ya locked
         couponDiscount = await this.computeCouponDiscountWithManager(
           lockedCoupon,
           couponItems,
@@ -245,7 +281,7 @@ export class OrdersService {
 
       const total = Math.max(0, subtotal - couponDiscount);
 
-      // guardar orden
+      // 4c. Guardar orden
       const order = manager.create(OrderEntity, {
         user,
         items: orderItems,
@@ -261,7 +297,7 @@ export class OrdersService {
 
       const savedOrder = await manager.save(OrderEntity, order);
 
-      // reservar stock — atómico con el save de la orden
+      // 4d. Reservar stock — atómico con el save de la orden
       for (const reservation of stockReservations) {
         await this.stockItemsService.reserveStock(
           reservation.productId,
@@ -271,7 +307,7 @@ export class OrdersService {
         );
       }
 
-      // registrar uso del cupón — solo si efectivamente generó descuento
+      // 4e. Registrar uso del cupón — solo si efectivamente generó descuento
       if (lockedCoupon && couponDiscount > 0) {
         lockedCoupon.usageCount += 1;
         await manager.save(CouponEntity, lockedCoupon);
@@ -447,10 +483,11 @@ export class OrdersService {
   private async findAvailableStockItem(
     productId: number,
     quantity: number,
+    manager?: EntityManager,
   ): Promise<StockItemEntity> {
-    const items = await this.stockItemRepo.find({
-      where: { productId },
-    });
+    const items = manager
+      ? await manager.find(StockItemEntity, { where: { productId } })
+      : await this.stockItemRepo.find({ where: { productId } });
 
     if (!items.length) {
       throw new NotFoundException(
