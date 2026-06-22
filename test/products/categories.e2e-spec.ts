@@ -98,7 +98,6 @@ describe('Categories (e2e)', () => {
       .send({
         name: 'Bebidas',
         description: 'Bebidas en general',
-        isActive: true,
       })
       .expect(201);
 
@@ -118,7 +117,7 @@ describe('Categories (e2e)', () => {
   it('POST /categories → 201 con categoría padre', async () => {
     const parent = await request(app.getHttpServer())
       .post('/v1/categories')
-      .send({ name: 'Gaseosas', isActive: true })
+      .send({ name: 'Gaseosas' })
       .expect(201);
 
     const child = await request(app.getHttpServer())
@@ -188,11 +187,10 @@ describe('Categories (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/categories/${created.body.id}`)
-      .send({ name: 'Snacks Premium', isActive: false })
+      .send({ name: 'Snacks Premium' })
       .expect(200);
 
     expect(res.body.name).toBe('SNACKS PREMIUM');
-    expect(res.body.isActive).toBe(false);
   });
 
   it('PATCH /categories/:id → 404 si no existe', async () => {

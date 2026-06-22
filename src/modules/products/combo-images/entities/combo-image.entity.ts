@@ -5,7 +5,7 @@ import { ComboEntity } from '../../combos/entities/combo.entity';
 
 @Entity('combo_images')
 @Index(['comboId'])
-@Index(['comboId', 'position'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['comboId', 'position'], { unique: true, where: '"deletedAt" IS NULL' })
 export class ComboImageEntity extends BaseEntity {
   @Column({ name: 'combo_id' })
   comboId: number;

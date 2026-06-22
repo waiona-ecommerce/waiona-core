@@ -5,7 +5,7 @@ import { MarginEntity } from '../../margins/entities/margin.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 @Entity('product_pricing')
-@Index(['productId'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['productId'], { unique: true, where: '"deletedAt" IS NULL' })
 export class ProductPricingEntity extends BaseEntity {
   @Column({ name: 'product_id', type: 'int' })
   productId: number;

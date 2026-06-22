@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
@@ -21,6 +21,10 @@ import { ProductImageEntity } from '../../src/modules/products/product-images/en
 import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
 import { ProductPricingEntity } from '../../src/modules/pricing/entities/product-pricing.entity';
 import { MarginEntity } from '../../src/modules/margins/entities/margin.entity';
+import { ComboPricingEntity } from '../../src/modules/pricing/entities/combo-pricing.entity';
+import { DiscountComboTargetEntity } from '../../src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
+import { CouponComboTargetEntity } from '../../src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
+import { OrderItemEntity } from '../../src/modules/orders/entities/order-item.entity';
 import { CurrencyCode } from '../../src/common/enums/currency-code.enum';
 import { ProductMeasurementUnit } from '../../src/modules/products/product/enums/product-measurement-unit.enum';
 
@@ -67,13 +71,32 @@ describe('Combos (e2e)', () => {
         TypeOrmModule.forFeature([
           ComboEntity,
           ComboItemEntity,
+          ComboImageEntity,
           ProductEntity,
           CategoryEntity,
           ProductPricingEntity,
         ]),
       ],
       controllers: [ComboController],
-      providers: [ComboService],
+      providers: [
+        ComboService,
+        {
+          provide: getRepositoryToken(ComboPricingEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(DiscountComboTargetEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(CouponComboTargetEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(OrderItemEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })
