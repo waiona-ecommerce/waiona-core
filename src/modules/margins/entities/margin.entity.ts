@@ -2,7 +2,7 @@ import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base.entity';
 
 @Entity('margins')
-@Index(['name'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['name'], { unique: true, where: '"deletedAt" IS NULL' })
 export class MarginEntity extends BaseEntity {
   @Column({
     type: 'varchar',

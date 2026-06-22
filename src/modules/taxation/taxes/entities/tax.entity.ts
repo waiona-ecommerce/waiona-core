@@ -2,7 +2,7 @@ import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../../../common/entities/base.entity';
 
 @Entity('taxes')
-@Index(['code'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['code'], { unique: true, where: '"deletedAt" IS NULL' })
 export class TaxEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: false })
   code: string;

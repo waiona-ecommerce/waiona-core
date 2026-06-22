@@ -15,7 +15,7 @@ import { StockMovementEntity } from '../../stock-movement/entities/stock-movemen
 @Entity('stock_items')
 @Index(['productId', 'locationId'], {
   unique: true,
-  where: '"deleted_at" IS NULL',
+  where: '"deletedAt" IS NULL',
 })
 export class StockItemEntity extends BaseEntity {
   @Column({

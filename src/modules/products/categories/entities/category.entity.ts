@@ -12,7 +12,7 @@ import { BaseEntity } from '../../../../common/entities/base.entity';
 @Entity('categories')
 @Index(['name'])
 @Index(['parentId'])
-@Index(['name'], { unique: true, where: '"deleted_at" IS NULL' })
+@Index(['name'], { unique: true, where: '"deletedAt" IS NULL' })
 export class CategoryEntity extends BaseEntity {
   // ==========================
   // Datos básicos

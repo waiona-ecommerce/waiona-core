@@ -9,7 +9,7 @@ import { ProductEntity } from '../../product/entities/product.entity';
 @Index(['productId'])
 @Index(['comboId', 'productId'], {
   unique: true,
-  where: '"deleted_at" IS NULL',
+  where: '"deletedAt" IS NULL',
 })
 export class ComboItemEntity extends BaseEntity {
   // ==========================

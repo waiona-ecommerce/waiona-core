@@ -5,7 +5,7 @@ import { CouponEntity } from '../../coupon/entities/coupon.entity';
 @Entity('coupon_product_targets')
 @Index(['couponId', 'productId'], {
   unique: true,
-  where: '"deleted_at" IS NULL',
+  where: '"deletedAt" IS NULL',
 })
 @Index(['couponId'])
 @Index(['productId'])
