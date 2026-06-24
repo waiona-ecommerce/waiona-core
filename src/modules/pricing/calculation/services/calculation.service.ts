@@ -50,34 +50,35 @@ export class CalculationService {
 
   preview(dto: CalculatePreviewDto): PriceBreakdownDto {
     const unitPrice = dto.unitPrice;
+    const salePrice = dto.salePrice;
+    const margin = salePrice - unitPrice;
 
-    const discount = this.applyValue(unitPrice, dto.discountValue, true);
-    const priceAfterDiscount = unitPrice - discount;
+    // Descuento pre-impuestos (reduce la base imponible)
+    const discount = this.applyValue(salePrice, dto.discountValue, true);
+    const priceAfterDiscount = salePrice - discount;
 
-    const margin = this.applyValue(priceAfterDiscount, dto.marginValue, true);
-    const priceAfterMargin = priceAfterDiscount + margin;
-
+    // Impuestos sobre base imponible (precio con descuento)
     const taxes = (dto.taxes ?? []).reduce((acc, tax) => {
-      return acc + this.applyValue(priceAfterMargin, tax.value, true);
+      return acc + this.applyValue(priceAfterDiscount, tax.value, true);
     }, 0);
-    const finalPrice = priceAfterMargin + taxes;
+    const finalPrice = priceAfterDiscount + taxes;
 
-    const marginFull = this.applyValue(unitPrice, dto.marginValue, true);
-    const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = (dto.taxes ?? []).reduce((acc, tax) => {
-      return acc + this.applyValue(priceAfterMarginFull, tax.value, true);
+    // Precio sin descuento para mostrar tachado en el front
+    const fullTaxes = (dto.taxes ?? []).reduce((acc, tax) => {
+      return acc + this.applyValue(salePrice, tax.value, true);
     }, 0);
-    const fullPrice = priceAfterMarginFull + taxesFull;
+    const fullPrice = salePrice + fullTaxes;
 
+    // Cupón post-impuestos (bonificación comercial)
     const coupon = this.applyValue(finalPrice, dto.couponValue, true);
     const orderTotal = finalPrice - coupon;
 
     return this.buildBreakdown(
       unitPrice,
+      salePrice,
+      margin,
       discount,
       priceAfterDiscount,
-      margin,
-      priceAfterMargin,
       taxes,
       finalPrice,
       fullPrice,
@@ -93,45 +94,39 @@ export class CalculationService {
   async calculateProduct(dto: CalculateProductDto): Promise<PriceBreakdownDto> {
     const pricing = await this.productPricingRepo.findOne({
       where: { productId: dto.productId },
-      relations: ['margin'],
     });
     if (!pricing)
       throw new NotFoundException('Pricing de producto no encontrado');
 
     const unitPrice = Number(pricing.unitPrice);
+    const salePrice = Number(pricing.salePrice);
+    const margin = salePrice - unitPrice;
 
+    // Descuento pre-impuestos (reduce la base imponible)
     const discountTarget = await this.discountProductRepo.findOne({
       where: { productId: dto.productId },
       relations: ['discount'],
     });
     const activeDiscount = discountTarget?.discount ?? null;
     const discount = activeDiscount
-      ? this.applyValue(unitPrice, activeDiscount.value, true)
+      ? this.applyValue(salePrice, activeDiscount.value, true)
       : 0;
-    const priceAfterDiscount = unitPrice - discount;
+    const priceAfterDiscount = salePrice - discount;
 
-    const margin = pricing.margin
-      ? this.applyValue(priceAfterDiscount, Number(pricing.margin.value), true)
-      : 0;
-    const priceAfterMargin = priceAfterDiscount + margin;
-
+    // Impuestos sobre base imponible y sobre salePrice (para fullPrice)
     const taxEntities = await this.fetchTaxesForProduct(dto.productId);
-    const taxes = this.sumTaxes(taxEntities, priceAfterMargin);
-    const finalPrice = priceAfterMargin + taxes;
+    const taxes = this.sumTaxes(taxEntities, priceAfterDiscount);
+    const finalPrice = priceAfterDiscount + taxes;
 
-    const marginFull = pricing.margin
-      ? this.applyValue(unitPrice, Number(pricing.margin.value), true)
-      : 0;
-    const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = this.sumTaxes(taxEntities, priceAfterMarginFull);
-    const fullPrice = priceAfterMarginFull + taxesFull;
+    const fullTaxes = this.sumTaxes(taxEntities, salePrice);
+    const fullPrice = salePrice + fullTaxes;
 
     return this.buildBreakdown(
       unitPrice,
+      salePrice,
+      margin,
       discount,
       priceAfterDiscount,
-      margin,
-      priceAfterMargin,
       taxes,
       finalPrice,
       fullPrice,
@@ -147,45 +142,38 @@ export class CalculationService {
   async calculateCombo(dto: CalculateComboDto): Promise<PriceBreakdownDto> {
     const pricing = await this.comboPricingRepo.findOne({
       where: { comboId: dto.comboId },
-      relations: ['margin'],
     });
     if (!pricing) throw new NotFoundException('Pricing de combo no encontrado');
 
     const unitPrice = Number(pricing.unitPrice);
+    const salePrice = Number(pricing.salePrice);
+    const margin = salePrice - unitPrice;
 
+    // Descuento pre-impuestos (reduce la base imponible)
     const discountTarget = await this.discountComboRepo.findOne({
       where: { comboId: dto.comboId },
       relations: ['discount'],
     });
     const activeDiscount = discountTarget?.discount ?? null;
     const discount = activeDiscount
-      ? this.applyValue(unitPrice, activeDiscount.value, true)
+      ? this.applyValue(salePrice, activeDiscount.value, true)
       : 0;
-    const priceAfterDiscount = unitPrice - discount;
+    const priceAfterDiscount = salePrice - discount;
 
-    const margin = pricing.margin
-      ? this.applyValue(priceAfterDiscount, Number(pricing.margin.value), true)
-      : 0;
-    const priceAfterMargin = priceAfterDiscount + margin;
-
-    // Fetcha la data una sola vez y computa dos veces (finalPrice y fullPrice)
+    // Fetch una sola vez, computa dos veces (sobre base imponible y sobre salePrice)
     const taxData = await this.fetchTaxDataForCombo(dto.comboId);
-    const taxes = this.computeTaxesFromData(taxData, priceAfterMargin);
-    const finalPrice = priceAfterMargin + taxes;
+    const taxes = this.computeTaxesFromData(taxData, priceAfterDiscount);
+    const finalPrice = priceAfterDiscount + taxes;
 
-    const marginFull = pricing.margin
-      ? this.applyValue(unitPrice, Number(pricing.margin.value), true)
-      : 0;
-    const priceAfterMarginFull = unitPrice + marginFull;
-    const taxesFull = this.computeTaxesFromData(taxData, priceAfterMarginFull);
-    const fullPrice = priceAfterMarginFull + taxesFull;
+    const fullTaxes = this.computeTaxesFromData(taxData, salePrice);
+    const fullPrice = salePrice + fullTaxes;
 
     return this.buildBreakdown(
       unitPrice,
+      salePrice,
+      margin,
       discount,
       priceAfterDiscount,
-      margin,
-      priceAfterMargin,
       taxes,
       finalPrice,
       fullPrice,
@@ -229,7 +217,7 @@ export class CalculationService {
   }
 
   // Fetcha todos los datos necesarios para el prorrateo de impuestos en queries batched.
-  // Se separa del cómputo para reusar la data en finalPrice y fullPrice sin repetir queries.
+  // Se separa del cómputo para reusar la data sin repetir queries (se llama dos veces con bases distintas).
   private async fetchTaxDataForCombo(comboId: number): Promise<{
     globalTaxes: TaxEntity[];
     globalTaxIds: Set<number>;
@@ -340,10 +328,10 @@ export class CalculationService {
 
   private buildBreakdown(
     unitPrice: number,
+    salePrice: number,
+    margin: number,
     discount: number,
     priceAfterDiscount: number,
-    margin: number,
-    priceAfterMargin: number,
     taxes: number,
     finalPrice: number,
     fullPrice: number,
@@ -353,10 +341,10 @@ export class CalculationService {
     const r = (n: number) => Math.round(n * 100) / 100;
     return {
       unitPrice: r(unitPrice),
+      salePrice: r(salePrice),
+      margin: r(margin),
       discount: r(discount),
       priceAfterDiscount: r(priceAfterDiscount),
-      margin: r(margin),
-      priceAfterMargin: r(priceAfterMargin),
       taxes: r(taxes),
       finalPrice: r(finalPrice),
       fullPrice: r(fullPrice),

@@ -136,6 +136,7 @@ export class OrdersService {
           product,
           quantity: item.quantity,
           unitPrice: breakdown.unitPrice,
+          salePrice: breakdown.salePrice,
           finalPrice: itemSubtotal,
           // locationId se asigna dentro de la transacción
         });
@@ -168,6 +169,7 @@ export class OrdersService {
           combo,
           quantity: item.quantity,
           unitPrice: breakdown.unitPrice,
+          salePrice: breakdown.salePrice,
           finalPrice: itemSubtotal,
           // comboReservations se asigna dentro de la transacción
         });

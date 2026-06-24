@@ -102,6 +102,7 @@ describe('OrdersService', () => {
   };
   const mockBreakdown = (overrides: any = {}) => ({
     unitPrice: 500,
+    salePrice: 600,
     discount: 0,
     finalPrice: 653.4,
     fullPrice: 726,

@@ -1,13 +1,12 @@
 export class PriceBreakdownDto {
-  unitPrice: number;
-  discount: number;
-  priceAfterDiscount: number;
-  margin: number;
-  priceAfterMargin: number;
-  taxes: number;
-  finalPrice: number; // precio final CON descuento — lo que paga el cliente
-  fullPrice: number; // precio final SIN descuento — para mostrar tachado en el front
-  // = unitPrice + margen(sobre unitPrice) + impuestos(sobre eso)
-  coupon: number;
-  orderTotal: number;
+  unitPrice: number; // costo (guardado en BD)
+  salePrice: number; // precio de venta (guardado en BD)
+  margin: number; // salePrice - unitPrice (calculado, informativo)
+  discount: number; // descuento sobre salePrice (pre-impuestos)
+  priceAfterDiscount: number; // salePrice - discount = base imponible
+  taxes: number; // impuestos sobre base imponible (priceAfterDiscount)
+  finalPrice: number; // priceAfterDiscount + taxes (precio sin cupón)
+  fullPrice: number; // salePrice + taxes_on_salePrice (para mostrar tachado)
+  coupon: number; // bonificación comercial post-impuestos
+  orderTotal: number; // finalPrice - coupon
 }

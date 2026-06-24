@@ -22,8 +22,8 @@ describe('DiscountsService', () => {
 
   const mockDiscount = (overrides = {}): DiscountEntity => ({
     id: 1,
-    name: 'Promo 10%',
-    description: 'Descuento de prueba',
+    name: 'PROMO 10%',
+    description: 'DESCUENTO DE PRUEBA',
     value: 10,
     deletedAt: null,
     createdAt: new Date(),
@@ -97,12 +97,12 @@ describe('DiscountsService', () => {
   describe('update', () => {
     it('should update a discount', async () => {
       const entity = mockDiscount();
-      const updated = mockDiscount({ name: 'Promo Actualizada' });
+      const updated = mockDiscount({ name: 'PROMO ACTUALIZADA' });
       repo.findOne.mockResolvedValue(entity);
       repo.save.mockResolvedValue(updated);
       expect(
-        (await service.update(1, { name: 'Promo Actualizada' } as any)).name,
-      ).toBe('Promo Actualizada');
+        (await service.update(1, { name: 'PROMO ACTUALIZADA' } as any)).name,
+      ).toBe('PROMO ACTUALIZADA');
     });
 
     it('should throw NotFoundException', async () => {

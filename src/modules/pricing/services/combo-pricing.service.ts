@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   PG_UNIQUE_VIOLATION,
@@ -13,7 +14,6 @@ import { Repository } from 'typeorm';
 
 import { ComboPricingEntity } from '../entities/combo-pricing.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
-import { MarginEntity } from '../../margins/entities/margin.entity';
 import { CreateComboPricingDto } from '../dto/create-combo-pricing.dto';
 import { UpdateComboPricingDto } from '../dto/update-combo-pricing.dto';
 import { ComboPricingResponseDto } from '../dto/combo-pricing-response.dto';
@@ -23,9 +23,6 @@ export class ComboPricingService {
   constructor(
     @InjectRepository(ComboPricingEntity)
     private repo: Repository<ComboPricingEntity>,
-
-    @InjectRepository(MarginEntity)
-    private marginRepo: Repository<MarginEntity>,
   ) {}
 
   // ==========================
@@ -33,6 +30,12 @@ export class ComboPricingService {
   // ==========================
 
   async create(dto: CreateComboPricingDto): Promise<ComboPricingResponseDto> {
+    if (dto.salePrice <= dto.unitPrice) {
+      throw new BadRequestException(
+        'El precio de venta debe ser mayor al precio de costo',
+      );
+    }
+
     const existing = await this.repo.findOne({
       where: { comboId: dto.comboId },
     });
@@ -41,18 +44,15 @@ export class ComboPricingService {
       throw new ConflictException('El combo ya tiene un pricing asignado');
     }
 
-    const margin = dto.marginId ? await this.resolveMargin(dto.marginId) : null;
-
     const entity = this.repo.create({
       comboId: dto.comboId,
       currency: dto.currency,
       unitPrice: dto.unitPrice,
-      margin,
+      salePrice: dto.salePrice,
     });
 
     try {
       const saved = await this.repo.save(entity);
-
       return new ComboPricingResponseDto(saved);
     } catch (err: any) {
       if (err.code === PG_UNIQUE_VIOLATION)
@@ -75,19 +75,22 @@ export class ComboPricingService {
   ): Promise<ComboPricingResponseDto> {
     const entity = await this.findOneEntity(id);
 
-    if (dto.marginId !== undefined) {
-      entity.margin = dto.marginId
-        ? await this.resolveMargin(dto.marginId)
-        : null;
+    const effectiveUnitPrice = dto.unitPrice ?? Number(entity.unitPrice);
+    const effectiveSalePrice = dto.salePrice ?? Number(entity.salePrice);
+
+    if (effectiveSalePrice <= effectiveUnitPrice) {
+      throw new BadRequestException(
+        'El precio de venta debe ser mayor al precio de costo',
+      );
     }
 
     Object.assign(entity, {
       currency: dto.currency ?? entity.currency,
-      unitPrice: dto.unitPrice ?? entity.unitPrice,
+      unitPrice: effectiveUnitPrice,
+      salePrice: effectiveSalePrice,
     });
 
     const saved = await this.repo.save(entity);
-
     return new ComboPricingResponseDto(saved);
   }
 
@@ -100,7 +103,6 @@ export class ComboPricingService {
     limit = 20,
   ): Promise<PaginatedResponseDto<ComboPricingResponseDto>> {
     const [entities, total] = await this.repo.findAndCount({
-      relations: ['margin'],
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -126,10 +128,7 @@ export class ComboPricingService {
   // ==========================
 
   async findByCombo(comboId: number): Promise<ComboPricingResponseDto> {
-    const entity = await this.repo.findOne({
-      where: { comboId },
-      relations: ['margin'],
-    });
+    const entity = await this.repo.findOne({ where: { comboId } });
 
     if (!entity) {
       throw new NotFoundException('Pricing de combo no encontrado');
@@ -152,27 +151,12 @@ export class ComboPricingService {
   // ==========================
 
   private async findOneEntity(id: number): Promise<ComboPricingEntity> {
-    const entity = await this.repo.findOne({
-      where: { id },
-      relations: ['margin'],
-    });
+    const entity = await this.repo.findOne({ where: { id } });
 
     if (!entity) {
       throw new NotFoundException('Pricing de combo no encontrado');
     }
 
     return entity;
-  }
-
-  private async resolveMargin(marginId: number): Promise<MarginEntity> {
-    const margin = await this.marginRepo.findOne({
-      where: { id: marginId },
-    });
-
-    if (!margin) {
-      throw new NotFoundException(`Margen con id ${marginId} no encontrado`);
-    }
-
-    return margin;
   }
 }

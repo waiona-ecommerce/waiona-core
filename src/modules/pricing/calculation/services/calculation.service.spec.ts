@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import {
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CalculationService } from '../../calculation/services/calculation.service';
 import { ProductPricingEntity } from '../../entities/product-pricing.entity';
 import { ComboPricingEntity } from '../../entities/combo-pricing.entity';
@@ -27,14 +24,12 @@ describe('CalculationService', () => {
   const mockDiscountComboRepo = () => ({ findOne: jest.fn() });
   const mockComboItemRepo = () => ({ find: jest.fn() });
 
-  const mockMargin = { id: 1, value: 20 };
-
   const mockProductPricing = (overrides = {}) => ({
     id: 1,
     productId: 1,
     currency: 'ARS',
     unitPrice: 500,
-    margin: mockMargin,
+    salePrice: 600,
     deletedAt: null,
     ...overrides,
   });
@@ -44,7 +39,7 @@ describe('CalculationService', () => {
     comboId: 1,
     currency: 'ARS',
     unitPrice: 1200,
-    margin: mockMargin,
+    salePrice: 1500,
     deletedAt: null,
     ...overrides,
   });
@@ -127,10 +122,16 @@ describe('CalculationService', () => {
 
       const result = await service.calculateProduct({ productId: 1 });
 
+      // unitPrice=500, salePrice=600, sin descuento, sin impuestos
+      // priceAfterDiscount=600, taxes=0, finalPrice=600, fullPrice=600
       expect(result.unitPrice).toBe(500);
-      expect(result.margin).toBeGreaterThan(0);
-      expect(result.finalPrice).toBeGreaterThan(result.unitPrice);
-      expect(result.fullPrice).toBeGreaterThanOrEqual(result.finalPrice);
+      expect(result.salePrice).toBe(600);
+      expect(result.margin).toBe(100);
+      expect(result.discount).toBe(0);
+      expect(result.priceAfterDiscount).toBe(600);
+      expect(result.taxes).toBe(0);
+      expect(result.finalPrice).toBe(600);
+      expect(result.fullPrice).toBe(600);
       expect(result.coupon).toBe(0);
       expect(result.orderTotal).toBe(result.finalPrice);
     });
@@ -140,18 +141,6 @@ describe('CalculationService', () => {
       await expect(
         service.calculateProduct({ productId: 999 }),
       ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw InternalServerErrorException if margin value is NaN', async () => {
-      productPricingRepo.findOne.mockResolvedValue(
-        mockProductPricing({ margin: { id: 1, value: NaN } }),
-      );
-      discountProductRepo.findOne.mockResolvedValue(null);
-      productTaxRepo.find.mockResolvedValue([]);
-      taxRepo.find.mockResolvedValue([]);
-      await expect(service.calculateProduct({ productId: 1 })).rejects.toThrow(
-        InternalServerErrorException,
-      );
     });
   });
 
@@ -164,15 +153,18 @@ describe('CalculationService', () => {
 
       const result = await service.calculateCombo({ comboId: 1 });
 
-      // margen 20% sobre 1200 = 240 → priceAfterMargin = 1440 → IVA 21% = 302.4
+      // sin descuento → priceAfterDiscount=1500, IVA 21% on 1500=315, finalPrice=1815
       expect(result.unitPrice).toBe(1200);
-      expect(result.taxes).toBeCloseTo(302.4, 1);
-      expect(result.finalPrice).toBeCloseTo(1742.4, 1);
+      expect(result.salePrice).toBe(1500);
+      expect(result.discount).toBe(0);
+      expect(result.priceAfterDiscount).toBe(1500);
+      expect(result.taxes).toBeCloseTo(315, 0);
+      expect(result.finalPrice).toBeCloseTo(1815, 0);
     });
 
     it('should prorate specific taxes across combo items by reference price', async () => {
       comboPricingRepo.findOne.mockResolvedValue(
-        mockComboPricing({ unitPrice: 1000, margin: null }),
+        mockComboPricing({ unitPrice: 1000, salePrice: 1000 }),
       );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([]);
@@ -197,7 +189,7 @@ describe('CalculationService', () => {
 
     it('should apply global tax on full price AND specific via proration without double counting', async () => {
       comboPricingRepo.findOne.mockResolvedValue(
-        mockComboPricing({ unitPrice: 1000, margin: null }),
+        mockComboPricing({ unitPrice: 1000, salePrice: 1000 }),
       );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([mockGlobalTax({ id: 1, value: 21 })]);
@@ -221,7 +213,7 @@ describe('CalculationService', () => {
 
     it('should handle quantity > 1 in proration', async () => {
       comboPricingRepo.findOne.mockResolvedValue(
-        mockComboPricing({ unitPrice: 1000, margin: null }),
+        mockComboPricing({ unitPrice: 1000, salePrice: 1000 }),
       );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([]);
@@ -245,7 +237,7 @@ describe('CalculationService', () => {
 
     it('should throw NotFoundException if a combo item has no pricing configured', async () => {
       comboPricingRepo.findOne.mockResolvedValue(
-        mockComboPricing({ unitPrice: 1000, margin: null }),
+        mockComboPricing({ unitPrice: 1000, salePrice: 1000 }),
       );
       discountComboRepo.findOne.mockResolvedValue(null);
       taxRepo.find.mockResolvedValue([mockGlobalTax({ value: 21 })]);
@@ -270,16 +262,24 @@ describe('CalculationService', () => {
     it('should calculate preview without DB', () => {
       const result = service.preview({
         unitPrice: 500,
+        salePrice: 600,
         discountValue: 10,
-        marginValue: 20,
         taxes: [{ value: 21 }],
         couponValue: 10,
       });
 
+      // salePrice=600, discount 10% on 600=60 → priceAfterDiscount=540 (base imponible)
+      // IVA 21% on 540=113.4 → finalPrice=653.4
+      // fullTaxes on 600=126 → fullPrice=726
+      // coupon 10% on 653.4=65.34 → orderTotal=588.06
       expect(result.unitPrice).toBe(500);
-      expect(result.discount).toBeGreaterThan(0);
-      expect(result.finalPrice).toBeGreaterThan(0);
-      expect(result.fullPrice).toBeGreaterThanOrEqual(result.finalPrice);
+      expect(result.salePrice).toBe(600);
+      expect(result.margin).toBe(100);
+      expect(result.discount).toBeCloseTo(60, 1);
+      expect(result.priceAfterDiscount).toBeCloseTo(540, 1);
+      expect(result.taxes).toBeCloseTo(113.4, 1);
+      expect(result.finalPrice).toBeCloseTo(653.4, 1);
+      expect(result.fullPrice).toBeCloseTo(726, 0);
     });
   });
 });
