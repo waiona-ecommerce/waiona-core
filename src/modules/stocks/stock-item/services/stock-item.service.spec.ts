@@ -179,13 +179,18 @@ describe('StockItemsService', () => {
         { productId: 1, quantity: 3 }, // 9 / 3 = 3
         { productId: 2, quantity: 1 }, // 10 / 1 = 10
       ]);
-      stockRepo.find
-        .mockResolvedValueOnce([
-          mockStockItem({ quantityCurrent: 9, quantityReserved: 0 }),
-        ])
-        .mockResolvedValueOnce([
-          mockStockItem({ quantityCurrent: 10, quantityReserved: 0 }),
-        ]);
+      stockRepo.find.mockResolvedValue([
+        mockStockItem({
+          productId: 1,
+          quantityCurrent: 9,
+          quantityReserved: 0,
+        }),
+        mockStockItem({
+          productId: 2,
+          quantityCurrent: 10,
+          quantityReserved: 0,
+        }),
+      ]);
       const result = await service.findByCombo(1);
       expect(result.quantityAvailable).toBe(3);
       expect(result.inStock).toBe(true);
@@ -285,39 +290,6 @@ describe('StockItemsService', () => {
       await expect(service.addStock(1, 1, 10)).rejects.toThrow(
         NotFoundException,
       );
-    });
-  });
-
-  // ==========================
-  // writeOff
-  // ==========================
-
-  describe('writeOff', () => {
-    it('writes off available stock and creates movement', async () => {
-      const item = mockStockItem(); // available = 15
-      mockManager.findOne.mockResolvedValue(item);
-      mockManager.save.mockResolvedValue(item);
-      mockManager.create.mockReturnValue({});
-      stockRepo.findOne.mockResolvedValue(mockStockItem());
-
-      await service.writeOff(1, 5);
-      expect(mockManager.save).toHaveBeenCalled();
-    });
-
-    it('throws BadRequestException for quantity <= 0', async () => {
-      await expect(service.writeOff(1, 0)).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws BadRequestException when available stock is insufficient', async () => {
-      mockManager.findOne.mockResolvedValue(
-        mockStockItem({ quantityCurrent: 20, quantityReserved: 18 }),
-      ); // available = 2
-      await expect(service.writeOff(1, 5)).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws NotFoundException when stock item not found', async () => {
-      mockManager.findOne.mockResolvedValue(null);
-      await expect(service.writeOff(999, 5)).rejects.toThrow(NotFoundException);
     });
   });
 

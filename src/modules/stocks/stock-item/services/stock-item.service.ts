@@ -11,6 +11,7 @@ import {
   EntityManager,
   DataSource,
   QueryFailedError,
+  In,
 } from 'typeorm';
 
 import { StockItemEntity } from '../entities/stock-item.entity';
@@ -136,6 +137,17 @@ export class StockItemsService {
       };
     }
 
+    const productIds = items.map((i) => i.productId);
+    const allStockItems = await this.stockItemRepository.find({
+      where: { productId: In(productIds) },
+    });
+
+    const byProduct = new Map<number, StockItemEntity[]>();
+    for (const s of allStockItems) {
+      if (!byProduct.has(s.productId)) byProduct.set(s.productId, []);
+      byProduct.get(s.productId)!.push(s);
+    }
+
     let minAvailable = Infinity;
     // Umbral más restrictivo en combo-units: el combo es "low/critical"
     // si CUALQUIER componente lo es → se toma el MAX de los umbrales por componente
@@ -143,13 +155,11 @@ export class StockItemsService {
     let maxThresholdCritical = 0;
 
     for (const item of items) {
-      const stockItems = await this.stockItemRepository.find({
-        where: { productId: item.productId },
-      });
+      const stockItems = byProduct.get(item.productId) ?? [];
 
       // Mejor ubicación para este componente (consistente con reserveStock)
       let bestPossible = 0;
-      let bestStockItem: (typeof stockItems)[number] | undefined;
+      let bestStockItem: StockItemEntity | undefined;
       for (const s of stockItems) {
         const possible = Math.floor(s.quantityAvailable / item.quantity);
         if (possible > bestPossible) {
@@ -293,54 +303,6 @@ export class StockItemsService {
   }
 
   // ==========================
-  // WRITE OFF SIMPLE
-  // ==========================
-
-  async writeOff(
-    stockItemId: number,
-    quantity: number,
-  ): Promise<StockItemWithMovementsResponseDto> {
-    if (quantity <= 0) {
-      throw new BadRequestException('La cantidad debe ser mayor a 0');
-    }
-
-    await this.dataSource.transaction(async (manager) => {
-      const stockItem = await manager.findOne(StockItemEntity, {
-        where: { id: stockItemId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!stockItem) {
-        throw new NotFoundException(
-          `Stock con id ${stockItemId} no encontrado`,
-        );
-      }
-
-      if (stockItem.quantityAvailable < quantity) {
-        throw new BadRequestException(
-          `Stock disponible insuficiente — solo ${stockItem.quantityAvailable} disponibles (${stockItem.quantityCurrent} en depósito, ${stockItem.quantityReserved} reservados)`,
-        );
-      }
-
-      stockItem.quantityCurrent -= quantity;
-      await manager.save(StockItemEntity, stockItem);
-
-      const movement = manager.create(StockMovementEntity, {
-        stockItemId: stockItem.id,
-        operationType: StockOperationType.ADJUSTMENT,
-        stockFlow: StockFlow.OUTBOUND,
-        quantity,
-        referenceType: StockReferenceType.MANUAL,
-      });
-      await manager.save(StockMovementEntity, movement);
-    });
-
-    return new StockItemWithMovementsResponseDto(
-      await this.findEntity(stockItemId),
-    );
-  }
-
-  // ==========================
   // WRITE OFF DAMAGE
   // ==========================
 
@@ -378,7 +340,7 @@ export class StockItemsService {
         operationType: StockOperationType.DAMAGE,
         stockFlow: StockFlow.OUTBOUND,
         quantity: dto.quantity,
-        referenceType: StockReferenceType.MANUAL,
+        referenceType: StockReferenceType.DAMAGE_REPORT,
       });
       const savedMovement = await manager.save(StockMovementEntity, movement);
 

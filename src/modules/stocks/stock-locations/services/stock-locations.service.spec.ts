@@ -13,6 +13,7 @@ describe('StockLocationsService', () => {
   let stockItemRepo: any;
 
   const mockRepo = () => ({
+    count: jest.fn(),
     findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
@@ -59,7 +60,8 @@ describe('StockLocationsService', () => {
   // ==========================
 
   describe('create', () => {
-    it('creates a location', async () => {
+    it('creates a location when none exists', async () => {
+      repo.count.mockResolvedValue(0);
       const loc = mockLocation();
       repo.create.mockReturnValue(loc);
       repo.save.mockResolvedValue(loc);
@@ -68,6 +70,16 @@ describe('StockLocationsService', () => {
         type: StockLocationType.WAREHOUSE,
       });
       expect(result.name).toBe('Depósito Central');
+    });
+
+    it('throws ConflictException when a location already exists', async () => {
+      repo.count.mockResolvedValue(1);
+      await expect(
+        service.create({
+          name: 'Segundo Depósito',
+          type: StockLocationType.WAREHOUSE,
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 

@@ -23,7 +23,6 @@ import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto'
 import { CreateStockItemDto } from '../dto/create-stock-item.dto';
 import { UpdateStockThresholdsDto } from '../dto/update-stock-thresholds.dto';
 import { StockItemAddStockDto } from '../dto/stock-item-add-stock.dto';
-import { StockItemWriteOffDto } from '../dto/stock-item-write-off.dto';
 
 import { StockItemResponseDto } from '../dto/stock-item-response.dto';
 import { StockItemWithMovementsResponseDto } from '../dto/stock-item-with-movements-response.dto';
@@ -101,9 +100,10 @@ export class StockItemsController {
   @ApiResponse({ status: 404, description: 'Stock item not found' })
   @Post('write-off')
   async writeOff(
-    @Body() dto: StockItemWriteOffDto,
+    @Body() dto: CreateStockWriteOffDto,
+    @CurrentUser() user: JwtPayload,
   ): Promise<StockItemWithMovementsResponseDto> {
-    return this.stockItemsService.writeOff(dto.stockItemId, dto.quantity);
+    return this.stockItemsService.writeOffDamage(dto, user.sub);
   }
 
   @ApiOperation({

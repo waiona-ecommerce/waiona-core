@@ -18,7 +18,6 @@ describe('StockItemsController', () => {
     findById: jest.fn(),
     create: jest.fn(),
     addStock: jest.fn(),
-    writeOff: jest.fn(),
     writeOffDamage: jest.fn(),
     dispatchStock: jest.fn(),
     releaseReservation: jest.fn(),
@@ -124,12 +123,17 @@ describe('StockItemsController', () => {
   });
 
   describe('writeOff', () => {
-    it('delegates to service.writeOff with stockItemId, quantity', async () => {
-      const dto = { stockItemId: 1, quantity: 5 };
+    it('delegates to service.writeOffDamage with dto and reportedBy from JWT', async () => {
+      const dto = {
+        stockItemId: 1,
+        quantity: 5,
+        reason: StockWriteOffReason.INVENTORY_ERROR,
+      };
+      const mockUser: JwtPayload = { sub: 7, role: RoleType.ADMIN };
       const item = mockItemWithMovements();
-      service.writeOff.mockResolvedValue(item);
-      const result = await controller.writeOff(dto);
-      expect(service.writeOff).toHaveBeenCalledWith(1, 5);
+      service.writeOffDamage.mockResolvedValue(item);
+      const result = await controller.writeOff(dto, mockUser);
+      expect(service.writeOffDamage).toHaveBeenCalledWith(dto, 7);
       expect(result).toBe(item);
     });
   });
