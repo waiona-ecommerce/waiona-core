@@ -75,7 +75,10 @@ describe('StockLocationsService', () => {
     it('throws ConflictException when a location already exists', async () => {
       repo.count.mockResolvedValue(1);
       await expect(
-        service.create({ name: 'Segundo Depósito', type: StockLocationType.WAREHOUSE }),
+        service.create({
+          name: 'Segundo Depósito',
+          type: StockLocationType.WAREHOUSE,
+        }),
       ).rejects.toThrow(ConflictException);
     });
   });

@@ -65,7 +65,9 @@ export class ProductPricingService {
           `Producto con id ${dto.productId} no encontrado`,
         );
       if (err.code === PG_NUMERIC_OVERFLOW)
-        throw new BadRequestException('El valor del precio supera el máximo permitido');
+        throw new BadRequestException(
+          'El valor del precio supera el máximo permitido',
+        );
       throw err;
     }
   }

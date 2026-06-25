@@ -180,8 +180,16 @@ describe('StockItemsService', () => {
         { productId: 2, quantity: 1 }, // 10 / 1 = 10
       ]);
       stockRepo.find.mockResolvedValue([
-        mockStockItem({ productId: 1, quantityCurrent: 9, quantityReserved: 0 }),
-        mockStockItem({ productId: 2, quantityCurrent: 10, quantityReserved: 0 }),
+        mockStockItem({
+          productId: 1,
+          quantityCurrent: 9,
+          quantityReserved: 0,
+        }),
+        mockStockItem({
+          productId: 2,
+          quantityCurrent: 10,
+          quantityReserved: 0,
+        }),
       ]);
       const result = await service.findByCombo(1);
       expect(result.quantityAvailable).toBe(3);
