@@ -79,8 +79,8 @@ describe('StockItemsController', () => {
     it('delegates to service.findAll with page and limit', async () => {
       const paginated = mockPaginated([mockItemResponse()]);
       service.findAll.mockResolvedValue(paginated);
-      const result = await controller.findAll({ page: 1, limit: 20 });
-      expect(service.findAll).toHaveBeenCalledWith(1, 20);
+      const result = await controller.findAll({ page: 3, limit: 5 });
+      expect(service.findAll).toHaveBeenCalledWith(3, 5);
       expect(result).toBe(paginated);
     });
   });
