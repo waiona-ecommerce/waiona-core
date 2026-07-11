@@ -59,13 +59,12 @@ src/
 │   │   ├── combo-images/                → imágenes de combos (Cloudinary)
 │   │   └── shop/                         → endpoints públicos para el cliente (GET /shop/categories cacheado con CacheInterceptor oficial)
 │   ├── pricing/
-│   │   ├── (product|combo)-pricing/     → precio base y margen
+│   │   ├── (product|combo)-pricing/     → unitPrice (costo) + salePrice (precio de venta) directos por entidad — sin margen configurable aparte
 │   │   └── calculation/                 → motor de cálculo (prorrateo de impuestos en combos)
 │   ├── taxation/
 │   │   ├── taxes/                        → impuestos globales (siempre porcentuales)
 │   │   ├── tax-types/                   → tipos de impuesto (IVA, IIBB, etc.)
 │   │   └── product-taxes/               → impuestos específicos por producto (combos se prorratean)
-│   ├── margins/                          → márgenes de ganancia (siempre porcentuales)
 │   ├── discounts/
 │   │   ├── discount/                     → descuentos con fechas y valor (siempre porcentuales)
 │   │   ├── discount-product-target/     → descuento asignado a producto
@@ -101,14 +100,16 @@ El `RolesGuard` lee el rol directo del JWT payload (`{ sub, role }`) — sin que
 
 ## Flujo de Cálculo de Precios
 
+> El módulo `margins` fue eliminado (migración `RemoveMarginsAddSalePrice`). Ya no existe un margen porcentual configurable como entidad aparte: cada `product-pricing`/`combo-pricing` guarda `unitPrice` (costo) y `salePrice` (precio de venta) directos. `margin` sigue existiendo, pero solo como valor **derivado** (`salePrice - unitPrice`) que se calcula on-the-fly en `CalculationService` para el breakdown — no es un paso de transformación ni se persiste.
+
 ```
-unitPrice
+salePrice                                ← precio de venta cargado directo en pricing (no se deriva de unitPrice + margen)
   → aplicar descuento (discount)        → priceAfterDiscount
-  → aplicar margen                      → priceAfterMargin
   → aplicar impuestos                   → finalPrice         ← precio real sin cupón
   → aplicar cupón (opcional)            → orderTotal         ← lo que paga el cliente
 
-fullPrice = precio sin descuento (margen + impuestos sobre unitPrice) → para mostrar tachado en el front
+fullPrice = salePrice + impuestos sobre salePrice (sin descuento) → para mostrar tachado en el front
+margin = salePrice - unitPrice           ← informativo, no afecta el cálculo del precio final
 ```
 
 ---
