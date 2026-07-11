@@ -482,7 +482,7 @@ describe('StockItemsService', () => {
     it('keeps the existing stockCritical when only stockMin is provided', async () => {
       const item = mockStockItem({ stockMin: 5, stockCritical: 2 });
       stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockImplementation(async (i: any) => i);
+      stockRepo.save.mockImplementation((i: any) => Promise.resolve(i));
       const result = await service.updateThresholds(1, { stockMin: 8 });
       expect(result.stockMin).toBe(8);
       expect(result.stockCritical).toBe(2);
@@ -491,7 +491,7 @@ describe('StockItemsService', () => {
     it('keeps the existing stockMin when only stockCritical is provided', async () => {
       const item = mockStockItem({ stockMin: 5, stockCritical: 2 });
       stockRepo.findOne.mockResolvedValue(item);
-      stockRepo.save.mockImplementation(async (i: any) => i);
+      stockRepo.save.mockImplementation((i: any) => Promise.resolve(i));
       const result = await service.updateThresholds(1, { stockCritical: 3 });
       expect(result.stockMin).toBe(5);
       expect(result.stockCritical).toBe(3);
@@ -669,7 +669,9 @@ describe('StockItemsService', () => {
         getRepository: jest
           .fn()
           .mockImplementation((Entity: any) =>
-            Entity === StockItemEntity ? externalStockRepo : externalMovementRepo,
+            Entity === StockItemEntity
+              ? externalStockRepo
+              : externalMovementRepo,
           ),
       } as any;
 
@@ -737,7 +739,9 @@ describe('StockItemsService', () => {
         getRepository: jest
           .fn()
           .mockImplementation((Entity: any) =>
-            Entity === StockItemEntity ? externalStockRepo : externalMovementRepo,
+            Entity === StockItemEntity
+              ? externalStockRepo
+              : externalMovementRepo,
           ),
       } as any;
 
