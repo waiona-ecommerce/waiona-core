@@ -17,7 +17,7 @@ export class TaxPreviewDto {
 
 export class CalculatePreviewDto {
   // ==========================
-  // Precio base
+  // Precio base (costo)
   // ==========================
 
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -25,7 +25,15 @@ export class CalculatePreviewDto {
   unitPrice: number;
 
   // ==========================
-  // Descuento
+  // Precio de venta (fijado por el admin)
+  // ==========================
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  salePrice: number;
+
+  // ==========================
+  // Descuento (siempre porcentaje)
   // ==========================
 
   @IsOptional()
@@ -33,16 +41,6 @@ export class CalculatePreviewDto {
   @Min(0.01)
   @Max(100)
   discountValue?: number;
-
-  // ==========================
-  // Margen (siempre porcentaje)
-  // ==========================
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
-  @Max(1000)
-  marginValue?: number;
 
   // ==========================
   // Impuestos (siempre porcentaje)

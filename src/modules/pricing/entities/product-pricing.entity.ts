@@ -1,7 +1,6 @@
 import { BaseEntity } from '../../../common/entities/base.entity';
 import { CurrencyCode } from '../../../common/enums/currency-code.enum';
 import { ProductEntity } from '../../products/product/entities/product.entity';
-import { MarginEntity } from '../../margins/entities/margin.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 @Entity('product_pricing')
@@ -20,11 +19,6 @@ export class ProductPricingEntity extends BaseEntity {
   @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
   unitPrice: number;
 
-  // ==========================
-  // Margen
-  // ==========================
-
-  @ManyToOne(() => MarginEntity, { nullable: true })
-  @JoinColumn({ name: 'margin_id' })
-  margin?: MarginEntity | null;
+  @Column({ name: 'sale_price', type: 'decimal', precision: 12, scale: 2 })
+  salePrice: number;
 }

@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   PG_UNIQUE_VIOLATION,
   PG_FK_VIOLATION,
+  PG_NUMERIC_OVERFLOW,
 } from '../../../common/constants/postgres-error-codes';
 
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,7 +15,6 @@ import { Repository } from 'typeorm';
 
 import { ProductPricingEntity } from '../entities/product-pricing.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
-import { MarginEntity } from '../../margins/entities/margin.entity';
 import { CreateProductPricingDto } from '../dto/create-product-pricing.dto';
 import { UpdateProductPricingDto } from '../dto/update-product-pricing.dto';
 import { ProductPricingResponseDto } from '../dto/product-pricing-response.dto';
@@ -23,9 +24,6 @@ export class ProductPricingService {
   constructor(
     @InjectRepository(ProductPricingEntity)
     private repo: Repository<ProductPricingEntity>,
-
-    @InjectRepository(MarginEntity)
-    private marginRepo: Repository<MarginEntity>,
   ) {}
 
   // ==========================
@@ -35,6 +33,12 @@ export class ProductPricingService {
   async create(
     dto: CreateProductPricingDto,
   ): Promise<ProductPricingResponseDto> {
+    if (dto.salePrice <= dto.unitPrice) {
+      throw new BadRequestException(
+        'El precio de venta debe ser mayor al precio de costo',
+      );
+    }
+
     const existing = await this.repo.findOne({
       where: { productId: dto.productId },
     });
@@ -43,18 +47,15 @@ export class ProductPricingService {
       throw new ConflictException('El producto ya tiene un pricing asignado');
     }
 
-    const margin = dto.marginId ? await this.resolveMargin(dto.marginId) : null;
-
     const entity = this.repo.create({
       productId: dto.productId,
       currency: dto.currency,
       unitPrice: dto.unitPrice,
-      margin,
+      salePrice: dto.salePrice,
     });
 
     try {
       const saved = await this.repo.save(entity);
-
       return new ProductPricingResponseDto(saved);
     } catch (err: any) {
       if (err.code === PG_UNIQUE_VIOLATION)
@@ -62,6 +63,10 @@ export class ProductPricingService {
       if (err.code === PG_FK_VIOLATION)
         throw new NotFoundException(
           `Producto con id ${dto.productId} no encontrado`,
+        );
+      if (err.code === PG_NUMERIC_OVERFLOW)
+        throw new BadRequestException(
+          'El valor del precio supera el máximo permitido',
         );
       throw err;
     }
@@ -77,19 +82,22 @@ export class ProductPricingService {
   ): Promise<ProductPricingResponseDto> {
     const entity = await this.findOneEntity(id);
 
-    if (dto.marginId !== undefined) {
-      entity.margin = dto.marginId
-        ? await this.resolveMargin(dto.marginId)
-        : null;
+    const effectiveUnitPrice = dto.unitPrice ?? Number(entity.unitPrice);
+    const effectiveSalePrice = dto.salePrice ?? Number(entity.salePrice);
+
+    if (effectiveSalePrice <= effectiveUnitPrice) {
+      throw new BadRequestException(
+        'El precio de venta debe ser mayor al precio de costo',
+      );
     }
 
     Object.assign(entity, {
       currency: dto.currency ?? entity.currency,
-      unitPrice: dto.unitPrice ?? entity.unitPrice,
+      unitPrice: effectiveUnitPrice,
+      salePrice: effectiveSalePrice,
     });
 
     const saved = await this.repo.save(entity);
-
     return new ProductPricingResponseDto(saved);
   }
 
@@ -102,7 +110,6 @@ export class ProductPricingService {
     limit = 20,
   ): Promise<PaginatedResponseDto<ProductPricingResponseDto>> {
     const [entities, total] = await this.repo.findAndCount({
-      relations: ['margin'],
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -128,10 +135,7 @@ export class ProductPricingService {
   // ==========================
 
   async findByProduct(productId: number): Promise<ProductPricingResponseDto> {
-    const entity = await this.repo.findOne({
-      where: { productId },
-      relations: ['margin'],
-    });
+    const entity = await this.repo.findOne({ where: { productId } });
 
     if (!entity) {
       throw new NotFoundException('Pricing de producto no encontrado');
@@ -154,27 +158,12 @@ export class ProductPricingService {
   // ==========================
 
   private async findOneEntity(id: number): Promise<ProductPricingEntity> {
-    const entity = await this.repo.findOne({
-      where: { id },
-      relations: ['margin'],
-    });
+    const entity = await this.repo.findOne({ where: { id } });
 
     if (!entity) {
       throw new NotFoundException('Pricing de producto no encontrado');
     }
 
     return entity;
-  }
-
-  private async resolveMargin(marginId: number): Promise<MarginEntity> {
-    const margin = await this.marginRepo.findOne({
-      where: { id: marginId },
-    });
-
-    if (!margin) {
-      throw new NotFoundException(`Margen con id ${marginId} no encontrado`);
-    }
-
-    return margin;
   }
 }

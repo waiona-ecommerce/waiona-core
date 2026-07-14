@@ -28,7 +28,7 @@ export class CreateDiscountDto {
     maxLength: 255,
   })
   @IsOptional()
-  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
   @MinLength(3)
   @MaxLength(255)

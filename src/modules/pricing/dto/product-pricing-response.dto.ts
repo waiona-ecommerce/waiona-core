@@ -15,8 +15,8 @@ export class ProductPricingResponseDto {
   @ApiProperty({ example: 500 })
   unitPrice: number;
 
-  @ApiProperty({ example: 1, nullable: true })
-  marginId?: number | null;
+  @ApiProperty({ example: 750 })
+  salePrice: number;
 
   @ApiProperty()
   createdAt: Date;
@@ -29,8 +29,7 @@ export class ProductPricingResponseDto {
     this.productId = entity.productId;
     this.currency = entity.currency;
     this.unitPrice = Number(entity.unitPrice);
-    this.marginId = entity.margin?.id ?? null;
-
+    this.salePrice = Number(entity.salePrice);
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;
   }

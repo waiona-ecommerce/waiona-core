@@ -14,7 +14,6 @@ import { AppController } from './app.controller';
 import { HealthModule } from './modules/health/health.module';
 
 import { TaxationModule } from './modules/taxation/taxation.module';
-import { MarginsModule } from './modules/margins/margins.module';
 import { DiscountsModule } from './modules/discounts/discounts.module';
 import { ProductsModule } from './modules/products/products.module';
 import { StocksModule } from './modules/stocks/stocks.module';
@@ -159,7 +158,6 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 
     HealthModule,
     TaxationModule,
-    MarginsModule,
     DiscountsModule,
     ProductsModule,
     StocksModule,

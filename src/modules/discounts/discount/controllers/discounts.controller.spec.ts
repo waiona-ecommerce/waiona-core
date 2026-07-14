@@ -24,7 +24,7 @@ describe('DiscountsController', () => {
   const mockResponse = (overrides = {}) =>
     ({
       id: 1,
-      name: 'Promo 10%',
+      name: 'PROMO 10%',
       value: 10,
       createdAt: new Date(),
       updatedAt: new Date(),

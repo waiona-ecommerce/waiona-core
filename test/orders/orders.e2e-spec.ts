@@ -65,6 +65,7 @@ describe('Orders (e2e)', () => {
   const mockCalcService = {
     calculateProduct: jest.fn().mockResolvedValue({
       unitPrice: 1000,
+      salePrice: 1000,
       finalPrice: 1000,
       discount: 0,
       fullPrice: 1000,
@@ -73,6 +74,7 @@ describe('Orders (e2e)', () => {
     }),
     calculateCombo: jest.fn().mockResolvedValue({
       unitPrice: 2000,
+      salePrice: 2000,
       finalPrice: 2000,
       discount: 0,
       fullPrice: 2000,

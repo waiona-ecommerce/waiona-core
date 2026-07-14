@@ -8,21 +8,21 @@ on:
 
 jobs:
   deploy-staging:
-    name: Deploy to Railway (Staging)
+    name: Deploy to Render (Staging)
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'staging'
     steps:
-      - name: Trigger Railway staging deploy
-        run: curl -X POST "${{ secrets.RAILWAY_STAGING_DEPLOY_HOOK_URL }}"
+      - name: Trigger Render staging deploy
+        run: curl -f -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}"
 
   deploy-production:
-    name: Deploy to Railway (Production)
+    name: Deploy to Render (Production)
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'master'
     steps:
-      - name: Trigger Railway production deploy
-        run: curl -X POST "${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}"
+      - name: Trigger Render production deploy
+        run: curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

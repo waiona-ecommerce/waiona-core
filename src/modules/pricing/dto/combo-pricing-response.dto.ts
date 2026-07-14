@@ -15,8 +15,8 @@ export class ComboPricingResponseDto {
   @ApiProperty({ example: 1200 })
   unitPrice: number;
 
-  @ApiProperty({ example: 1, nullable: true })
-  marginId?: number | null;
+  @ApiProperty({ example: 1500 })
+  salePrice: number;
 
   @ApiProperty()
   createdAt: Date;
@@ -29,8 +29,7 @@ export class ComboPricingResponseDto {
     this.comboId = entity.comboId;
     this.currency = entity.currency;
     this.unitPrice = Number(entity.unitPrice);
-    this.marginId = entity.margin?.id ?? null;
-
+    this.salePrice = Number(entity.salePrice);
     this.createdAt = entity.createdAt;
     this.updatedAt = entity.updatedAt;
   }

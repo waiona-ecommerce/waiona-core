@@ -18,7 +18,7 @@ describe('DiscountComboTargetService', () => {
   });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
-  const mockDiscount = () => ({ id: 1, name: 'Promo', deletedAt: null });
+  const mockDiscount = () => ({ id: 1, name: 'PROMO', deletedAt: null });
   const mockTarget = (overrides = {}): DiscountComboTargetEntity =>
     ({
       id: 1,

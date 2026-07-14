@@ -27,6 +27,9 @@ export class OrderItemResponseDto {
   @ApiProperty({ example: 1500 })
   unitPrice: number;
 
+  @ApiProperty({ example: 2000 })
+  salePrice: number;
+
   @ApiProperty({ example: 3000 })
   finalPrice: number;
 
@@ -38,6 +41,7 @@ export class OrderItemResponseDto {
     this.comboName = entity.combo?.name ?? null;
     this.quantity = entity.quantity;
     this.unitPrice = entity.unitPrice;
+    this.salePrice = entity.salePrice;
     this.finalPrice = entity.finalPrice;
   }
 }

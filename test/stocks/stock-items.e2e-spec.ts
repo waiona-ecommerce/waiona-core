@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  ExecutionContext,
   INestApplication,
   ValidationPipe,
   VersioningType,
@@ -21,6 +22,7 @@ import { StockMovementService } from '../../src/modules/stocks/stock-movement/se
 import { StockMovementEntity } from '../../src/modules/stocks/stock-movement/entities/stock-movement.entity';
 
 import { StockWriteOffEntity } from '../../src/modules/stocks/stock-writeoff/entities/stock-writeoff.entity';
+import { StockWriteOffReason } from '../../src/modules/stocks/stock-writeoff/enums/stock-writeoff-reason.enum';
 import { StockLocationEntity } from '../../src/modules/stocks/stock-locations/entities/stock-locations.entity';
 import { StockLocationType } from '../../src/modules/stocks/stock-locations/enums/stock-location-type.enum';
 
@@ -86,7 +88,13 @@ describe('StockItems (e2e)', () => {
       ],
     })
       .overrideGuard(AuthGuard('jwt'))
-      .useValue({ canActivate: () => true })
+      .useValue({
+        canActivate: (context: ExecutionContext) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { sub: 1, role: 'admin' };
+          return true;
+        },
+      })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -244,7 +252,11 @@ describe('StockItems (e2e)', () => {
   it('POST /stock-items/write-off -> 201 reduces available stock', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/stock-items/write-off')
-      .send({ stockItemId, quantity: 5 })
+      .send({
+        stockItemId,
+        quantity: 5,
+        reason: StockWriteOffReason.DAMAGED,
+      })
       .expect(201);
 
     expect(res.body.quantityCurrent).toBe(45);

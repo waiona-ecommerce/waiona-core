@@ -80,6 +80,11 @@ describe('StockLocations (e2e)', () => {
   // -------------------------
   // CREATE
   // -------------------------
+  // Nota: StockLocationsService solo permite una ubicación activa a la vez
+  // (regla de negocio), por eso estos tests corren en secuencia sobre la
+  // misma ubicación en vez de crear una por test.
+
+  let locationId: number;
 
   it('POST /stock-locations -> 201 creates a warehouse location', async () => {
     const res = await request(app.getHttpServer())
@@ -91,19 +96,19 @@ describe('StockLocations (e2e)', () => {
     expect(res.body.name).toBe('DEPÓSITO CENTRAL');
     expect(res.body.type).toBe(StockLocationType.WAREHOUSE);
     expect(res.body.address).toBeUndefined();
+
+    locationId = res.body.id;
   });
 
-  it('POST /stock-locations -> 201 creates a store location with address', async () => {
-    const res = await request(app.getHttpServer())
+  it('POST /stock-locations -> 409 when an active location already exists', async () => {
+    await request(app.getHttpServer())
       .post('/v1/stock-locations')
       .send({
         name: 'Sucursal Palermo',
         type: StockLocationType.STORE,
         address: 'Av. Santa Fe 1234',
       })
-      .expect(201);
-
-    expect(res.body.address).toBe('Av. Santa Fe 1234');
+      .expect(409);
   });
 
   it('POST /stock-locations -> 400 when name is missing', async () => {
@@ -146,15 +151,11 @@ describe('StockLocations (e2e)', () => {
   // -------------------------
 
   it('GET /stock-locations/:id -> 200 returns location', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post('/v1/stock-locations')
-      .send({ name: 'Depósito Norte', type: StockLocationType.WAREHOUSE });
-
     const res = await request(app.getHttpServer())
-      .get(`/v1/stock-locations/${createRes.body.id}`)
+      .get(`/v1/stock-locations/${locationId}`)
       .expect(200);
 
-    expect(res.body.name).toBe('DEPÓSITO NORTE');
+    expect(res.body.name).toBe('DEPÓSITO CENTRAL');
   });
 
   it('GET /stock-locations/:id -> 404 when not found', async () => {
@@ -168,29 +169,26 @@ describe('StockLocations (e2e)', () => {
   // -------------------------
 
   it('PATCH /stock-locations/:id -> 200 updates name', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post('/v1/stock-locations')
-      .send({ name: 'Original', type: StockLocationType.WAREHOUSE });
-
     const res = await request(app.getHttpServer())
-      .patch(`/v1/stock-locations/${createRes.body.id}`)
+      .patch(`/v1/stock-locations/${locationId}`)
       .send({ name: 'Actualizado' })
       .expect(200);
 
     expect(res.body.name).toBe('ACTUALIZADO');
   });
 
-  it('PATCH /stock-locations/:id -> 200 clears address with null', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post('/v1/stock-locations')
-      .send({
-        name: 'Con Dirección',
-        type: StockLocationType.STORE,
-        address: 'Calle 123',
-      });
-
+  it('PATCH /stock-locations/:id -> 200 sets address', async () => {
     const res = await request(app.getHttpServer())
-      .patch(`/v1/stock-locations/${createRes.body.id}`)
+      .patch(`/v1/stock-locations/${locationId}`)
+      .send({ address: 'Calle 123' })
+      .expect(200);
+
+    expect(res.body.address).toBe('Calle 123');
+  });
+
+  it('PATCH /stock-locations/:id -> 200 clears address with null', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/stock-locations/${locationId}`)
       .send({ address: null })
       .expect(200);
 
@@ -209,16 +207,12 @@ describe('StockLocations (e2e)', () => {
   // -------------------------
 
   it('DELETE /stock-locations/:id -> 204 then 404', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post('/v1/stock-locations')
-      .send({ name: 'A Eliminar', type: StockLocationType.WAREHOUSE });
-
     await request(app.getHttpServer())
-      .delete(`/v1/stock-locations/${createRes.body.id}`)
+      .delete(`/v1/stock-locations/${locationId}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/v1/stock-locations/${createRes.body.id}`)
+      .get(`/v1/stock-locations/${locationId}`)
       .expect(404);
   });
 
@@ -226,5 +220,14 @@ describe('StockLocations (e2e)', () => {
     await request(app.getHttpServer())
       .delete('/v1/stock-locations/999999')
       .expect(404);
+  });
+
+  it('POST /stock-locations -> 201 allows creating again after the only location was deleted', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/v1/stock-locations')
+      .send({ name: 'Depósito Nuevo', type: StockLocationType.WAREHOUSE })
+      .expect(201);
+
+    expect(res.body.id).toBeDefined();
   });
 });

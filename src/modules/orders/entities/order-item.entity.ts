@@ -79,6 +79,14 @@ export class OrderItemEntity extends BaseEntity {
   unitPrice: number;
 
   @Column('decimal', {
+    name: 'sale_price',
+    precision: 12,
+    scale: 2,
+    transformer: { to: (v) => v, from: (v) => Number(v) },
+  })
+  salePrice: number;
+
+  @Column('decimal', {
     name: 'final_price',
     precision: 12,
     scale: 2,

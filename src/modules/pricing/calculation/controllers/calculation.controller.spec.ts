@@ -19,10 +19,10 @@ describe('CalculationController', () => {
 
   const mockBreakdown = (overrides = {}) => ({
     unitPrice: 500,
-    discount: 50,
-    priceAfterDiscount: 450,
-    margin: 90,
-    priceAfterMargin: 540,
+    salePrice: 600,
+    margin: 100,
+    discount: 60,
+    priceAfterDiscount: 540,
     taxes: 113.4,
     finalPrice: 653.4,
     fullPrice: 726,
@@ -55,7 +55,7 @@ describe('CalculationController', () => {
 
   it('preview should delegate to service', () => {
     service.preview.mockReturnValue(mockBreakdown());
-    const dto = { unitPrice: 500, marginValue: 20 };
+    const dto = { unitPrice: 500, salePrice: 600 };
     const result = controller.preview(dto);
     expect(service.preview).toHaveBeenCalledWith(dto);
     expect(result.unitPrice).toBe(500);
@@ -78,7 +78,7 @@ describe('CalculationController', () => {
 
   it('calculateCombo should delegate to service', async () => {
     service.calculateCombo.mockResolvedValue(
-      mockBreakdown({ unitPrice: 1200, finalPrice: 1742.4 }),
+      mockBreakdown({ unitPrice: 1200, salePrice: 1500, finalPrice: 1815 }),
     );
     const dto = { comboId: 1 };
     const result = await controller.calculateCombo(dto);

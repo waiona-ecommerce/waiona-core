@@ -1,10 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ProductPricingService } from './../services/product-pricing.service';
 import { ProductPricingEntity } from './../entities/product-pricing.entity';
-import { MarginEntity } from '../../margins/entities/margin.entity';
 import { CurrencyCode } from '../../../common/enums/currency-code.enum';
+
 describe('ProductPricingService', () => {
   let service: ProductPricingService;
 
@@ -15,16 +19,14 @@ describe('ProductPricingService', () => {
     save: jest.fn(),
     softDelete: jest.fn(),
   });
-  const mockMarginRepo = () => ({ findOne: jest.fn() });
 
-  const mockMargin = { id: 1, value: 20, isPercentage: true };
   const mockPricing = (overrides = {}): ProductPricingEntity =>
     ({
       id: 1,
       productId: 1,
       currency: CurrencyCode.ARS,
       unitPrice: 500,
-      margin: mockMargin,
+      salePrice: 750,
       deletedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -32,7 +34,6 @@ describe('ProductPricingService', () => {
     }) as unknown as ProductPricingEntity;
 
   let repo: any;
-  let marginRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -42,16 +43,11 @@ describe('ProductPricingService', () => {
           provide: getRepositoryToken(ProductPricingEntity),
           useFactory: mockRepo,
         },
-        {
-          provide: getRepositoryToken(MarginEntity),
-          useFactory: mockMarginRepo,
-        },
       ],
     }).compile();
 
     service = module.get<ProductPricingService>(ProductPricingService);
     repo = module.get(getRepositoryToken(ProductPricingEntity));
-    marginRepo = module.get(getRepositoryToken(MarginEntity));
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -61,32 +57,27 @@ describe('ProductPricingService', () => {
       productId: 1,
       currency: CurrencyCode.ARS,
       unitPrice: 500,
-      marginId: 1,
+      salePrice: 750,
     };
 
-    it('should create pricing with margin', async () => {
+    it('should create pricing', async () => {
       const pricing = mockPricing();
-      repo.findOne.mockResolvedValueOnce(null); // no existe
-      marginRepo.findOne.mockResolvedValue(mockMargin);
+      repo.findOne.mockResolvedValueOnce(null);
       repo.create.mockReturnValue(pricing);
       repo.save.mockResolvedValue(pricing);
 
       const result = await service.create(dto);
       expect(result.unitPrice).toBe(500);
-      expect(result.marginId).toBe(1);
+      expect(result.salePrice).toBe(750);
     });
 
-    it('should create pricing without margin', async () => {
-      const pricing = mockPricing({ margin: null });
-      repo.findOne.mockResolvedValueOnce(null);
-      repo.create.mockReturnValue(pricing);
-      repo.save.mockResolvedValue(pricing);
-
-      const result = await service.create({
-        ...dto,
-        marginId: undefined,
-      });
-      expect(result.marginId).toBeNull();
+    it('should throw BadRequestException if salePrice <= unitPrice', async () => {
+      await expect(
+        service.create({ ...dto, salePrice: 500 } as any),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.create({ ...dto, salePrice: 499 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ConflictException if product already has pricing', async () => {
@@ -96,17 +87,8 @@ describe('ProductPricingService', () => {
       );
     });
 
-    it('should throw NotFoundException if margin not found', async () => {
-      repo.findOne.mockResolvedValue(null);
-      marginRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(dto as any)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
     it('should throw ConflictException on unique constraint race condition', async () => {
       repo.findOne.mockResolvedValue(null);
-      marginRepo.findOne.mockResolvedValue(mockMargin);
       repo.create.mockReturnValue(mockPricing());
       repo.save.mockRejectedValue({ code: '23505' });
       await expect(service.create(dto as any)).rejects.toThrow(
@@ -116,7 +98,6 @@ describe('ProductPricingService', () => {
 
     it('should throw NotFoundException on FK violation (productId not found)', async () => {
       repo.findOne.mockResolvedValue(null);
-      marginRepo.findOne.mockResolvedValue(mockMargin);
       repo.create.mockReturnValue(mockPricing());
       repo.save.mockRejectedValue({ code: '23503' });
       await expect(service.create(dto as any)).rejects.toThrow(
@@ -171,21 +152,18 @@ describe('ProductPricingService', () => {
   describe('update', () => {
     it('should update pricing', async () => {
       const updated = mockPricing({ unitPrice: 600 });
-      repo.findOne.mockResolvedValueOnce(mockPricing()); // findOneEntity
-      marginRepo.findOne.mockResolvedValue(mockMargin);
+      repo.findOne.mockResolvedValueOnce(mockPricing());
       repo.save.mockResolvedValue(updated);
 
       const result = await service.update(1, { unitPrice: 600 });
       expect(result.unitPrice).toBe(600);
     });
 
-    it('should clear margin when marginId is null', async () => {
-      const updated = mockPricing({ margin: null });
-      repo.findOne.mockResolvedValueOnce(mockPricing());
-      repo.save.mockResolvedValue(updated);
-
-      const result = await service.update(1, { marginId: null });
-      expect(result.marginId).toBeNull();
+    it('should throw BadRequestException if effective salePrice <= unitPrice', async () => {
+      repo.findOne.mockResolvedValueOnce(mockPricing()); // unitPrice=500, salePrice=750
+      await expect(
+        service.update(1, { salePrice: 400 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException', async () => {

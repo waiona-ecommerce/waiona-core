@@ -25,7 +25,7 @@ describe('ComboPricingController', () => {
     comboId: 1,
     currency: CurrencyCode.ARS,
     unitPrice: 1200,
-    marginId: 1,
+    salePrice: 1500,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -59,6 +59,7 @@ describe('ComboPricingController', () => {
       comboId: 1,
       currency: CurrencyCode.ARS,
       unitPrice: 1200,
+      salePrice: 1500,
     });
     expect(service.create).toHaveBeenCalled();
     expect(result.comboId).toBe(1);
