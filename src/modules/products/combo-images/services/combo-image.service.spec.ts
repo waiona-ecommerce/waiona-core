@@ -96,19 +96,17 @@ describe('ComboImageService', () => {
     it('should update an image', async () => {
       const image = mockImage();
       const updated = mockImage({ position: 2 });
-      mockImageRepo.findOne.mockResolvedValue(image);
+      mockImageRepo.findOne
+        .mockResolvedValueOnce(image) // findEntity
+        .mockResolvedValueOnce(null); // assertPositionFree (no conflict)
       mockImageRepo.merge.mockReturnValue(updated);
       mockImageRepo.save.mockResolvedValue(updated);
-      expect((await service.update(1, { position: 2 } as any)).position).toBe(
-        2,
-      );
+      expect((await service.update(1, { position: 2 })).position).toBe(2);
     });
 
     it('should throw NotFoundException', async () => {
       mockImageRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(999, {} as any)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.update(999, {})).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -122,7 +120,7 @@ describe('ComboImageService', () => {
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
-    it('should delete from Cloudinary before soft delete when publicId exists', async () => {
+    it('should soft delete then delete from Cloudinary when publicId exists', async () => {
       const image = mockImage({ publicId: 'waiona/combos/abc123' });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockStorageService.delete.mockResolvedValue(undefined);

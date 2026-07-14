@@ -1,6 +1,8 @@
 import { EMAIL_THEME } from '../../../common/theme/email-theme';
+import { escapeHtml } from '../../../common/utils/html-escape';
 
 export function orderCancelledTemplate(name: string, orderId: number): string {
+  const safeName = escapeHtml(name);
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -32,7 +34,7 @@ export function orderCancelledTemplate(name: string, orderId: number): string {
               </h2>
 
               <p style="color:${EMAIL_THEME.colors.text};line-height:1.6;margin:0 0 8px;">
-                Hola <strong>${name}</strong>,
+                Hola <strong>${safeName}</strong>,
               </p>
               <p style="color:${EMAIL_THEME.colors.text};line-height:1.6;margin:0 0 24px;">
                 Tu pedido <strong>#${orderId}</strong> fue cancelado. Si tenés alguna duda

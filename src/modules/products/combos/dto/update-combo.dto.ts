@@ -1,4 +1,11 @@
-import { IsInt, ValidateNested, IsOptional, Min } from 'class-validator';
+import {
+  IsInt,
+  ValidateNested,
+  IsOptional,
+  IsArray,
+  ArrayMinSize,
+  Min,
+} from 'class-validator';
 
 import { Type } from 'class-transformer';
 import { OmitType, PartialType } from '@nestjs/swagger';
@@ -27,6 +34,8 @@ export class UpdateComboDto extends PartialType(
   OmitType(CreateComboDto, ['items'] as const),
 ) {
   @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => UpdateComboItemDto)
   items?: UpdateComboItemDto[];

@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { DiscountProductTargetEntity } from '../entities/discount-product-target.entity';
 import { DiscountEntity } from '../../discount/entities/discounts.entity';
@@ -58,6 +58,7 @@ export class DiscountProductTargetService {
 
     const [targets, total] = await this.repo.findAndCount({
       where: { discountId },
+      order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -113,8 +114,7 @@ export class DiscountProductTargetService {
     productId: number,
   ): Promise<void> {
     const existing = await this.repo.findOne({
-      where: { discountId, productId, deletedAt: IsNull() },
-      withDeleted: true,
+      where: { discountId, productId },
     });
 
     if (existing) {
@@ -124,21 +124,14 @@ export class DiscountProductTargetService {
     }
   }
 
-  // 🔥 chequea que el producto no esté asociado a NINGÚN descuento activo (ni el target ni el descuento deben estar borrados)
   private async validateProductHasNoActiveDiscount(
     productId: number,
   ): Promise<void> {
-    const existing = await this.repo
-      .createQueryBuilder('target')
-      .innerJoin('target.discount', 'discount')
-      .where('target.productId = :productId', { productId })
-      .andWhere('target.deletedAt IS NULL')
-      .andWhere('discount.deletedAt IS NULL')
-      .getOne();
+    const existing = await this.repo.findOne({ where: { productId } });
 
     if (existing) {
       throw new ConflictException(
-        `El producto ${productId} ya tiene un descuento activo asignado`,
+        `El producto ${productId} ya tiene un descuento asignado`,
       );
     }
   }

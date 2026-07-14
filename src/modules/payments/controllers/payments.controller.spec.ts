@@ -104,7 +104,7 @@ describe('PaymentsController', () => {
 
     it('should validate correct MP signature', async () => {
       const secret = 'my_secret';
-      const ts = '1234567890';
+      const ts = String(Math.floor(Date.now() / 1000));
       const requestId = 'req-abc';
       const dataId = '999';
       const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
@@ -121,6 +121,32 @@ describe('PaymentsController', () => {
       await expect(
         controller.handleMercadoPagoWebhook({}, { id: dataId }, headers),
       ).resolves.not.toThrow();
+    });
+
+    it('should reject webhook with expired timestamp', async () => {
+      const secret = 'my_secret';
+      const ts = String(Math.floor((Date.now() - 10 * 60 * 1000) / 1000)); // 10 min ago
+      const requestId = 'req-abc';
+      const dataId = '999';
+      const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+      const v1 = createHmac('sha256', secret).update(manifest).digest('hex');
+
+      configGetMock.mockReturnValue(secret);
+      service.handleMercadoPagoWebhook.mockResolvedValue(undefined);
+
+      const headers = {
+        'x-signature': `ts=${ts},v1=${v1}`,
+        'x-request-id': requestId,
+      };
+
+      // Siempre retorna 200 aunque la firma sea rechazada
+      const result = await controller.handleMercadoPagoWebhook(
+        {},
+        { id: dataId },
+        headers,
+      );
+      expect(result).toEqual({ received: true });
+      expect(service.handleMercadoPagoWebhook).not.toHaveBeenCalled();
     });
   });
 

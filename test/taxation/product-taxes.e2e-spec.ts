@@ -15,7 +15,6 @@ import { ProductTaxesController } from '../../src/modules/taxation/product-taxes
 import { ProductTaxesService } from '../../src/modules/taxation/product-taxes/services/product-taxes.service';
 import { ProductTaxEntity } from '../../src/modules/taxation/product-taxes/entities/product-taxes.entity';
 import { TaxEntity } from '../../src/modules/taxation/taxes/entities/tax.entity';
-import { TaxTypeEntity } from '../../src/modules/taxation/tax-types/entities/tax-types.entity';
 import { ProductEntity } from '../../src/modules/products/product/entities/product.entity';
 import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
 import { ComboEntity } from '../../src/modules/products/combos/entities/combo.entity';
@@ -47,7 +46,6 @@ describe('ProductTaxes (e2e)', () => {
             entities: [
               ProductTaxEntity,
               TaxEntity,
-              TaxTypeEntity,
               ProductEntity,
               ProductImageEntity,
               ComboEntity,
@@ -98,23 +96,18 @@ describe('ProductTaxes (e2e)', () => {
     });
     productId = product.id;
 
-    const taxType = await dataSource.manager.save(TaxTypeEntity, {
+    const tax = await dataSource.manager.save(TaxEntity, {
       code: 'IVA',
       name: 'IVA Test',
-    });
-
-    const tax = await dataSource.manager.save(TaxEntity, {
-      taxTypeId: taxType.id,
       value: 21,
-      isPercentage: true,
       isGlobal: false,
     });
     taxId = tax.id;
 
     const globalTax = await dataSource.manager.save(TaxEntity, {
-      taxTypeId: taxType.id,
+      code: 'GLOB',
+      name: 'Global Tax',
       value: 5,
-      isPercentage: true,
       isGlobal: true,
     });
     globalTaxId = globalTax.id;
@@ -201,15 +194,10 @@ describe('ProductTaxes (e2e)', () => {
   // -------------------------
 
   it('GET /products/:productId/taxes/:id -> should return one', async () => {
-    const taxType2 = await dataSource.manager.save(TaxTypeEntity, {
+    const tax2 = await dataSource.manager.save(TaxEntity, {
       code: 'IIBB',
       name: 'Ingresos Brutos',
-    });
-
-    const tax2 = await dataSource.manager.save(TaxEntity, {
-      taxTypeId: taxType2.id,
       value: 3,
-      isPercentage: true,
       isGlobal: false,
     });
 
@@ -249,15 +237,10 @@ describe('ProductTaxes (e2e)', () => {
   // -------------------------
 
   it('DELETE /products/:productId/taxes/:id -> should soft delete', async () => {
-    const taxType3 = await dataSource.manager.save(TaxTypeEntity, {
-      code: 'TST',
-      name: 'Test Tax Type',
-    });
-
     const tax3 = await dataSource.manager.save(TaxEntity, {
-      taxTypeId: taxType3.id,
+      code: 'TST',
+      name: 'Test Tax Delete',
       value: 10,
-      isPercentage: true,
       isGlobal: false,
     });
 

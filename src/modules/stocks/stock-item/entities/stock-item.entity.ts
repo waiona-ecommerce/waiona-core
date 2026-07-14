@@ -13,7 +13,10 @@ import { ProductEntity } from '../../../products/product/entities/product.entity
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
 
 @Entity('stock_items')
-@Index(['productId', 'locationId'], { unique: true })
+@Index(['productId', 'locationId'], {
+  unique: true,
+  where: '"deletedAt" IS NULL',
+})
 export class StockItemEntity extends BaseEntity {
   @Column({
     name: 'product_id', // 🔥 snake_case

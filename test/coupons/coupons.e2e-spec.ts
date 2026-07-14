@@ -23,6 +23,7 @@ import { ProductEntity } from '../../src/modules/products/product/entities/produ
 import { CouponComboTargetController } from '../../src/modules/coupons/coupon-combo-target/controllers/coupon-combo-target.controller';
 import { CouponComboTargetService } from '../../src/modules/coupons/coupon-combo-target/services/coupon-combo-target.service';
 import { CouponComboTargetEntity } from '../../src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
+import { CouponUsageEntity } from '../../src/modules/coupons/usage/entities/coupon-usage.entity';
 import { ComboEntity } from '../../src/modules/products/combos/entities/combo.entity';
 
 describe('Coupons (e2e)', () => {
@@ -83,6 +84,10 @@ describe('Coupons (e2e)', () => {
           useValue: mockProductRepo,
         },
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
+        {
+          provide: getRepositoryToken(CouponUsageEntity),
+          useValue: { findOne: jest.fn().mockResolvedValue(null) },
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))

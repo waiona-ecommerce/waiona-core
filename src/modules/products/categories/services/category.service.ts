@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { CategoryEntity } from '../entities/category.entity';
 import { ProductEntity } from '../../product/entities/product.entity';
@@ -85,13 +85,21 @@ export class CategoryService {
     const entity = this.categoryRepository.create({
       name: dto.name,
       description: dto.description,
-      isActive: dto.isActive ?? true,
+      isActive: true,
       parentId: parent ? parent.id : null,
     });
 
-    const saved = await this.categoryRepository.save(entity);
-
-    return new CategoryResponseDto(saved);
+    try {
+      const saved = await this.categoryRepository.save(entity);
+      return new CategoryResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una categoría con el nombre "${dto.name}"`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -108,29 +116,19 @@ export class CategoryService {
       await this.validateUniqueName(changes.name);
     }
 
-    if (changes.parentId) {
-      const parent = await this.categoryRepository.findOne({
-        where: { id: changes.parentId },
-      });
-
-      if (!parent) {
-        throw new BadRequestException(
-          `Categoría padre con id ${changes.parentId} no encontrada`,
-        );
-      }
-
-      if (await this.wouldCreateCycle(id, changes.parentId)) {
-        throw new BadRequestException(
-          'Asignar esta categoría padre crearía una jerarquía circular',
-        );
-      }
-    }
-
     const merged = this.categoryRepository.merge(entity, changes);
 
-    const saved = await this.categoryRepository.save(merged);
-
-    return new CategoryResponseDto(saved);
+    try {
+      const saved = await this.categoryRepository.save(merged);
+      return new CategoryResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una categoría con el nombre "${changes.name}"`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -140,30 +138,20 @@ export class CategoryService {
   async delete(id: number): Promise<void> {
     const entity = await this.findOne(id);
 
-    const childrenCount = await this.categoryRepository.count({
-      where: { parentId: id },
-    });
-    if (childrenCount > 0) {
-      throw new ConflictException(
-        `No se puede eliminar: la categoría tiene ${childrenCount} subcategoría(s) asignada(s)`,
-      );
-    }
+    const [childrenCount, productCount, comboCount] = await Promise.all([
+      this.categoryRepository.count({ where: { parentId: id } }),
+      this.productRepository.count({ where: { categoryId: id } }),
+      this.comboRepository.count({ where: { categoryId: id } }),
+    ]);
 
-    const productCount = await this.productRepository.count({
-      where: { categoryId: id },
-    });
-    if (productCount > 0) {
-      throw new ConflictException(
-        `No se puede eliminar: la categoría tiene ${productCount} producto(s) asignado(s)`,
-      );
-    }
+    const blocking: string[] = [];
+    if (childrenCount > 0) blocking.push(`${childrenCount} subcategoría(s)`);
+    if (productCount > 0) blocking.push(`${productCount} producto(s)`);
+    if (comboCount > 0) blocking.push(`${comboCount} combo(s)`);
 
-    const comboCount = await this.comboRepository.count({
-      where: { categoryId: id },
-    });
-    if (comboCount > 0) {
+    if (blocking.length > 0) {
       throw new ConflictException(
-        `No se puede eliminar: la categoría tiene ${comboCount} combo(s) asignado(s)`,
+        `No se puede eliminar la categoría: tiene ${blocking.join(', ')} asignado(s)`,
       );
     }
 
@@ -188,7 +176,12 @@ export class CategoryService {
 
     for (const cat of all) {
       if (cat.parentId != null) {
-        map.get(cat.parentId)?.children?.push(cat);
+        const parent = map.get(cat.parentId);
+        if (parent) {
+          parent.children!.push(cat);
+        } else {
+          roots.push(cat);
+        }
       } else {
         roots.push(cat);
       }
@@ -200,21 +193,6 @@ export class CategoryService {
   // ==========================
   // PRIVATE
   // ==========================
-
-  private async wouldCreateCycle(
-    categoryId: number,
-    newParentId: number,
-  ): Promise<boolean> {
-    let currentId: number | null = newParentId;
-    while (currentId !== null) {
-      if (currentId === categoryId) return true;
-      const cat = await this.categoryRepository.findOne({
-        where: { id: currentId },
-      });
-      currentId = cat?.parentId ?? null;
-    }
-    return false;
-  }
 
   private async findOne(id: number): Promise<CategoryEntity> {
     const entity = await this.categoryRepository.findOne({

@@ -27,12 +27,20 @@ import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { TokenType } from '../../mail/enum/token-type.enum';
 import { RoleType } from '../../../common/enums/role-type.enum';
 import { UserEntity } from '../../users/entities/user.entity';
+import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
+
+const mockManagerRefreshRepo = {
+  findOne: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
+};
 
 const mockManager = {
   findOne: jest.fn(),
   update: jest.fn(),
   save: jest.fn(),
+  getRepository: jest.fn(() => mockManagerRefreshRepo),
 };
 
 const mockDataSource = {
@@ -95,7 +103,7 @@ describe('AuthService', () => {
   const mockToken = (overrides = {}): TokenEntity =>
     ({
       id: 1,
-      token: 'raw_token',
+      tokenHash: 'hashed_token',
       type: TokenType.ACCOUNT_ACTIVATION,
       userId: 1,
       expiresAt: new Date(Date.now() + 3600 * 1000),
@@ -222,44 +230,54 @@ describe('AuthService', () => {
   // ==========================
 
   describe('refresh', () => {
-    it('should rotate refresh token and return new tokens', async () => {
+    it('should revoke old token and return new tokens inside a transaction', async () => {
       const rt = mockRefreshToken();
-      refreshTokenRepo.findOne.mockResolvedValue(rt);
-      refreshTokenRepo.save.mockResolvedValue(rt);
-      usersService.findOne.mockResolvedValue(mockUser());
-      refreshTokenRepo.create.mockReturnValue(rt);
+      const userDto = {
+        id: 1,
+        role: RoleType.CLIENT,
+      } as unknown as UserResponseDto;
+      mockManagerRefreshRepo.findOne.mockResolvedValue(rt);
+      mockManagerRefreshRepo.save.mockResolvedValue(rt);
+      mockManagerRefreshRepo.create.mockReturnValue(mockRefreshToken());
+      usersService.findOne.mockResolvedValue(userDto);
 
       const result = await service.refresh('raw_token');
 
+      expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(rt.revokedAt).not.toBeNull();
       expect(result.access_token).toBe('mock.jwt.token');
       expect(result.refresh_token).toBeDefined();
     });
 
-    it('should not revoke old token if issueRefreshToken fails', async () => {
-      // Verifica que el bug de rotation order está corregido:
-      // si falla la emisión del nuevo token, el viejo NO queda revocado
-      // y el cliente puede reintentar.
+    it('should rollback on failure — new token save error propagates', async () => {
+      // En producción la transacción hace rollback completo (token viejo queda
+      // válido). El mock no puede simular el rollback real de la DB, pero sí
+      // verifica que el error se propaga y la transacción fue invocada.
       const rt = mockRefreshToken();
-      refreshTokenRepo.findOne.mockResolvedValue(rt);
-      usersService.findOne.mockResolvedValue(mockUser());
-      refreshTokenRepo.create.mockReturnValue(mockRefreshToken());
-      // primera llamada a save = nuevo token → falla
-      refreshTokenRepo.save.mockRejectedValueOnce(new Error('DB error'));
+      const userDto = {
+        id: 1,
+        role: RoleType.CLIENT,
+      } as unknown as UserResponseDto;
+      mockManagerRefreshRepo.findOne.mockResolvedValue(rt);
+      mockManagerRefreshRepo.save
+        .mockResolvedValueOnce(rt)
+        .mockRejectedValueOnce(new Error('DB error'));
+      mockManagerRefreshRepo.create.mockReturnValue(mockRefreshToken());
+      usersService.findOne.mockResolvedValue(userDto);
 
       await expect(service.refresh('raw_token')).rejects.toThrow('DB error');
-      expect(rt.revokedAt).toBeNull(); // token viejo NO fue revocado
+      expect(mockDataSource.transaction).toHaveBeenCalled();
     });
 
     it('should throw 401 if refresh token not found', async () => {
-      refreshTokenRepo.findOne.mockResolvedValue(null);
+      mockManagerRefreshRepo.findOne.mockResolvedValue(null);
       await expect(service.refresh('bad_token')).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
     it('should throw 401 if refresh token is revoked', async () => {
-      refreshTokenRepo.findOne.mockResolvedValue(
+      mockManagerRefreshRepo.findOne.mockResolvedValue(
         mockRefreshToken({ isRevoked: true }),
       );
       await expect(service.refresh('raw_token')).rejects.toThrow(
@@ -268,7 +286,7 @@ describe('AuthService', () => {
     });
 
     it('should throw 401 if refresh token is expired', async () => {
-      refreshTokenRepo.findOne.mockResolvedValue(
+      mockManagerRefreshRepo.findOne.mockResolvedValue(
         mockRefreshToken({ isExpired: true }),
       );
       await expect(service.refresh('raw_token')).rejects.toThrow(
@@ -319,7 +337,7 @@ describe('AuthService', () => {
       const user = mockUser({ isActive: false });
       usersService.create.mockResolvedValue(user);
       tokenRepo.create.mockReturnValue({
-        token: 'raw',
+        tokenHash: 'hashed_token',
         type: TokenType.ACCOUNT_ACTIVATION,
         userId: 1,
         expiresAt: new Date(),
@@ -421,7 +439,7 @@ describe('AuthService', () => {
       usersService.findByEmail.mockResolvedValue(mockUser());
       tokenRepo.update.mockResolvedValue(undefined);
       tokenRepo.create.mockReturnValue({
-        token: 'raw',
+        tokenHash: 'hashed_token',
         type: TokenType.PASSWORD_RESET,
         userId: 1,
         expiresAt: new Date(),
@@ -472,6 +490,23 @@ describe('AuthService', () => {
         1,
         'NewPass1234!',
       );
+      expect(tokenRepo.update).toHaveBeenCalledWith(
+        { userId: 1, type: TokenType.PASSWORD_RESET },
+        expect.objectContaining({ usedAt: expect.any(Date) }),
+      );
+    });
+
+    it('should invalidate token before updating password so it cannot be reused on failure', async () => {
+      tokenRepo.findOne.mockResolvedValue(
+        mockToken({ type: TokenType.PASSWORD_RESET }),
+      );
+      tokenRepo.update.mockResolvedValue(undefined);
+      usersService.updatePassword.mockRejectedValue(new Error('DB error'));
+
+      await expect(
+        service.resetPassword({ token: 'raw_token', password: 'NewPass1234!' }),
+      ).rejects.toThrow('DB error');
+
       expect(tokenRepo.update).toHaveBeenCalledWith(
         { userId: 1, type: TokenType.PASSWORD_RESET },
         expect.objectContaining({ usedAt: expect.any(Date) }),

@@ -25,7 +25,7 @@ describe('ProductPricingController', () => {
     productId: 1,
     currency: CurrencyCode.ARS,
     unitPrice: 500,
-    marginId: 1,
+    salePrice: 750,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -59,6 +59,7 @@ describe('ProductPricingController', () => {
       productId: 1,
       currency: CurrencyCode.ARS,
       unitPrice: 500,
+      salePrice: 750,
     });
     expect(service.create).toHaveBeenCalled();
     expect(result.productId).toBe(1);

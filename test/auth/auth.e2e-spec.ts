@@ -192,7 +192,7 @@ describe('Auth (e2e)', () => {
       expect(res.body.access_token).toBeDefined();
       expect(res.body.refresh_token).toBeDefined();
       expect(res.body.user.password).toBeUndefined();
-      expect(res.body.user.role.type).toBe(RoleType.CLIENT);
+      expect(res.body.user.role).toBe(RoleType.CLIENT);
 
       accessToken = res.body.access_token;
       refreshToken = res.body.refresh_token;

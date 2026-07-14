@@ -1,7 +1,6 @@
 import {
   IsInt,
   IsNotEmpty,
-  IsNumber,
   IsString,
   MaxLength,
   Min,
@@ -10,7 +9,7 @@ import {
 import { Transform } from 'class-transformer';
 
 export class CreateProductImageDto {
-  @IsNumber()
+  @IsInt()
   @Min(1)
   productId: number;
 

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
@@ -14,14 +14,11 @@ import { RolesGuard } from '../../src/common/guards/roles.guard';
 import { TaxesController } from '../../src/modules/taxation/taxes/controllers/taxes.controller';
 import { TaxesService } from '../../src/modules/taxation/taxes/services/taxes.service';
 import { TaxEntity } from '../../src/modules/taxation/taxes/entities/tax.entity';
-import { TaxTypeEntity } from '../../src/modules/taxation/tax-types/entities/tax-types.entity';
-import { TaxTypesController } from '../../src/modules/taxation/tax-types/controllers/tax-types.controller';
-import { TaxTypesService } from '../../src/modules/taxation/tax-types/services/tax-types.service';
+import { ProductTaxEntity } from '../../src/modules/taxation/product-taxes/entities/product-taxes.entity';
 
 describe('Taxes (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let taxTypeId: number;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -36,15 +33,21 @@ describe('Taxes (e2e)', () => {
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [TaxEntity, TaxTypeEntity],
+            entities: [TaxEntity],
             synchronize: true,
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([TaxEntity, TaxTypeEntity]),
+        TypeOrmModule.forFeature([TaxEntity]),
       ],
-      controllers: [TaxesController, TaxTypesController],
-      providers: [TaxesService, TaxTypesService],
+      controllers: [TaxesController],
+      providers: [
+        TaxesService,
+        {
+          provide: getRepositoryToken(ProductTaxEntity),
+          useValue: { findOne: jest.fn().mockResolvedValue(null) },
+        },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })
@@ -64,12 +67,6 @@ describe('Taxes (e2e)', () => {
     app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
-
-    const res = await request(app.getHttpServer())
-      .post('/v1/tax-types')
-      .send({ code: 'IVA', name: 'Impuesto al Valor Agregado' });
-
-    taxTypeId = res.body.id;
   }, 30000);
 
   afterAll(async () => {
@@ -81,122 +78,122 @@ describe('Taxes (e2e)', () => {
   // CREATE
   // -------------------------
 
-  it('POST /tax-types/:id/taxes -> should create a tax', async () => {
+  it('POST /taxes → 201 crea un impuesto', async () => {
     const res = await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 21 })
+      .post('/v1/taxes')
+      .send({ code: 'IVA', name: 'Impuesto al Valor Agregado', value: 21 })
       .expect(201);
 
+    expect(res.body.id).toBeDefined();
+    expect(res.body.code).toBe('IVA');
     expect(res.body.value).toBe(21);
-    expect(res.body.taxTypeId).toBe(taxTypeId);
+    expect(res.body.isGlobal).toBe(false);
   });
 
-  it('POST /tax-types/:id/taxes -> should fail if unknown field sent', async () => {
+  it('POST /taxes → 201 con isGlobal true', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'IIBB', name: 'Ingresos Brutos', value: 3, isGlobal: true })
+      .expect(201);
+
+    expect(res.body.isGlobal).toBe(true);
+  });
+
+  it('POST /taxes → 400 si campo desconocido', async () => {
     await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 21, isPercentage: true })
+      .post('/v1/taxes')
+      .send({ code: 'TEST1', name: 'Test Tax', value: 5, isPercentage: true })
       .expect(400);
   });
 
-  it('POST /tax-types/:id/taxes -> should fail if taxType not found', async () => {
+  it('POST /taxes → 400 si value negativo', async () => {
     await request(app.getHttpServer())
-      .post('/v1/tax-types/999/taxes')
-      .send({ value: 21 })
-      .expect(404);
-  });
-
-  it('POST /tax-types/:id/taxes -> should fail if value is negative', async () => {
-    await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: -5 })
+      .post('/v1/taxes')
+      .send({ code: 'NEG', name: 'Negativo Tax', value: -1 })
       .expect(400);
   });
 
-  it('POST /tax-types/:id/taxes -> should fail if value exceeds 100', async () => {
+  it('POST /taxes → 400 si value mayor a 100', async () => {
     await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 101 })
+      .post('/v1/taxes')
+      .send({ code: 'OVER', name: 'Over Cien Tax', value: 101 })
       .expect(400);
+  });
+
+  it('POST /taxes → 409 si código duplicado', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'DUPE', name: 'Primer Dupe Tax', value: 5 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'DUPE', name: 'Segundo Dupe Tax', value: 10 })
+      .expect(409);
   });
 
   // -------------------------
   // FIND ALL
   // -------------------------
 
-  it('GET /tax-types/:id/taxes -> should return array', async () => {
-    const res = await request(app.getHttpServer())
-      .get(`/v1/tax-types/${taxTypeId}/taxes`)
-      .expect(200);
+  it('GET /taxes → 200 retorna paginado', async () => {
+    const res = await request(app.getHttpServer()).get('/v1/taxes').expect(200);
 
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data.length).toBeGreaterThan(0);
-  });
-
-  it('GET /tax-types/:id/taxes -> should return empty array if no taxes', async () => {
-    const newType = await request(app.getHttpServer())
-      .post('/v1/tax-types')
-      .send({ code: 'IIBB', name: 'Ingresos Brutos' });
-
-    const res = await request(app.getHttpServer())
-      .get(`/v1/tax-types/${newType.body.id}/taxes`)
-      .expect(200);
-
-    expect(res.body.data).toEqual([]);
+    expect(res.body.total).toBeGreaterThan(0);
   });
 
   // -------------------------
   // FIND ONE
   // -------------------------
 
-  it('GET /tax-types/:id/taxes/:taxId -> should return one', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 10.5 });
+  it('GET /taxes/:id → 200 retorna uno', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'GETSINGLE', name: 'Get Single Tax', value: 10.5 });
 
     const res = await request(app.getHttpServer())
-      .get(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
+      .get(`/v1/taxes/${created.body.id}`)
       .expect(200);
 
     expect(res.body.value).toBe(10.5);
   });
 
-  it('GET /tax-types/:id/taxes/:taxId -> should return 404', async () => {
-    await request(app.getHttpServer())
-      .get(`/v1/tax-types/${taxTypeId}/taxes/999999`)
-      .expect(404);
+  it('GET /taxes/:id → 404 si no existe', async () => {
+    await request(app.getHttpServer()).get('/v1/taxes/999999').expect(404);
   });
 
   // -------------------------
   // UPDATE
   // -------------------------
 
-  it('PATCH /tax-types/:id/taxes/:taxId -> should update value', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 5 });
+  it('PATCH /taxes/:id → 200 actualiza value', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'PATCH1', name: 'Para Parchear Tax', value: 5 });
 
     const res = await request(app.getHttpServer())
-      .patch(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
+      .patch(`/v1/taxes/${created.body.id}`)
       .send({ value: 8 })
       .expect(200);
 
     expect(res.body.value).toBe(8);
   });
 
-  it('PATCH /tax-types/:id/taxes/:taxId -> should fail if unknown field sent', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 21 });
+  it('PATCH /taxes/:id → 400 si campo desconocido', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'PATCH2', name: 'Para Parchear Dos Tax', value: 21 });
 
     await request(app.getHttpServer())
-      .patch(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
+      .patch(`/v1/taxes/${created.body.id}`)
       .send({ currency: 'ARS' })
       .expect(400);
   });
 
-  it('PATCH /tax-types/:id/taxes/:taxId -> should return 404 if not found', async () => {
+  it('PATCH /taxes/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
-      .patch(`/v1/tax-types/${taxTypeId}/taxes/999999`)
+      .patch('/v1/taxes/999999')
       .send({ value: 10 })
       .expect(404);
   });
@@ -205,23 +202,21 @@ describe('Taxes (e2e)', () => {
   // DELETE
   // -------------------------
 
-  it('DELETE /tax-types/:id/taxes/:taxId -> should soft delete', async () => {
-    const createRes = await request(app.getHttpServer())
-      .post(`/v1/tax-types/${taxTypeId}/taxes`)
-      .send({ value: 3 });
+  it('DELETE /taxes/:id → 204 y luego 404', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'DEL1', name: 'Para Borrar Tax', value: 3 });
 
     await request(app.getHttpServer())
-      .delete(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
+      .delete(`/v1/taxes/${created.body.id}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/v1/tax-types/${taxTypeId}/taxes/${createRes.body.id}`)
+      .get(`/v1/taxes/${created.body.id}`)
       .expect(404);
   });
 
-  it('DELETE /tax-types/:id/taxes/:taxId -> should return 404 if not found', async () => {
-    await request(app.getHttpServer())
-      .delete(`/v1/tax-types/${taxTypeId}/taxes/999999`)
-      .expect(404);
+  it('DELETE /taxes/:id → 404 si no existe', async () => {
+    await request(app.getHttpServer()).delete('/v1/taxes/999999').expect(404);
   });
 });

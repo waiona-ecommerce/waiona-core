@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, QueryFailedError } from 'typeorm';
 
 import { ComboImageEntity } from '../entities/combo-image.entity';
 import { ComboEntity } from '../../combos/entities/combo.entity';
@@ -36,11 +40,20 @@ export class ComboImageService {
       throw new NotFoundException(`Combo con id ${dto.comboId} no encontrado`);
     }
 
-    const image = this.comboImageRepository.create(dto);
+    await this.assertPositionFree(dto.comboId, dto.position);
 
-    const saved = await this.comboImageRepository.save(image);
-
-    return new ComboImageResponseDto(saved);
+    try {
+      const image = this.comboImageRepository.create(dto);
+      const saved = await this.comboImageRepository.save(image);
+      return new ComboImageResponseDto(saved);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este combo`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -73,10 +86,24 @@ export class ComboImageService {
     dto: UpdateComboImageDto,
   ): Promise<ComboImageResponseDto> {
     const image = await this.findEntity(id);
-    const merged = this.comboImageRepository.merge(image, dto);
-    const updated = await this.comboImageRepository.save(merged);
 
-    return new ComboImageResponseDto(updated);
+    if (dto.position !== undefined && dto.position !== image.position) {
+      await this.assertPositionFree(image.comboId, dto.position, id);
+    }
+
+    const merged = this.comboImageRepository.merge(image, dto);
+
+    try {
+      const updated = await this.comboImageRepository.save(merged);
+      return new ComboImageResponseDto(updated);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este combo`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -94,20 +121,40 @@ export class ComboImageService {
       throw new NotFoundException(`Combo con id ${dto.comboId} no encontrado`);
     }
 
+    await this.assertPositionFree(dto.comboId, dto.position);
+
     const { url, publicId } = await this.storageService.upload(
       file,
       'waiona/combos',
     );
 
-    const image = this.comboImageRepository.create({
-      comboId: dto.comboId,
-      position: dto.position,
-      url,
-      publicId,
+    const stillExists = await this.comboRepository.findOne({
+      where: { id: dto.comboId },
     });
-    const saved = await this.comboImageRepository.save(image);
+    if (!stillExists) {
+      await this.storageService.delete(publicId).catch(() => undefined);
+      throw new NotFoundException(`Combo con id ${dto.comboId} no encontrado`);
+    }
 
-    return new ComboImageResponseDto(saved);
+    try {
+      await this.assertPositionFree(dto.comboId, dto.position);
+      const image = this.comboImageRepository.create({
+        comboId: dto.comboId,
+        position: dto.position,
+        url,
+        publicId,
+      });
+      const saved = await this.comboImageRepository.save(image);
+      return new ComboImageResponseDto(saved);
+    } catch (err) {
+      await this.storageService.delete(publicId).catch(() => undefined);
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          `Ya existe una imagen en la posición ${dto.position} para este combo`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ==========================
@@ -116,10 +163,10 @@ export class ComboImageService {
 
   async remove(id: number): Promise<void> {
     const image = await this.findEntity(id);
-    if (image.publicId) {
-      await this.storageService.delete(image.publicId);
-    }
     await this.comboImageRepository.softDelete(image.id);
+    if (image.publicId) {
+      await this.storageService.delete(image.publicId).catch(() => undefined);
+    }
   }
 
   // ==========================
@@ -131,5 +178,23 @@ export class ComboImageService {
     if (!image)
       throw new NotFoundException(`Imagen de combo con id ${id} no encontrada`);
     return image;
+  }
+
+  private async assertPositionFree(
+    comboId: number,
+    position: number,
+    excludeId?: number,
+  ): Promise<void> {
+    const existing = await this.comboImageRepository.findOne({
+      where:
+        excludeId !== undefined
+          ? { comboId, position, id: Not(excludeId) }
+          : { comboId, position },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe una imagen en la posición ${position} para este combo`,
+      );
+    }
   }
 }

@@ -15,8 +15,6 @@ import { CalculationModule } from '../pricing/calculation/calculation.module';
 import { MailModule } from '../mail/mail.module';
 import { UserEntity } from '../users/entities/user.entity';
 import { CouponEntity } from '../coupons/coupon/entities/coupon.entity';
-import { CouponProductTargetEntity } from '../coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from '../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 
 @Module({
   imports: [
@@ -28,8 +26,6 @@ import { CouponComboTargetEntity } from '../coupons/coupon-combo-target/entities
       StockItemEntity,
       UserEntity,
       CouponEntity,
-      CouponProductTargetEntity,
-      CouponComboTargetEntity,
     ]),
     StocksModule,
     CalculationModule,

@@ -100,7 +100,9 @@ describe('ProductImageService', () => {
     it('should update an image', async () => {
       const image = mockImage();
       const updated = mockImage({ position: 2 });
-      mockImageRepo.findOne.mockResolvedValue(image);
+      mockImageRepo.findOne
+        .mockResolvedValueOnce(image) // findEntity
+        .mockResolvedValueOnce(null); // assertPositionFree (no conflict)
       mockImageRepo.merge.mockReturnValue(updated);
       mockImageRepo.save.mockResolvedValue(updated);
       const result = await service.update(1, { position: 2 });
@@ -125,7 +127,7 @@ describe('ProductImageService', () => {
       expect(mockImageRepo.softDelete).toHaveBeenCalledWith(image.id);
     });
 
-    it('should delete from Cloudinary before soft delete when publicId exists', async () => {
+    it('should soft delete then delete from Cloudinary when publicId exists', async () => {
       const image = mockImage({ publicId: 'waiona/products/abc123' });
       mockImageRepo.findOne.mockResolvedValue(image);
       mockStorageService.delete.mockResolvedValue(undefined);

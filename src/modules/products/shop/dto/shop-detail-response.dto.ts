@@ -1,7 +1,7 @@
 export class ShopDetailResponseDto {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   type: 'product' | 'combo';
   originalPrice: number;
   finalPrice: number;

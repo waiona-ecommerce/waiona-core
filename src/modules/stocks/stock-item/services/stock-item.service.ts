@@ -6,7 +6,13 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager, DataSource } from 'typeorm';
+import {
+  Repository,
+  EntityManager,
+  DataSource,
+  QueryFailedError,
+  In,
+} from 'typeorm';
 
 import { StockItemEntity } from '../entities/stock-item.entity';
 import { StockMovementEntity } from '../../stock-movement/entities/stock-movement.entity';
@@ -112,36 +118,67 @@ export class StockItemsService {
   // Fórmula: min(floor(quantityAvailable / quantity)) para cada item.
   // ==========================
 
-  async findByCombo(
-    comboId: number,
-  ): Promise<{ quantityAvailable: number; inStock: boolean }> {
+  async findByCombo(comboId: number): Promise<{
+    quantityAvailable: number;
+    inStock: boolean;
+    stockMin: number;
+    stockCritical: number;
+  }> {
     const items = await this.comboItemRepository.find({
       where: { comboId },
     });
 
     if (!items.length) {
-      return { quantityAvailable: 0, inStock: false };
+      return {
+        quantityAvailable: 0,
+        inStock: false,
+        stockMin: 0,
+        stockCritical: 0,
+      };
+    }
+
+    const productIds = items.map((i) => i.productId);
+    const allStockItems = await this.stockItemRepository.find({
+      where: { productId: In(productIds) },
+    });
+
+    const byProduct = new Map<number, StockItemEntity[]>();
+    for (const s of allStockItems) {
+      if (!byProduct.has(s.productId)) byProduct.set(s.productId, []);
+      byProduct.get(s.productId)!.push(s);
     }
 
     let minAvailable = Infinity;
+    // Umbral más restrictivo en combo-units: el combo es "low/critical"
+    // si CUALQUIER componente lo es → se toma el MAX de los umbrales por componente
+    let maxThresholdMin = 0;
+    let maxThresholdCritical = 0;
 
     for (const item of items) {
-      const stockItems = await this.stockItemRepository.find({
-        where: { productId: item.productId },
-      });
+      const stockItems = byProduct.get(item.productId) ?? [];
 
-      // máximo stock disponible en una sola ubicación
-      // (consistente con reserveStock, que elige la mejor ubicación — no mezcla ubicaciones)
-      const bestAvailable = stockItems.reduce(
-        (best, s) => (s.quantityAvailable > best ? s.quantityAvailable : best),
-        0,
-      );
+      // Mejor ubicación para este componente (consistente con reserveStock)
+      let bestPossible = 0;
+      let bestStockItem: StockItemEntity | undefined;
+      for (const s of stockItems) {
+        const possible = Math.floor(s.quantityAvailable / item.quantity);
+        if (possible > bestPossible) {
+          bestPossible = possible;
+          bestStockItem = s;
+        }
+      }
 
-      // cuántos combos puedo armar con este producto
-      const possible = Math.floor(bestAvailable / item.quantity);
+      if (bestPossible < minAvailable) minAvailable = bestPossible;
 
-      if (possible < minAvailable) {
-        minAvailable = possible;
+      // Convertir umbrales a combo-units usando la misma ubicación
+      if (bestStockItem) {
+        const thresholdMin = Math.floor(bestStockItem.stockMin / item.quantity);
+        const thresholdCritical = Math.floor(
+          bestStockItem.stockCritical / item.quantity,
+        );
+        if (thresholdMin > maxThresholdMin) maxThresholdMin = thresholdMin;
+        if (thresholdCritical > maxThresholdCritical)
+          maxThresholdCritical = thresholdCritical;
       }
     }
 
@@ -150,6 +187,8 @@ export class StockItemsService {
     return {
       quantityAvailable,
       inStock: quantityAvailable > 0,
+      stockMin: maxThresholdMin,
+      stockCritical: maxThresholdCritical,
     };
   }
 
@@ -198,7 +237,17 @@ export class StockItemsService {
       stockCritical: dto.stockCritical,
     });
 
-    const saved = await this.stockItemRepository.save(stockItem);
+    let saved: StockItemEntity;
+    try {
+      saved = await this.stockItemRepository.save(stockItem);
+    } catch (err) {
+      if (err instanceof QueryFailedError) {
+        throw new ConflictException(
+          'Ya existe un stock para este producto en esta ubicación',
+        );
+      }
+      throw err;
+    }
 
     const withRelations = await this.stockItemRepository.findOne({
       where: { id: saved.id },
@@ -254,59 +303,12 @@ export class StockItemsService {
   }
 
   // ==========================
-  // WRITE OFF SIMPLE
-  // ==========================
-
-  async writeOff(
-    stockItemId: number,
-    quantity: number,
-  ): Promise<StockItemWithMovementsResponseDto> {
-    if (quantity <= 0) {
-      throw new BadRequestException('La cantidad debe ser mayor a 0');
-    }
-
-    await this.dataSource.transaction(async (manager) => {
-      const stockItem = await manager.findOne(StockItemEntity, {
-        where: { id: stockItemId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!stockItem) {
-        throw new NotFoundException(
-          `Stock con id ${stockItemId} no encontrado`,
-        );
-      }
-
-      if (stockItem.quantityAvailable < quantity) {
-        throw new BadRequestException(
-          `Stock disponible insuficiente — solo ${stockItem.quantityAvailable} disponibles (${stockItem.quantityCurrent} en depósito, ${stockItem.quantityReserved} reservados)`,
-        );
-      }
-
-      stockItem.quantityCurrent -= quantity;
-      await manager.save(StockItemEntity, stockItem);
-
-      const movement = manager.create(StockMovementEntity, {
-        stockItemId: stockItem.id,
-        operationType: StockOperationType.ADJUSTMENT,
-        stockFlow: StockFlow.OUTBOUND,
-        quantity,
-        referenceType: StockReferenceType.MANUAL,
-      });
-      await manager.save(StockMovementEntity, movement);
-    });
-
-    return new StockItemWithMovementsResponseDto(
-      await this.findEntity(stockItemId),
-    );
-  }
-
-  // ==========================
   // WRITE OFF DAMAGE
   // ==========================
 
   async writeOffDamage(
     dto: CreateStockWriteOffDto,
+    reportedBy: number,
   ): Promise<StockItemWithMovementsResponseDto> {
     if (dto.quantity <= 0) {
       throw new BadRequestException('La cantidad debe ser mayor a 0');
@@ -338,7 +340,7 @@ export class StockItemsService {
         operationType: StockOperationType.DAMAGE,
         stockFlow: StockFlow.OUTBOUND,
         quantity: dto.quantity,
-        referenceType: StockReferenceType.MANUAL,
+        referenceType: StockReferenceType.DAMAGE_REPORT,
       });
       const savedMovement = await manager.save(StockMovementEntity, movement);
 
@@ -349,7 +351,7 @@ export class StockItemsService {
         reason: dto.reason,
         description: dto.description ?? null,
         attachments: dto.attachments ?? null,
-        reportedBy: dto.reportedBy,
+        reportedBy,
       });
       await manager.save(StockWriteOffEntity, writeOff);
     });
@@ -399,27 +401,31 @@ export class StockItemsService {
     quantity: number,
     manager?: EntityManager,
   ): Promise<void> {
-    const repo =
-      manager?.getRepository(StockItemEntity) ?? this.stockItemRepository;
+    const execute = async (mgr: EntityManager): Promise<void> => {
+      const stockRepo = mgr.getRepository(StockItemEntity);
 
-    const stockItem = await repo.findOne({
-      where: { productId, locationId },
-      lock: { mode: 'pessimistic_write' },
-    });
+      const stockItem = await stockRepo.findOne({
+        where: { productId, locationId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!stockItem)
-      throw new NotFoundException(
-        `Stock no encontrado para el producto ${productId}`,
-      );
+      if (!stockItem)
+        throw new NotFoundException(
+          `Stock no encontrado para el producto ${productId}`,
+        );
 
-    if (stockItem.quantityCurrent - stockItem.quantityReserved < quantity) {
-      throw new BadRequestException(
-        `Stock disponible insuficiente para el producto ${productId}`,
-      );
-    }
+      if (stockItem.quantityCurrent - stockItem.quantityReserved < quantity) {
+        throw new BadRequestException(
+          `Stock disponible insuficiente para el producto ${productId}`,
+        );
+      }
 
-    stockItem.quantityReserved += quantity;
-    await repo.save(stockItem);
+      stockItem.quantityReserved += quantity;
+      await stockRepo.save(stockItem);
+    };
+
+    if (manager) await execute(manager);
+    else await this.dataSource.transaction(execute);
   }
 
   // ==========================

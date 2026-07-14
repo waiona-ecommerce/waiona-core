@@ -44,9 +44,9 @@ describe('TaxesController', () => {
 
   const mockTaxResponse = (overrides = {}) => ({
     id: 1,
-    taxTypeId: 1,
+    code: 'IVA',
+    name: 'IMPUESTO AL VALOR AGREGADO',
     value: 21,
-    isGlobal: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -61,7 +61,7 @@ describe('TaxesController', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('should return all taxes for a taxTypeId', async () => {
+    it('should return all taxes', async () => {
       const tax = mockTaxResponse();
       const paginated = {
         data: [tax],
@@ -73,9 +73,9 @@ describe('TaxesController', () => {
       };
       service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(1, { page: 1, limit: 20 });
+      const result = await controller.findAll({ page: 1, limit: 20 });
 
-      expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
+      expect(service.findAll).toHaveBeenCalledWith(1, 20);
       expect(result.data).toEqual([tax]);
     });
 
@@ -90,7 +90,7 @@ describe('TaxesController', () => {
       };
       service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll(1, { page: 1, limit: 20 });
+      const result = await controller.findAll({ page: 1, limit: 20 });
 
       expect(result.data).toEqual([]);
     });
@@ -118,13 +118,17 @@ describe('TaxesController', () => {
 
   describe('create', () => {
     it('should create a tax', async () => {
-      const dto = { value: 21 };
+      const dto = {
+        code: 'IVA',
+        name: 'IMPUESTO AL VALOR AGREGADO',
+        value: 21,
+      };
       const tax = mockTaxResponse();
       service.create.mockResolvedValue(tax);
 
-      const result = await controller.create(1, dto);
+      const result = await controller.create(dto);
 
-      expect(service.create).toHaveBeenCalledWith(1, dto);
+      expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toEqual(tax);
     });
   });

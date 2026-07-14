@@ -5,7 +5,7 @@ import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 
 @Entity('discount_combo_targets')
 @Index(['discountId'])
-@Index(['comboId'])
+@Index(['comboId'], { unique: true, where: '"deletedAt" IS NULL' })
 export class DiscountComboTargetEntity extends BaseEntity {
   // ==========================
   // FK discount

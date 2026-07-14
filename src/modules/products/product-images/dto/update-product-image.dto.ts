@@ -1,4 +1,8 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateProductImageDto } from './create-product-image.dto';
+import { IsInt, IsOptional, Min } from 'class-validator';
 
-export class UpdateProductImageDto extends PartialType(CreateProductImageDto) {}
+export class UpdateProductImageDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  position?: number;
+}

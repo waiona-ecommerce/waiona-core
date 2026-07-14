@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ShopController } from '../../../products/shop/controllers/shop.controller';
 import { ShopService } from '../../../products/shop/services/shop.service';
 
@@ -44,13 +43,7 @@ describe('ShopController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ShopController],
-      providers: [
-        { provide: ShopService, useFactory: mockService },
-        {
-          provide: CACHE_MANAGER,
-          useValue: { get: jest.fn(), set: jest.fn() },
-        },
-      ],
+      providers: [{ provide: ShopService, useFactory: mockService }],
     }).compile();
 
     controller = module.get<ShopController>(ShopController);

@@ -61,10 +61,6 @@ export class CouponResponseDto {
     const now = new Date();
     const { startsAt, endsAt, usageLimit, usageCount } = entity;
 
-    if (startsAt && endsAt && endsAt < startsAt) {
-      return CouponStatus.EXPIRED;
-    }
-
     if (
       usageLimit !== null &&
       usageLimit !== undefined &&

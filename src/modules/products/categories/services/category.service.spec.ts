@@ -125,7 +125,6 @@ describe('CategoryService', () => {
 
       const result = await service.create({
         name: 'Bebidas',
-        isActive: true,
       });
 
       expect(result.name).toBe('Bebidas');
@@ -190,14 +189,6 @@ describe('CategoryService', () => {
 
       await expect(service.update(1, { name: 'Nuevo' } as any)).rejects.toThrow(
         ConflictException,
-      );
-    });
-
-    it('should throw BadRequestException if category is its own parent', async () => {
-      categoryRepository.findOne.mockResolvedValue(mockCategory());
-
-      await expect(service.update(1, { parentId: 1 } as any)).rejects.toThrow(
-        BadRequestException,
       );
     });
 

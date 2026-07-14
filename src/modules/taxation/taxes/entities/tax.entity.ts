@@ -1,25 +1,16 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../../../common/entities/base.entity';
-import { TaxTypeEntity } from '../../tax-types/entities/tax-types.entity';
 
 @Entity('taxes')
-@Index(['taxTypeId'])
+@Index(['code'], { unique: true, where: '"deletedAt" IS NULL' })
 export class TaxEntity extends BaseEntity {
-  @Column({ name: 'tax_type_id' })
-  taxTypeId: number;
+  @Column({ type: 'varchar', length: 20, nullable: false })
+  code: string;
 
-  @ManyToOne(() => TaxTypeEntity, {
-    nullable: false,
-    onDelete: 'RESTRICT',
-  })
-  @JoinColumn({ name: 'tax_type_id' })
-  taxType: TaxTypeEntity;
+  @Column({ type: 'varchar', length: 150, nullable: false })
+  name: string;
 
-  @Column('decimal', {
-    precision: 10,
-    scale: 2,
-    nullable: false,
-  })
+  @Column('decimal', { precision: 10, scale: 2, nullable: false })
   value: number;
 
   @Column({ type: 'boolean', default: false, name: 'is_global' })

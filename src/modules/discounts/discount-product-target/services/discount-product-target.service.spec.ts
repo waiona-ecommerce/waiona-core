@@ -8,20 +8,17 @@ describe('DiscountProductTargetService', () => {
   let service: DiscountProductTargetService;
   let repo: any;
   let discountRepo: any;
-  let qb: any;
 
   const mockRepo = () => ({
-    find: jest.fn(),
     findAndCount: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
     softDelete: jest.fn(),
-    createQueryBuilder: jest.fn(),
   });
   const mockDiscountRepo = () => ({ findOne: jest.fn() });
 
-  const mockDiscount = () => ({ id: 1, name: 'Promo', deletedAt: null });
+  const mockDiscount = () => ({ id: 1, name: 'PROMO', deletedAt: null });
   const mockTarget = (overrides = {}) => ({
     id: 1,
     discountId: 1,
@@ -33,13 +30,6 @@ describe('DiscountProductTargetService', () => {
   });
 
   beforeEach(async () => {
-    qb = {
-      innerJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getOne: jest.fn(),
-    };
-
     const module = await Test.createTestingModule({
       providers: [
         DiscountProductTargetService,
@@ -67,8 +57,7 @@ describe('DiscountProductTargetService', () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValueOnce(null); // validateUniqueTarget
-      repo.createQueryBuilder.mockReturnValue(qb);
-      qb.getOne.mockResolvedValue(null); // validateProductHasNoActiveDiscount
+      repo.findOne.mockResolvedValueOnce(null); // validateProductHasNoActiveDiscount
       repo.create.mockReturnValue(target);
       repo.save.mockResolvedValue(target);
       expect((await service.create(1, { productId: 1 } as any)).productId).toBe(
@@ -94,8 +83,7 @@ describe('DiscountProductTargetService', () => {
     it('should throw ConflictException if product already has another active discount', async () => {
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValueOnce(null); // validateUniqueTarget
-      repo.createQueryBuilder.mockReturnValue(qb);
-      qb.getOne.mockResolvedValue(mockTarget()); // validateProductHasNoActiveDiscount
+      repo.findOne.mockResolvedValueOnce(mockTarget()); // validateProductHasNoActiveDiscount
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );
@@ -111,6 +99,15 @@ describe('DiscountProductTargetService', () => {
       expect(result.total).toBe(1);
     });
 
+    it('should query with createdAt DESC order', async () => {
+      discountRepo.findOne.mockResolvedValue(mockDiscount());
+      repo.findAndCount.mockResolvedValue([[], 0]);
+      await service.findAll(1);
+      expect(repo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ order: { createdAt: 'DESC' } }),
+      );
+    });
+
     it('should throw NotFoundException if discount not found', async () => {
       discountRepo.findOne.mockResolvedValue(null);
       await expect(service.findAll(999)).rejects.toThrow(NotFoundException);
@@ -118,11 +115,11 @@ describe('DiscountProductTargetService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete target', async () => {
+    it('should delete target', async () => {
       const target = mockTarget();
       discountRepo.findOne.mockResolvedValue(mockDiscount());
       repo.findOne.mockResolvedValue(target);
-      repo.softDelete.mockResolvedValue(undefined);
+      repo.softDelete.mockResolvedValue({ affected: 1 });
       await service.remove(1, 1);
       expect(repo.softDelete).toHaveBeenCalledWith(target.id);
     });

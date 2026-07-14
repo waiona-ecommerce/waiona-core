@@ -318,6 +318,7 @@ async function seedTestData(ds: DataSource): Promise<void> {
       productId: productA.id,
       quantity: 2,
       unitPrice: 750,
+      salePrice: 750,
       finalPrice: 750,
     }),
   );

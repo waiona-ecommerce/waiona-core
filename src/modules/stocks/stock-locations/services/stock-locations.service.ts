@@ -28,6 +28,13 @@ export class StockLocationsService {
   // ==========================
 
   async create(dto: CreateStockLocationDto): Promise<StockLocationResponseDto> {
+    const existing = await this.stockLocationRepository.count();
+    if (existing > 0) {
+      throw new ConflictException(
+        'Ya existe una ubicación de stock. Solo se permite una ubicación activa.',
+      );
+    }
+
     const location = this.stockLocationRepository.create({
       name: dto.name,
       type: dto.type,

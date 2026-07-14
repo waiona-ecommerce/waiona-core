@@ -30,7 +30,7 @@ describe('CouponUsageController', () => {
     ...overrides,
   });
 
-  const mockJwt = (sub = 1, role = RoleType.ADMIN) => ({ sub, role });
+  const mockJwt = (sub = 1, role = RoleType.CLIENT) => ({ sub, role });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

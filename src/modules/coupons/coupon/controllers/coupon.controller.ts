@@ -91,6 +91,10 @@ export class CouponController {
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204, description: 'Eliminado' })
   @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
+  @ApiResponse({
+    status: 409,
+    description: 'El cupón ya fue utilizado en órdenes y no puede eliminarse',
+  })
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.couponService.remove(id);
   }

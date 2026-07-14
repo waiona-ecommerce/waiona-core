@@ -5,10 +5,10 @@ import { UserEntity } from '../../../users/entities/user.entity';
 import { OrderEntity } from '../../../orders/entities/order.entity';
 
 @Entity('coupon_usages')
+@Index(['couponId', 'userId'], { unique: true, where: '"deletedAt" IS NULL' })
 @Index(['couponId'])
 @Index(['orderId'])
 @Index(['userId'])
-@Index(['couponId', 'userId'], { unique: true }) // un usuario = un uso por cupón
 export class CouponUsageEntity extends BaseEntity {
   // ==========================
   // Cupón
