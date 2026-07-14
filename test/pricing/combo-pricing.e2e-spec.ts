@@ -14,7 +14,6 @@ import { RolesGuard } from '../../src/common/guards/roles.guard';
 import { ComboPricingController } from '../../src/modules/pricing/controllers/combo-pricing.controller';
 import { ComboPricingService } from '../../src/modules/pricing/services/combo-pricing.service';
 import { ComboPricingEntity } from '../../src/modules/pricing/entities/combo-pricing.entity';
-import { MarginEntity } from '../../src/modules/margins/entities/margin.entity';
 import { ComboEntity } from '../../src/modules/products/combos/entities/combo.entity';
 import { ComboItemEntity } from '../../src/modules/products/combos/entities/combo-item.entity';
 import { ComboImageEntity } from '../../src/modules/products/combo-images/entities/combo-image.entity';
@@ -28,7 +27,6 @@ describe('ComboPricing (e2e)', () => {
   let dataSource: DataSource;
   let comboId: number;
   let combo2Id: number;
-  let marginId: number;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -45,7 +43,6 @@ describe('ComboPricing (e2e)', () => {
             database: config.get('POSTGRES_TEST_DB'),
             entities: [
               ComboPricingEntity,
-              MarginEntity,
               ComboEntity,
               ComboItemEntity,
               ComboImageEntity,
@@ -57,7 +54,7 @@ describe('ComboPricing (e2e)', () => {
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([ComboPricingEntity, MarginEntity]),
+        TypeOrmModule.forFeature([ComboPricingEntity]),
       ],
       controllers: [ComboPricingController],
       providers: [ComboPricingService],
@@ -101,13 +98,6 @@ describe('ComboPricing (e2e)', () => {
       categoryId: category.id,
     });
     combo2Id = combo2.id;
-
-    const margin = await dataSource.manager.save(MarginEntity, {
-      name: 'Test Margin',
-      value: 20,
-      isPercentage: true,
-    });
-    marginId = margin.id;
   }, 30000);
 
   afterAll(async () => {
@@ -119,36 +109,59 @@ describe('ComboPricing (e2e)', () => {
   // CREATE
   // -------------------------
 
-  it('POST /combo-pricing -> 201 sin margen', async () => {
+  it('POST /combo-pricing -> 201 crea el pricing', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/combo-pricing')
-      .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1200 })
+      .send({
+        comboId,
+        currency: CurrencyCode.ARS,
+        unitPrice: 1200,
+        salePrice: 1500,
+      })
       .expect(201);
 
     expect(res.body.id).toBeDefined();
     expect(res.body.comboId).toBe(comboId);
     expect(res.body.unitPrice).toBe(1200);
-    expect(res.body.marginId).toBeNull();
+    expect(res.body.salePrice).toBe(1500);
   });
 
-  it('POST /combo-pricing -> 201 con margen', async () => {
+  it('POST /combo-pricing -> 400 si salePrice no es mayor a unitPrice', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/combo-pricing')
+      .send({
+        comboId: combo2Id,
+        currency: CurrencyCode.ARS,
+        unitPrice: 1500,
+        salePrice: 1500,
+      })
+      .expect(400);
+  });
+
+  it('POST /combo-pricing -> 201 con salePrice mayor a unitPrice', async () => {
     const res = await request(app.getHttpServer())
       .post('/v1/combo-pricing')
       .send({
         comboId: combo2Id,
         currency: CurrencyCode.ARS,
         unitPrice: 1500,
-        marginId,
+        salePrice: 1900,
       })
       .expect(201);
 
-    expect(res.body.marginId).toBe(marginId);
+    expect(res.body.unitPrice).toBe(1500);
+    expect(res.body.salePrice).toBe(1900);
   });
 
   it('POST /combo-pricing -> 409 si el combo ya tiene pricing', async () => {
     await request(app.getHttpServer())
       .post('/v1/combo-pricing')
-      .send({ comboId, currency: CurrencyCode.ARS, unitPrice: 1300 })
+      .send({
+        comboId,
+        currency: CurrencyCode.ARS,
+        unitPrice: 1300,
+        salePrice: 1600,
+      })
       .expect(409);
   });
 
@@ -157,29 +170,6 @@ describe('ComboPricing (e2e)', () => {
       .post('/v1/combo-pricing')
       .send({})
       .expect(400);
-  });
-
-  it('POST /combo-pricing -> 404 si el margen no existe', async () => {
-    const category = await dataSource.manager.save(CategoryEntity, {
-      name: 'Cat Extra',
-      isActive: true,
-    });
-    const extra = await dataSource.manager.save(ComboEntity, {
-      name: 'Extra Combo',
-      description: 'desc',
-      isActive: true,
-      categoryId: category.id,
-    });
-
-    await request(app.getHttpServer())
-      .post('/v1/combo-pricing')
-      .send({
-        comboId: extra.id,
-        currency: CurrencyCode.ARS,
-        unitPrice: 1000,
-        marginId: 999999,
-      })
-      .expect(404);
   });
 
   // -------------------------
@@ -257,34 +247,20 @@ describe('ComboPricing (e2e)', () => {
 
     const res = await request(app.getHttpServer())
       .patch(`/v1/combo-pricing/${id}`)
-      .send({ unitPrice: 1800 })
+      .send({ unitPrice: 1250 })
       .expect(200);
 
-    expect(res.body.unitPrice).toBe(1800);
+    expect(res.body.unitPrice).toBe(1250);
   });
 
-  it('PATCH /combo-pricing/:id -> 200 asigna margen', async () => {
+  it('PATCH /combo-pricing/:id -> 400 si salePrice queda menor o igual a unitPrice', async () => {
     const listRes = await request(app.getHttpServer()).get('/v1/combo-pricing');
-    const item = listRes.body.data.find((p: any) => p.marginId === null);
+    const id = listRes.body.data[0].id;
 
-    const res = await request(app.getHttpServer())
-      .patch(`/v1/combo-pricing/${item.id}`)
-      .send({ marginId })
-      .expect(200);
-
-    expect(res.body.marginId).toBe(marginId);
-  });
-
-  it('PATCH /combo-pricing/:id -> 200 desvincula margen con null', async () => {
-    const listRes = await request(app.getHttpServer()).get('/v1/combo-pricing');
-    const item = listRes.body.data.find((p: any) => p.marginId !== null);
-
-    const res = await request(app.getHttpServer())
-      .patch(`/v1/combo-pricing/${item.id}`)
-      .send({ marginId: null })
-      .expect(200);
-
-    expect(res.body.marginId).toBeNull();
+    await request(app.getHttpServer())
+      .patch(`/v1/combo-pricing/${id}`)
+      .send({ salePrice: 100 })
+      .expect(400);
   });
 
   it('PATCH /combo-pricing/:id -> 404 si no existe', async () => {
@@ -316,6 +292,7 @@ describe('ComboPricing (e2e)', () => {
         comboId: toDelete.id,
         currency: CurrencyCode.ARS,
         unitPrice: 100,
+        salePrice: 150,
       })
       .expect(201);
 
