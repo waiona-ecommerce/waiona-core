@@ -20,7 +20,6 @@ import { ProductEntity } from '../../src/modules/products/product/entities/produ
 import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
 import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
 import { ProductPricingEntity } from '../../src/modules/pricing/entities/product-pricing.entity';
-import { MarginEntity } from '../../src/modules/margins/entities/margin.entity';
 import { ComboPricingEntity } from '../../src/modules/pricing/entities/combo-pricing.entity';
 import { DiscountComboTargetEntity } from '../../src/modules/discounts/discount-combo-target/entities/discount-combo-target.entity';
 import { CouponComboTargetEntity } from '../../src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
@@ -62,7 +61,6 @@ describe('Combos (e2e)', () => {
               ProductImageEntity,
               CategoryEntity,
               ProductPricingEntity,
-              MarginEntity,
             ],
             synchronize: true,
             dropSchema: true,
@@ -137,6 +135,7 @@ describe('Combos (e2e)', () => {
       productId: product.id,
       currency: CurrencyCode.ARS,
       unitPrice: 500,
+      salePrice: 750,
     });
   }, 30000);
 
@@ -264,6 +263,7 @@ describe('Combos (e2e)', () => {
       productId: product2.id,
       currency: CurrencyCode.ARS,
       unitPrice: 400,
+      salePrice: 600,
     });
 
     const created = await request(app.getHttpServer())
