@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 
@@ -93,6 +98,15 @@ describe('StockItemsController', () => {
       expect(service.findById).toHaveBeenCalledWith(1);
       expect(result).toBe(item);
     });
+
+    it('propagates NotFoundException from service', async () => {
+      service.findById.mockRejectedValue(
+        new NotFoundException('Stock item not found'),
+      );
+      await expect(controller.findById(1)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   describe('create', () => {
@@ -109,6 +123,42 @@ describe('StockItemsController', () => {
       expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toBe(item);
     });
+
+    it('propagates ConflictException when the stock item already exists for that product and location', async () => {
+      const dto = {
+        productId: 1,
+        locationId: 1,
+        stockMin: 5,
+        stockCritical: 2,
+      };
+      const item = mockItemResponse();
+      service.create.mockResolvedValueOnce(item);
+      await controller.create(dto);
+
+      service.create.mockRejectedValueOnce(
+        new ConflictException(
+          'Stock item already exists for this product and location',
+        ),
+      );
+      await expect(controller.create(dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('propagates BadRequestException on invalid thresholds', async () => {
+      const dto = {
+        productId: 1,
+        locationId: 1,
+        stockMin: 2,
+        stockCritical: 5,
+      };
+      service.create.mockRejectedValueOnce(
+        new BadRequestException('Invalid thresholds'),
+      );
+      await expect(controller.create(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 
   describe('addStock', () => {
@@ -119,6 +169,26 @@ describe('StockItemsController', () => {
       const result = await controller.addStock(dto);
       expect(service.addStock).toHaveBeenCalledWith(1, 1, 10);
       expect(result).toBe(item);
+    });
+
+    it('propagates BadRequestException on invalid quantity', async () => {
+      const dto = { productId: 1, locationId: 1, quantity: -5 };
+      service.addStock.mockRejectedValueOnce(
+        new BadRequestException('La cantidad debe ser mayor a 0'),
+      );
+      await expect(controller.addStock(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates NotFoundException when the stock item does not exist', async () => {
+      const dto = { productId: 1, locationId: 1, quantity: 10 };
+      service.addStock.mockRejectedValueOnce(
+        new NotFoundException('Stock item not found'),
+      );
+      await expect(controller.addStock(dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -136,21 +206,35 @@ describe('StockItemsController', () => {
       expect(service.writeOffDamage).toHaveBeenCalledWith(dto, 7);
       expect(result).toBe(item);
     });
-  });
 
-  describe('writeOffDamage', () => {
-    it('delegates to service.writeOffDamage with reportedBy from JWT', async () => {
+    it('propagates BadRequestException on invalid quantity or insufficient stock', async () => {
       const dto = {
         stockItemId: 1,
-        quantity: 2,
-        reason: StockWriteOffReason.DAMAGED,
+        quantity: 5,
+        reason: StockWriteOffReason.INVENTORY_ERROR,
       };
-      const mockUser: JwtPayload = { sub: 99, role: RoleType.ADMIN };
-      const item = mockItemWithMovements();
-      service.writeOffDamage.mockResolvedValue(item);
-      const result = await controller.writeOffDamage(dto, mockUser);
-      expect(service.writeOffDamage).toHaveBeenCalledWith(dto, 99);
-      expect(result).toBe(item);
+      const mockUser: JwtPayload = { sub: 7, role: RoleType.ADMIN };
+      service.writeOffDamage.mockRejectedValueOnce(
+        new BadRequestException('La cantidad debe ser mayor a 0'),
+      );
+      await expect(controller.writeOff(dto, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates NotFoundException when the stock item does not exist', async () => {
+      const dto = {
+        stockItemId: 1,
+        quantity: 5,
+        reason: StockWriteOffReason.INVENTORY_ERROR,
+      };
+      const mockUser: JwtPayload = { sub: 7, role: RoleType.ADMIN };
+      service.writeOffDamage.mockRejectedValueOnce(
+        new NotFoundException('Stock con id 1 no encontrado'),
+      );
+      await expect(controller.writeOff(dto, mockUser)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -161,6 +245,28 @@ describe('StockItemsController', () => {
       await controller.dispatchStock(dto);
       expect(service.dispatchStock).toHaveBeenCalledWith(1, 1, 3, 10);
     });
+
+    it('propagates BadRequestException on insufficient reserved or current stock', async () => {
+      const dto = { productId: 1, locationId: 1, quantity: 3, orderId: 10 };
+      service.dispatchStock.mockRejectedValueOnce(
+        new BadRequestException(
+          'No se pueden despachar 3 unidades — solo 1 reservadas para el producto 1',
+        ),
+      );
+      await expect(controller.dispatchStock(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates NotFoundException when the stock item does not exist', async () => {
+      const dto = { productId: 1, locationId: 1, quantity: 3, orderId: 10 };
+      service.dispatchStock.mockRejectedValueOnce(
+        new NotFoundException('Stock no encontrado para el producto 1'),
+      );
+      await expect(controller.dispatchStock(dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   describe('releaseReservation', () => {
@@ -169,6 +275,28 @@ describe('StockItemsController', () => {
       service.releaseReservation.mockResolvedValue(undefined);
       await controller.releaseReservation(dto);
       expect(service.releaseReservation).toHaveBeenCalledWith(1, 1, 3, 10);
+    });
+
+    it('propagates BadRequestException on insufficient reserved stock', async () => {
+      const dto = { productId: 1, locationId: 1, quantity: 3, orderId: 10 };
+      service.releaseReservation.mockRejectedValueOnce(
+        new BadRequestException(
+          'No se pueden liberar 3 unidades — solo 1 reservadas para el producto 1',
+        ),
+      );
+      await expect(controller.releaseReservation(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates NotFoundException when the stock item does not exist', async () => {
+      const dto = { productId: 1, locationId: 1, quantity: 3, orderId: 10 };
+      service.releaseReservation.mockRejectedValueOnce(
+        new NotFoundException('Stock no encontrado para el producto 1'),
+      );
+      await expect(controller.releaseReservation(dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -180,6 +308,26 @@ describe('StockItemsController', () => {
       const result = await controller.updateThresholds(1, dto);
       expect(service.updateThresholds).toHaveBeenCalledWith(1, dto);
       expect(result).toBe(item);
+    });
+
+    it('propagates BadRequestException on invalid threshold values', async () => {
+      const dto = { stockMin: 2, stockCritical: 5 };
+      service.updateThresholds.mockRejectedValueOnce(
+        new BadRequestException('Invalid threshold values'),
+      );
+      await expect(controller.updateThresholds(1, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates NotFoundException when the stock item does not exist', async () => {
+      const dto = { stockMin: 10, stockCritical: 3 };
+      service.updateThresholds.mockRejectedValueOnce(
+        new NotFoundException('Stock con id 1 no encontrado'),
+      );
+      await expect(controller.updateThresholds(1, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
