@@ -106,23 +106,6 @@ export class StockItemsController {
     return this.stockItemsService.writeOffDamage(dto, user.sub);
   }
 
-  @ApiOperation({
-    summary: 'Write off damaged stock and create a write-off record',
-  })
-  @ApiResponse({ status: 201, type: StockItemWithMovementsResponseDto })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid quantity or insufficient stock',
-  })
-  @ApiResponse({ status: 404, description: 'Stock item not found' })
-  @Post('write-off-damage')
-  async writeOffDamage(
-    @Body() dto: CreateStockWriteOffDto,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<StockItemWithMovementsResponseDto> {
-    return this.stockItemsService.writeOffDamage(dto, user.sub);
-  }
-
   @ApiOperation({ summary: 'Dispatch reserved stock for an order' })
   @ApiResponse({ status: 201, description: 'Stock dispatched' })
   @ApiResponse({
