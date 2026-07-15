@@ -103,9 +103,7 @@ describe('StockItemsController', () => {
       service.findById.mockRejectedValue(
         new NotFoundException('Stock item not found'),
       );
-      await expect(controller.findById(1)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(controller.findById(1)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -140,9 +138,7 @@ describe('StockItemsController', () => {
           'Stock item already exists for this product and location',
         ),
       );
-      await expect(controller.create(dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(controller.create(dto)).rejects.toThrow(ConflictException);
     });
 
     it('propagates BadRequestException on invalid thresholds', async () => {
@@ -155,9 +151,7 @@ describe('StockItemsController', () => {
       service.create.mockRejectedValueOnce(
         new BadRequestException('Invalid thresholds'),
       );
-      await expect(controller.create(dto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(controller.create(dto)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -186,9 +180,7 @@ describe('StockItemsController', () => {
       service.addStock.mockRejectedValueOnce(
         new NotFoundException('Stock item not found'),
       );
-      await expect(controller.addStock(dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(controller.addStock(dto)).rejects.toThrow(NotFoundException);
     });
   });
 

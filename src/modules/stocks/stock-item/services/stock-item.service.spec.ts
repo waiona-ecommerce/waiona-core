@@ -321,7 +321,11 @@ describe('StockItemsService', () => {
         { productId: 2, quantity: 1 }, // sin stock item para este producto
       ]);
       stockRepo.find.mockResolvedValue([
-        mockStockItem({ productId: 1, quantityCurrent: 50, quantityReserved: 0 }),
+        mockStockItem({
+          productId: 1,
+          quantityCurrent: 50,
+          quantityReserved: 0,
+        }),
       ]);
       const result = await service.findByCombo(1);
       expect(result.quantityAvailable).toBe(0);
@@ -521,9 +525,9 @@ describe('StockItemsService', () => {
 
     it('throws NotFoundException when stock item not found', async () => {
       mockManager.findOne.mockResolvedValue(null);
-      await expect(
-        service.writeOffDamage(dto as any, 99),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.writeOffDamage(dto as any, 99)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('allows write-off when quantity equals exactly the available stock', async () => {
