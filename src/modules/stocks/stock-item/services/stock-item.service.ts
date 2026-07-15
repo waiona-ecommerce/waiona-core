@@ -89,26 +89,23 @@ export class StockItemsService {
 
   // ==========================
   // GET BY PRODUCT
-  // Devuelve el StockItem con mayor quantityAvailable entre todas las ubicaciones.
+  // Solo existe una ubicación de stock activa por producto (ver StockLocationsService.create).
   // Usado por ShopService para mostrar disponibilidad al cliente.
   // ==========================
 
   async findByProduct(productId: number): Promise<StockItemEntity> {
-    const items = await this.stockItemRepository.find({
+    const stockItem = await this.stockItemRepository.findOne({
       where: { productId },
       relations: ['location'],
     });
 
-    if (!items.length) {
+    if (!stockItem) {
       throw new NotFoundException(
         `No se encontró stock para el producto ${productId}`,
       );
     }
 
-    // devuelve la ubicación con mayor stock disponible
-    return items.reduce((best, current) =>
-      current.quantityAvailable > best.quantityAvailable ? current : best,
-    );
+    return stockItem;
   }
 
   // ==========================
@@ -142,12 +139,6 @@ export class StockItemsService {
       where: { productId: In(productIds) },
     });
 
-    const byProduct = new Map<number, StockItemEntity[]>();
-    for (const s of allStockItems) {
-      if (!byProduct.has(s.productId)) byProduct.set(s.productId, []);
-      byProduct.get(s.productId)!.push(s);
-    }
-
     let minAvailable = Infinity;
     // Umbral más restrictivo en combo-units: el combo es "low/critical"
     // si CUALQUIER componente lo es → se toma el MAX de los umbrales por componente
@@ -155,26 +146,19 @@ export class StockItemsService {
     let maxThresholdCritical = 0;
 
     for (const item of items) {
-      const stockItems = byProduct.get(item.productId) ?? [];
+      const stockItem = allStockItems.find(
+        (s) => s.productId === item.productId,
+      );
+      const possible = stockItem
+        ? Math.floor(stockItem.quantityAvailable / item.quantity)
+        : 0;
 
-      // Mejor ubicación para este componente (consistente con reserveStock)
-      let bestPossible = 0;
-      let bestStockItem: StockItemEntity | undefined;
-      for (const s of stockItems) {
-        const possible = Math.floor(s.quantityAvailable / item.quantity);
-        if (possible > bestPossible) {
-          bestPossible = possible;
-          bestStockItem = s;
-        }
-      }
+      if (possible < minAvailable) minAvailable = possible;
 
-      if (bestPossible < minAvailable) minAvailable = bestPossible;
-
-      // Convertir umbrales a combo-units usando la misma ubicación
-      if (bestStockItem) {
-        const thresholdMin = Math.floor(bestStockItem.stockMin / item.quantity);
+      if (stockItem) {
+        const thresholdMin = Math.floor(stockItem.stockMin / item.quantity);
         const thresholdCritical = Math.floor(
-          bestStockItem.stockCritical / item.quantity,
+          stockItem.stockCritical / item.quantity,
         );
         if (thresholdMin > maxThresholdMin) maxThresholdMin = thresholdMin;
         if (thresholdCritical > maxThresholdCritical)
