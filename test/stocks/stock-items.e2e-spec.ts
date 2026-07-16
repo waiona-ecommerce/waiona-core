@@ -269,6 +269,91 @@ describe('StockItems (e2e)', () => {
       .expect(400);
   });
 
+  it('POST /stock-items/write-off -> 404 when stock item does not exist', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/write-off')
+      .send({
+        stockItemId: 999999,
+        quantity: 1,
+        reason: StockWriteOffReason.DAMAGED,
+      })
+      .expect(404);
+  });
+
+  // -------------------------
+  // DISPATCH / RELEASE
+  // No hay endpoint HTTP para reserveStock (solo lo usa OrdersService
+  // internamente), así que la reserva se arma directo por repo.
+  // -------------------------
+
+  it('reserves stock directly via repo for dispatch/release tests', async () => {
+    const stockRepo = dataSource.getRepository(StockItemEntity);
+    await stockRepo.update(stockItemId, { quantityReserved: 20 });
+  });
+
+  it('POST /stock-items/dispatch -> 201 dispatches reserved stock', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/dispatch')
+      .send({ productId, locationId, quantity: 10, orderId: 1001 })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .get(`/v1/stock-items/${stockItemId}`)
+      .expect(200);
+    expect(res.body.quantityCurrent).toBe(35); // 45 - 10
+    expect(res.body.quantityReserved).toBe(10); // 20 - 10
+  });
+
+  it('POST /stock-items/dispatch -> 400 when reserved is insufficient', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/dispatch')
+      .send({ productId, locationId, quantity: 50, orderId: 1002 })
+      .expect(400);
+  });
+
+  it('POST /stock-items/dispatch -> 400 when current stock is insufficient', async () => {
+    const stockRepo = dataSource.getRepository(StockItemEntity);
+    await stockRepo.update(stockItemId, { quantityReserved: 40 }); // current=35, reserved=40
+
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/dispatch')
+      .send({ productId, locationId, quantity: 38, orderId: 1003 })
+      .expect(400);
+  });
+
+  it('POST /stock-items/dispatch -> 404 when stock item does not exist', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/dispatch')
+      .send({ productId: 999999, locationId, quantity: 1, orderId: 1004 })
+      .expect(404);
+  });
+
+  it('POST /stock-items/release -> 201 releases reserved stock', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/release')
+      .send({ productId, locationId, quantity: 10, orderId: 1001 })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .get(`/v1/stock-items/${stockItemId}`)
+      .expect(200);
+    expect(res.body.quantityReserved).toBe(30); // 40 - 10
+  });
+
+  it('POST /stock-items/release -> 400 when reserved is insufficient', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/release')
+      .send({ productId, locationId, quantity: 999, orderId: 1005 })
+      .expect(400);
+  });
+
+  it('POST /stock-items/release -> 404 when stock item does not exist', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/stock-items/release')
+      .send({ productId: 999999, locationId, quantity: 1, orderId: 1006 })
+      .expect(404);
+  });
+
   // -------------------------
   // UPDATE THRESHOLDS
   // -------------------------
