@@ -113,5 +113,15 @@ describe('StockWriteOffController', () => {
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toBe(writeOff);
     });
+
+    it('propagates NotFoundException when not found', async () => {
+      const dto = { reason: StockWriteOffReason.EXPIRED };
+      service.update.mockRejectedValueOnce(
+        new NotFoundException('Baja de stock con id 999 no encontrada'),
+      );
+      await expect(controller.update(999, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 });
