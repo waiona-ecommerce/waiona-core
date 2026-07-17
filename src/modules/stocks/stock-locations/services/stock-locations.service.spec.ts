@@ -88,11 +88,46 @@ describe('StockLocationsService', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('returns paginated locations', async () => {
-      repo.findAndCount.mockResolvedValue([[mockLocation()], 1]);
+    it('queries with order and skip/take, and returns mapped data with pagination metadata', async () => {
+      const loc = mockLocation();
+      repo.findAndCount.mockResolvedValue([[loc], 25]);
+
+      const result = await service.findAll(2, 10);
+
+      expect(repo.findAndCount).toHaveBeenCalledWith({
+        order: { createdAt: 'DESC' },
+        skip: 10,
+        take: 10,
+      });
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({ id: loc.id, name: loc.name }),
+      );
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(result.total).toBe(25);
+      expect(result.totalPages).toBe(3);
+      expect(result.hasNextPage).toBe(true);
+    });
+
+    it('returns an empty paginated result when there are no locations', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+
       const result = await service.findAll();
-      expect(result.data).toHaveLength(1);
-      expect(result.total).toBe(1);
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+      expect(result.hasNextPage).toBe(false);
+    });
+
+    it('calculates skip from page and limit', async () => {
+      repo.findAndCount.mockResolvedValue([[mockLocation()], 1]);
+
+      await service.findAll(3, 5);
+
+      expect(repo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 5 }),
+      );
     });
   });
 

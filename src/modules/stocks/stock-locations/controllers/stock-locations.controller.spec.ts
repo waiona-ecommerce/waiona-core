@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 
@@ -70,6 +71,19 @@ describe('StockLocationsController', () => {
       expect(service.create).toHaveBeenCalledWith(dto);
       expect(result).toBe(loc);
     });
+
+    it('propagates ConflictException when a location already exists', async () => {
+      const dto = {
+        name: 'Depósito Central',
+        type: StockLocationType.WAREHOUSE,
+      };
+      service.create.mockRejectedValueOnce(
+        new ConflictException(
+          'Ya existe una ubicación de stock. Solo se permite una ubicación activa.',
+        ),
+      );
+      await expect(controller.create(dto)).rejects.toThrow(ConflictException);
+    });
   });
 
   describe('findAll', () => {
@@ -90,6 +104,13 @@ describe('StockLocationsController', () => {
       expect(service.findOne).toHaveBeenCalledWith(1);
       expect(result).toBe(loc);
     });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.findOne.mockRejectedValueOnce(
+        new NotFoundException('Ubicación de stock con id 999 no encontrada'),
+      );
+      await expect(controller.findOne(999)).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('update', () => {
@@ -101,6 +122,16 @@ describe('StockLocationsController', () => {
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toBe(loc);
     });
+
+    it('propagates NotFoundException when not found', async () => {
+      const dto = { name: 'Actualizado' };
+      service.update.mockRejectedValueOnce(
+        new NotFoundException('Ubicación de stock con id 999 no encontrada'),
+      );
+      await expect(controller.update(999, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   describe('remove', () => {
@@ -108,6 +139,22 @@ describe('StockLocationsController', () => {
       service.remove.mockResolvedValue(undefined);
       await controller.remove(1);
       expect(service.remove).toHaveBeenCalledWith(1);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.remove.mockRejectedValueOnce(
+        new NotFoundException('Ubicación de stock con id 999 no encontrada'),
+      );
+      await expect(controller.remove(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('propagates ConflictException when the location has stock items assigned', async () => {
+      service.remove.mockRejectedValueOnce(
+        new ConflictException(
+          'No se puede eliminar: la ubicación tiene 1 stock item(s) asignado(s)',
+        ),
+      );
+      await expect(controller.remove(1)).rejects.toThrow(ConflictException);
     });
   });
 });
