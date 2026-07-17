@@ -5,23 +5,30 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
 
-import { getRepositoryToken } from '@nestjs/typeorm';
-
 import { StockLocationsController } from '../../src/modules/stocks/stock-locations/controllers/stock-locations.controller';
 import { StockLocationsService } from '../../src/modules/stocks/stock-locations/services/stock-locations.service';
 import { StockLocationEntity } from '../../src/modules/stocks/stock-locations/entities/stock-locations.entity';
 import { StockItemEntity } from '../../src/modules/stocks/stock-item/entities/stock-item.entity';
+import { StockMovementEntity } from '../../src/modules/stocks/stock-movement/entities/stock-movement.entity';
 import { StockLocationType } from '../../src/modules/stocks/stock-locations/enums/stock-location-type.enum';
+
+import { ProductEntity } from '../../src/modules/products/product/entities/product.entity';
+import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
+import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
+import { ComboItemEntity } from '../../src/modules/products/combos/entities/combo-item.entity';
+import { ComboEntity } from '../../src/modules/products/combos/entities/combo.entity';
+import { ComboImageEntity } from '../../src/modules/products/combo-images/entities/combo-image.entity';
 
 describe('StockLocations (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
+  let productId: number;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -36,21 +43,25 @@ describe('StockLocations (e2e)', () => {
             username: config.get('POSTGRES_USER'),
             password: config.get('POSTGRES_PASSWORD'),
             database: config.get('POSTGRES_TEST_DB'),
-            entities: [StockLocationEntity],
+            entities: [
+              StockLocationEntity,
+              StockItemEntity,
+              StockMovementEntity,
+              ProductEntity,
+              ProductImageEntity,
+              CategoryEntity,
+              ComboItemEntity,
+              ComboEntity,
+              ComboImageEntity,
+            ],
             synchronize: true,
             dropSchema: true,
           }),
         }),
-        TypeOrmModule.forFeature([StockLocationEntity]),
+        TypeOrmModule.forFeature([StockLocationEntity, StockItemEntity]),
       ],
       controllers: [StockLocationsController],
-      providers: [
-        StockLocationsService,
-        {
-          provide: getRepositoryToken(StockItemEntity),
-          useValue: { count: jest.fn().mockResolvedValue(0) },
-        },
-      ],
+      providers: [StockLocationsService],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({ canActivate: () => true })
@@ -70,6 +81,25 @@ describe('StockLocations (e2e)', () => {
     app.enableVersioning({ type: VersioningType.URI });
     await app.init();
     dataSource = moduleFixture.get(DataSource);
+
+    // Seed: category + product (directo vía DB, sin exponer esos endpoints en este módulo)
+    const categoryRepo: Repository<CategoryEntity> =
+      dataSource.getRepository(CategoryEntity);
+    const productRepo: Repository<ProductEntity> =
+      dataSource.getRepository(ProductEntity);
+
+    const category = await categoryRepo.save(
+      categoryRepo.create({ name: 'Electrónica' }),
+    );
+    const product = await productRepo.save(
+      productRepo.create({
+        name: 'Notebook X1',
+        sku: 'NB-X1-001',
+        description: 'Notebook de prueba',
+        categoryId: category.id,
+      }),
+    );
+    productId = product.id;
   }, 30000);
 
   afterAll(async () => {
@@ -205,6 +235,24 @@ describe('StockLocations (e2e)', () => {
   // -------------------------
   // DELETE (soft)
   // -------------------------
+
+  it('DELETE /stock-locations/:id -> 409 when location has stock items assigned', async () => {
+    const stockItemRepo = dataSource.getRepository(StockItemEntity);
+    const stockItem = await stockItemRepo.save(
+      stockItemRepo.create({
+        productId,
+        locationId,
+        stockMin: 1,
+        stockCritical: 0,
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/v1/stock-locations/${locationId}`)
+      .expect(409);
+
+    await stockItemRepo.delete(stockItem.id); // limpia para que el DELETE exitoso funcione después
+  });
 
   it('DELETE /stock-locations/:id -> 204 then 404', async () => {
     await request(app.getHttpServer())
