@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 
@@ -87,6 +88,13 @@ describe('StockMovementController', () => {
       const result = await controller.findById(1);
       expect(service.findById).toHaveBeenCalledWith(1);
       expect(result).toBe(movement);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.findById.mockRejectedValueOnce(
+        new NotFoundException('Movimiento de stock con id 999 no encontrado'),
+      );
+      await expect(controller.findById(999)).rejects.toThrow(NotFoundException);
     });
   });
 });
