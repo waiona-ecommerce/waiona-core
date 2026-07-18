@@ -101,6 +101,10 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'Eliminado' })
   @ApiResponse({ status: 403, description: 'Acceso denegado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
+  @ApiResponse({
+    status: 409,
+    description: 'Tiene órdenes pendientes de completar',
+  })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,

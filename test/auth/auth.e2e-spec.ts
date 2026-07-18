@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -25,6 +25,7 @@ import { RoleEntity } from '../../src/modules/users/entities/role.entity';
 import { TokenEntity } from '../../src/modules/mail/entities/token.entity';
 import { RefreshTokenEntity } from '../../src/modules/auth/entities/refresh-token.entity';
 import { RoleType } from '../../src/common/enums/role-type.enum';
+import { OrderEntity } from '../../src/modules/orders/entities/order.entity';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
@@ -82,6 +83,10 @@ describe('Auth (e2e)', () => {
         LocalStrategy,
         JwtStrategy,
         { provide: MailService, useValue: mockMailService },
+        {
+          provide: getRepositoryToken(OrderEntity),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
       ],
     }).compile();
 

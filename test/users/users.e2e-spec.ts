@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
@@ -17,9 +17,13 @@ import { UsersService } from '../../src/modules/users/services/users.service';
 import { UserEntity } from '../../src/modules/users/entities/user.entity';
 import { ProfileEntity } from '../../src/modules/users/entities/profile.entity';
 import { RoleEntity } from '../../src/modules/users/entities/role.entity';
+import { OrderEntity } from '../../src/modules/orders/entities/order.entity';
 
 // mockSub es mutable — el guard lo lee en cada request para simular distintos usuarios
 let mockSub = 1;
+
+// orderCount es mutable — por default no hay órdenes activas (0)
+const orderCount = jest.fn().mockResolvedValue(0);
 
 describe('Users (e2e)', () => {
   let app: INestApplication;
@@ -55,7 +59,13 @@ describe('Users (e2e)', () => {
         TypeOrmModule.forFeature([UserEntity, RoleEntity]),
       ],
       controllers: [UsersController],
-      providers: [UsersService],
+      providers: [
+        UsersService,
+        {
+          provide: getRepositoryToken(OrderEntity),
+          useValue: { count: orderCount },
+        },
+      ],
     })
       .overrideGuard(AuthGuard('jwt'))
       .useValue({
@@ -226,11 +236,23 @@ describe('Users (e2e)', () => {
     mockSub = userId;
   });
 
+  it('DELETE /users/:id -> 409 si tiene órdenes activas', async () => {
+    orderCount.mockResolvedValueOnce(1);
+    await request(app.getHttpServer())
+      .delete(`/v1/users/${userId}`)
+      .expect(409);
+  });
+
   it('DELETE /users/:id -> 204 y luego GET devuelve 404', async () => {
     await request(app.getHttpServer())
       .delete(`/v1/users/${userId}`)
       .expect(204);
 
     await request(app.getHttpServer()).get(`/v1/users/${userId}`).expect(404);
+  });
+
+  it('permite volver a registrar el mismo email después del soft-delete', async () => {
+    const recreated = await usersService.create(testUser);
+    expect(recreated.email).toBe(testUser.email);
   });
 });

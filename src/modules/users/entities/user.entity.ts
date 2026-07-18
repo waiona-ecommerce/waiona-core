@@ -5,6 +5,7 @@ import {
   JoinColumn,
   BeforeInsert,
   ManyToOne,
+  Index,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Exclude } from 'class-transformer';
@@ -13,8 +14,9 @@ import { ProfileEntity } from './profile.entity';
 import { RoleEntity } from './role.entity';
 
 @Entity('users')
+@Index(['email'], { unique: true, where: '"deletedAt" IS NULL' })
 export class UserEntity extends BaseEntity {
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255 })
   email: string;
 
   @Exclude()
