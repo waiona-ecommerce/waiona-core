@@ -250,7 +250,7 @@ describe('UsersService', () => {
 
     it('should filter by name using QueryBuilder and exclude soft-deleted users', async () => {
       mockQB.getManyAndCount.mockResolvedValue([[mockUser()], 1]);
-      const result = await service.findAll({ name: 'Juan' } as any);
+      const result = await service.findAll({ name: 'Juan' });
 
       expect(mockQB.where).toHaveBeenCalledWith(
         expect.stringContaining('profile.name ILIKE'),
@@ -262,7 +262,7 @@ describe('UsersService', () => {
 
     it('should also filter by email when name and email are both provided', async () => {
       mockQB.getManyAndCount.mockResolvedValue([[mockUser()], 1]);
-      await service.findAll({ name: 'Juan', email: 'juan' } as any);
+      await service.findAll({ name: 'Juan', email: 'juan' });
 
       expect(mockQB.andWhere).toHaveBeenCalledWith('user.email ILIKE :email', {
         email: '%juan%',

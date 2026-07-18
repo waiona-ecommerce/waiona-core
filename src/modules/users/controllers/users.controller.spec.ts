@@ -154,9 +154,9 @@ describe('UsersController', () => {
         new NotFoundException('Usuario no encontrado'),
       );
 
-      await expect(
-        controller.update(1, mockJwt(1), {} as any),
-      ).rejects.toThrow(NotFoundException);
+      await expect(controller.update(1, mockJwt(1), {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

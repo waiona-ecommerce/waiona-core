@@ -10,7 +10,12 @@ import { OrderEntity } from '../orders/entities/order.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, ProfileEntity, RoleEntity, OrderEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      ProfileEntity,
+      RoleEntity,
+      OrderEntity,
+    ]),
   ],
   controllers: [UsersController],
   providers: [UsersService],
