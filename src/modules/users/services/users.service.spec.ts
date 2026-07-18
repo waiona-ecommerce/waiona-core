@@ -1,6 +1,7 @@
+import * as bcrypt from 'bcrypt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -8,6 +9,9 @@ import { UserEntity } from '../entities/user.entity';
 import { ProfileEntity } from '../entities/profile.entity';
 import { RoleEntity } from '../entities/role.entity';
 import { RoleType } from '../../../common/enums/role-type.enum';
+import { OrderEntity } from '../../orders/entities/order.entity';
+import { OrderStatus } from '../../orders/enums/order-status.enum';
+import { UserResponseDto } from '../dto/user-response.dto';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -32,6 +36,7 @@ describe('UsersService', () => {
     createQueryBuilder: jest.fn(() => mockQB),
   });
   const mockRoleRepo = () => ({ findOne: jest.fn() });
+  const mockOrderRepo = () => ({ count: jest.fn() });
 
   const mockEntityManager = {
     create: jest.fn(),
@@ -75,6 +80,7 @@ describe('UsersService', () => {
 
   let userRepo: any;
   let roleRepo: any;
+  let orderRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -82,6 +88,10 @@ describe('UsersService', () => {
         UsersService,
         { provide: getRepositoryToken(UserEntity), useFactory: mockUserRepo },
         { provide: getRepositoryToken(RoleEntity), useFactory: mockRoleRepo },
+        {
+          provide: getRepositoryToken(OrderEntity),
+          useFactory: mockOrderRepo,
+        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -89,6 +99,7 @@ describe('UsersService', () => {
     service = module.get<UsersService>(UsersService);
     userRepo = module.get(getRepositoryToken(UserEntity));
     roleRepo = module.get(getRepositoryToken(RoleEntity));
+    orderRepo = module.get(getRepositoryToken(OrderEntity));
   });
 
   afterEach(() => {
@@ -108,7 +119,7 @@ describe('UsersService', () => {
       lastName: 'Pérez',
     };
 
-    it('should create a user with CLIENT role in transaction', async () => {
+    it('creates the profile and user, assigning the CLIENT role, inside a transaction', async () => {
       const user = mockUser();
       userRepo.findOne.mockResolvedValue(null);
       roleRepo.findOne.mockResolvedValue(mockRole);
@@ -120,17 +131,29 @@ describe('UsersService', () => {
       const result = await service.create(dto);
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(mockEntityManager.create).toHaveBeenCalledWith(ProfileEntity, {
+        name: dto.name,
+        lastName: dto.lastName,
+        avatar: null,
+      });
+      expect(mockEntityManager.create).toHaveBeenCalledWith(UserEntity, {
+        email: dto.email,
+        password: dto.password,
+        profile: mockProfile,
+        role: mockRole,
+      });
+      expect(result).toBeInstanceOf(UserResponseDto);
       expect(result.email).toBe('juan@test.com');
     });
 
-    it('should throw ConflictException if email already exists', async () => {
+    it('throws ConflictException without starting a transaction when email already exists', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
-      await expect(service.create(dto as any)).rejects.toThrow(
-        ConflictException,
-      );
+
+      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('should create user without role if CLIENT role not found', async () => {
+    it('creates the user without a role when CLIENT role is not seeded', async () => {
       const user = mockUser({ role: undefined });
       userRepo.findOne.mockResolvedValue(null);
       roleRepo.findOne.mockResolvedValue(null);
@@ -139,8 +162,34 @@ describe('UsersService', () => {
         .mockReturnValueOnce(user);
       mockEntityManager.save.mockResolvedValue(user);
 
-      const result = await service.create(dto);
-      expect(result).toBeDefined();
+      await service.create(dto);
+
+      expect(mockEntityManager.create).toHaveBeenCalledWith(
+        UserEntity,
+        expect.objectContaining({ role: undefined }),
+      );
+    });
+
+    it('converts a DB unique violation (race condition) into ConflictException', async () => {
+      userRepo.findOne.mockResolvedValue(null);
+      roleRepo.findOne.mockResolvedValue(mockRole);
+      mockEntityManager.create
+        .mockReturnValueOnce(mockProfile)
+        .mockReturnValueOnce(mockUser());
+      mockEntityManager.save.mockRejectedValue({ code: '23505' });
+
+      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('rethrows unexpected DB errors as-is', async () => {
+      userRepo.findOne.mockResolvedValue(null);
+      roleRepo.findOne.mockResolvedValue(mockRole);
+      mockEntityManager.create
+        .mockReturnValueOnce(mockProfile)
+        .mockReturnValueOnce(mockUser());
+      mockEntityManager.save.mockRejectedValue(new Error('connection lost'));
+
+      await expect(service.create(dto)).rejects.toThrow('connection lost');
     });
   });
 
@@ -149,10 +198,19 @@ describe('UsersService', () => {
   // ==========================
 
   describe('findByEmail', () => {
-    it('should return user by email', async () => {
-      mockQB.getOne.mockResolvedValue(mockUser());
+    it('builds the query including password and excluding soft-deleted users', async () => {
+      const user = mockUser();
+      mockQB.getOne.mockResolvedValue(user);
+
       const result = await service.findByEmail('juan@test.com');
-      expect(result?.email).toBe('juan@test.com');
+
+      expect(userRepo.createQueryBuilder).toHaveBeenCalledWith('user');
+      expect(mockQB.addSelect).toHaveBeenCalledWith('user.password');
+      expect(mockQB.where).toHaveBeenCalledWith('user.email = :email', {
+        email: 'juan@test.com',
+      });
+      expect(mockQB.andWhere).toHaveBeenCalledWith('user.deletedAt IS NULL');
+      expect(result).toBe(user);
     });
 
     it('should return null if not found', async () => {
@@ -190,11 +248,25 @@ describe('UsersService', () => {
       expect(result.data).toHaveLength(1);
     });
 
-    it('should filter by name using QueryBuilder', async () => {
+    it('should filter by name using QueryBuilder and exclude soft-deleted users', async () => {
       mockQB.getManyAndCount.mockResolvedValue([[mockUser()], 1]);
       const result = await service.findAll({ name: 'Juan' });
-      expect(mockQB.getManyAndCount).toHaveBeenCalled();
+
+      expect(mockQB.where).toHaveBeenCalledWith(
+        expect.stringContaining('profile.name ILIKE'),
+        { name: '%Juan%' },
+      );
+      expect(mockQB.andWhere).toHaveBeenCalledWith('user.deletedAt IS NULL');
       expect(result.data).toHaveLength(1);
+    });
+
+    it('should also filter by email when name and email are both provided', async () => {
+      mockQB.getManyAndCount.mockResolvedValue([[mockUser()], 1]);
+      await service.findAll({ name: 'Juan', email: 'juan' });
+
+      expect(mockQB.andWhere).toHaveBeenCalledWith('user.email ILIKE :email', {
+        email: '%juan%',
+      });
     });
   });
 
@@ -203,10 +275,18 @@ describe('UsersService', () => {
   // ==========================
 
   describe('findOne', () => {
-    it('should return a user by id', async () => {
-      userRepo.findOne.mockResolvedValue(mockUser());
+    it('maps the entity to UserResponseDto', async () => {
+      const user = mockUser();
+      userRepo.findOne.mockResolvedValue(user);
+
       const result = await service.findOne(1);
-      expect(result.id).toBe(1);
+
+      expect(userRepo.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(result).toBeInstanceOf(UserResponseDto);
+      expect(result.id).toBe(user.id);
+      expect(result.email).toBe(user.email);
+      expect(result.role).toBe(RoleType.CLIENT);
+      expect(result.profile.name).toBe(user.profile.name);
     });
 
     it('should throw NotFoundException', async () => {
@@ -220,21 +300,55 @@ describe('UsersService', () => {
   // ==========================
 
   describe('update', () => {
-    it('should update user profile', async () => {
-      const user = mockUser();
-      const updated = mockUser({ profile: { ...mockProfile, name: 'Carlos' } });
+    it('updates only the provided fields and preserves the rest', async () => {
+      const user = mockUser({ profile: { ...mockProfile } });
       userRepo.findOne.mockResolvedValue(user);
-      userRepo.save.mockResolvedValue(updated);
+      userRepo.save.mockResolvedValue(user);
 
       const result = await service.update(1, { name: 'Carlos' });
+
+      expect(user.profile.name).toBe('Carlos');
+      expect(user.profile.lastName).toBe(mockProfile.lastName);
+      expect(user.profile.avatar).toBe(mockProfile.avatar);
+      expect(userRepo.save).toHaveBeenCalledWith(user);
       expect(result.profile.name).toBe('Carlos');
     });
 
-    it('should throw NotFoundException', async () => {
+    it('updates multiple fields at once', async () => {
+      const user = mockUser({ profile: { ...mockProfile } });
+      userRepo.findOne.mockResolvedValue(user);
+      userRepo.save.mockResolvedValue(user);
+
+      await service.update(1, {
+        name: 'Carlos',
+        lastName: 'Gómez',
+        avatar: 'https://example.com/avatar.png',
+      });
+
+      expect(user.profile).toMatchObject({
+        name: 'Carlos',
+        lastName: 'Gómez',
+        avatar: 'https://example.com/avatar.png',
+      });
+    });
+
+    it('leaves the profile untouched when no fields are provided', async () => {
+      const user = mockUser({ profile: { ...mockProfile } });
+      userRepo.findOne.mockResolvedValue(user);
+      userRepo.save.mockResolvedValue(user);
+
+      await service.update(1, {});
+
+      expect(user.profile).toEqual(mockProfile);
+    });
+
+    it('should throw NotFoundException without saving when user does not exist', async () => {
       userRepo.findOne.mockResolvedValue(null);
+
       await expect(service.update(999, {} as any)).rejects.toThrow(
         NotFoundException,
       );
+      expect(userRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -245,10 +359,21 @@ describe('UsersService', () => {
   describe('remove', () => {
     it('should soft delete user and profile in transaction', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
+      orderRepo.count.mockResolvedValue(0);
       mockEntityManager.softDelete.mockResolvedValue(undefined);
 
       await service.remove(1);
 
+      expect(orderRepo.count).toHaveBeenCalledWith({
+        where: {
+          userId: 1,
+          status: In([
+            OrderStatus.PENDING,
+            OrderStatus.CONFIRMED,
+            OrderStatus.DISPATCHED,
+          ]),
+        },
+      });
       expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(mockEntityManager.softDelete).toHaveBeenCalledWith(UserEntity, 1);
       expect(mockEntityManager.softDelete).toHaveBeenCalledWith(
@@ -257,9 +382,20 @@ describe('UsersService', () => {
       );
     });
 
-    it('should throw NotFoundException', async () => {
+    it('should throw NotFoundException without checking orders', async () => {
       userRepo.findOne.mockResolvedValue(null);
+
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+      expect(orderRepo.count).not.toHaveBeenCalled();
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when user has active orders', async () => {
+      userRepo.findOne.mockResolvedValue(mockUser());
+      orderRepo.count.mockResolvedValue(1);
+
+      await expect(service.remove(1)).rejects.toThrow(ConflictException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
   });
 
@@ -277,7 +413,9 @@ describe('UsersService', () => {
 
     it('should throw NotFoundException if user not found', async () => {
       userRepo.findOne.mockResolvedValue(null);
+
       await expect(service.activate(999)).rejects.toThrow(NotFoundException);
+      expect(userRepo.update).not.toHaveBeenCalled();
     });
   });
 
@@ -289,20 +427,24 @@ describe('UsersService', () => {
     it('should hash and update password', async () => {
       userRepo.findOne.mockResolvedValue(mockUser());
       userRepo.update.mockResolvedValue({ affected: 1 });
+
       await service.updatePassword(1, 'newPassword123');
-      expect(userRepo.update).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({ password: expect.any(String) }),
-      );
-      const call = userRepo.update.mock.calls[0][1];
-      expect(call.password).not.toBe('newPassword123');
+
+      const [id, payload] = userRepo.update.mock.calls[0];
+      expect(id).toBe(1);
+      expect(payload.password).not.toBe('newPassword123');
+      await expect(
+        bcrypt.compare('newPassword123', payload.password),
+      ).resolves.toBe(true);
     });
 
     it('should throw NotFoundException if user not found', async () => {
       userRepo.findOne.mockResolvedValue(null);
+
       await expect(service.updatePassword(999, 'pass')).rejects.toThrow(
         NotFoundException,
       );
+      expect(userRepo.update).not.toHaveBeenCalled();
     });
   });
 });
