@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 
@@ -73,22 +77,19 @@ describe('UsersController', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('should return paginated users', async () => {
-      service.findAll.mockResolvedValue(mockPaginated());
-      const result = await controller.findAll({});
-      expect(service.findAll).toHaveBeenCalled();
-      expect(result.data).toHaveLength(1);
-    });
+    it('delegates to service.findAll with query, page and limit', async () => {
+      const query = { page: 2, limit: 10, email: 'juan' } as any;
+      const paginated = mockPaginated([]);
+      service.findAll.mockResolvedValue(paginated);
 
-    it('should pass query params to service', async () => {
-      service.findAll.mockResolvedValue(mockPaginated([]));
-      const query = { email: 'juan' } as any;
-      await controller.findAll(query);
+      const result = await controller.findAll(query);
+
       expect(service.findAll).toHaveBeenCalledWith(
         query,
         query.page,
         query.limit,
       );
+      expect(result).toBe(paginated);
     });
   });
 
@@ -97,16 +98,30 @@ describe('UsersController', () => {
   // ==========================
 
   describe('findOne', () => {
-    it('should return own user', async () => {
-      service.findOne.mockResolvedValue(mockUserDto() as any);
+    it('delegates to service.findOne when accessing own user', async () => {
+      const user = mockUserDto();
+      service.findOne.mockResolvedValue(user as any);
+
       const result = await controller.findOne(1, mockJwt(1));
+
       expect(service.findOne).toHaveBeenCalledWith(1);
-      expect(result.id).toBe(1);
+      expect(result).toBe(user);
     });
 
-    it('should throw ForbiddenException if accessing another user', () => {
+    it('throws ForbiddenException when accessing another user', () => {
       expect(() => controller.findOne(2, mockJwt(1))).toThrow(
         ForbiddenException,
+      );
+      expect(service.findOne).not.toHaveBeenCalled();
+    });
+
+    it('propagates NotFoundException from service', async () => {
+      service.findOne.mockRejectedValue(
+        new NotFoundException('Usuario no encontrado'),
+      );
+
+      await expect(controller.findOne(1, mockJwt(1))).rejects.toThrow(
+        NotFoundException,
       );
     });
   });
@@ -116,22 +131,31 @@ describe('UsersController', () => {
   // ==========================
 
   describe('update', () => {
-    it('should update own user', async () => {
+    it('delegates to service.update when updating own user', async () => {
       const dto = { name: 'Carlos' };
-      const updated = mockUserDto({
-        profile: { id: 1, name: 'Carlos', lastName: 'Pérez', avatar: null },
-      });
+      const updated = mockUserDto();
       service.update.mockResolvedValue(updated as any);
 
       const result = await controller.update(1, mockJwt(1), dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
-      expect(result.profile.name).toBe('Carlos');
+      expect(result).toBe(updated);
     });
 
-    it('should throw ForbiddenException if updating another user', () => {
+    it('throws ForbiddenException when updating another user', () => {
       expect(() => controller.update(2, mockJwt(1), {} as any)).toThrow(
         ForbiddenException,
+      );
+      expect(service.update).not.toHaveBeenCalled();
+    });
+
+    it('propagates NotFoundException from service', async () => {
+      service.update.mockRejectedValue(
+        new NotFoundException('Usuario no encontrado'),
+      );
+
+      await expect(controller.update(1, mockJwt(1), {} as any)).rejects.toThrow(
+        NotFoundException,
       );
     });
   });
@@ -141,15 +165,39 @@ describe('UsersController', () => {
   // ==========================
 
   describe('remove', () => {
-    it('should remove own user', async () => {
+    it('delegates to service.remove when removing own user', async () => {
       service.remove.mockResolvedValue(undefined);
-      await controller.remove(1, mockJwt(1));
+
+      const result = await controller.remove(1, mockJwt(1));
+
       expect(service.remove).toHaveBeenCalledWith(1);
+      expect(result).toBeUndefined();
     });
 
-    it('should throw ForbiddenException if removing another user', () => {
+    it('throws ForbiddenException when removing another user', () => {
       expect(() => controller.remove(2, mockJwt(1))).toThrow(
         ForbiddenException,
+      );
+      expect(service.remove).not.toHaveBeenCalled();
+    });
+
+    it('propagates NotFoundException from service', async () => {
+      service.remove.mockRejectedValue(
+        new NotFoundException('Usuario no encontrado'),
+      );
+
+      await expect(controller.remove(1, mockJwt(1))).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates ConflictException from service when user has active orders', async () => {
+      service.remove.mockRejectedValue(
+        new ConflictException('Tenés órdenes pendientes de completar'),
+      );
+
+      await expect(controller.remove(1, mockJwt(1))).rejects.toThrow(
+        ConflictException,
       );
     });
   });

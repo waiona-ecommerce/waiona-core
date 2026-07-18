@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, DataSource, FindOptionsWhere } from 'typeorm';
+import { Repository, ILike, DataSource, FindOptionsWhere, In } from 'typeorm';
 
 import { UserEntity } from '../entities/user.entity';
 import { ProfileEntity } from '../entities/profile.entity';
@@ -16,6 +16,14 @@ import { SearchUsersDto } from '../dto/search-users.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { RoleType } from '../../../common/enums/role-type.enum';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
+import { OrderEntity } from '../../orders/entities/order.entity';
+import { OrderStatus } from '../../orders/enums/order-status.enum';
+
+const ACTIVE_ORDER_STATUSES = [
+  OrderStatus.PENDING,
+  OrderStatus.CONFIRMED,
+  OrderStatus.DISPATCHED,
+];
 
 @Injectable()
 export class UsersService {
@@ -25,6 +33,9 @@ export class UsersService {
 
     @InjectRepository(RoleEntity)
     private readonly roleRepo: Repository<RoleEntity>,
+
+    @InjectRepository(OrderEntity)
+    private readonly orderRepo: Repository<OrderEntity>,
 
     private readonly dataSource: DataSource,
   ) {}
@@ -100,7 +111,8 @@ export class UsersService {
         .leftJoinAndSelect('user.role', 'role')
         .where('(profile.name ILIKE :name OR profile.last_name ILIKE :name)', {
           name: `%${dto.name}%`,
-        });
+        })
+        .andWhere('user.deletedAt IS NULL');
 
       if (dto.email) {
         qb.andWhere('user.email ILIKE :email', { email: `%${dto.email}%` });
@@ -157,6 +169,16 @@ export class UsersService {
   ======================= */
   async remove(id: number): Promise<void> {
     const user = await this.findEntity(id);
+
+    const activeOrders = await this.orderRepo.count({
+      where: { userId: id, status: In(ACTIVE_ORDER_STATUSES) },
+    });
+    if (activeOrders > 0) {
+      throw new ConflictException(
+        'No se puede eliminar la cuenta: tenés órdenes pendientes de completar',
+      );
+    }
+
     await this.dataSource.transaction(async (manager) => {
       await manager.softDelete(UserEntity, id);
       await manager.softDelete(ProfileEntity, user.profileId);
