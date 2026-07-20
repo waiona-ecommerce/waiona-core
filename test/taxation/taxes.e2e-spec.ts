@@ -16,6 +16,9 @@ import { TaxesService } from '../../src/modules/taxation/taxes/services/taxes.se
 import { TaxEntity } from '../../src/modules/taxation/taxes/entities/tax.entity';
 import { ProductTaxEntity } from '../../src/modules/taxation/product-taxes/entities/product-taxes.entity';
 
+// productTaxFindOne es mutable — por default el impuesto no está asignado a ningún producto
+const productTaxFindOne = jest.fn().mockResolvedValue(null);
+
 describe('Taxes (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -45,7 +48,7 @@ describe('Taxes (e2e)', () => {
         TaxesService,
         {
           provide: getRepositoryToken(ProductTaxEntity),
-          useValue: { findOne: jest.fn().mockResolvedValue(null) },
+          useValue: { findOne: productTaxFindOne },
         },
       ],
     })
@@ -120,6 +123,15 @@ describe('Taxes (e2e)', () => {
       .expect(400);
   });
 
+  it('POST /taxes → normaliza el code a mayúsculas y sin espacios', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: '  lower  ', name: 'Lower Case Tax', value: 2 })
+      .expect(201);
+
+    expect(res.body.code).toBe('LOWER');
+  });
+
   it('POST /taxes → 409 si código duplicado', async () => {
     await request(app.getHttpServer())
       .post('/v1/taxes')
@@ -141,6 +153,16 @@ describe('Taxes (e2e)', () => {
 
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.total).toBeGreaterThan(0);
+  });
+
+  it('GET /taxes?page=&limit= → respeta la paginación', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/taxes?page=1&limit=1')
+      .expect(200);
+
+    expect(res.body.data.length).toBeLessThanOrEqual(1);
+    expect(res.body.page).toBe(1);
+    expect(res.body.limit).toBe(1);
   });
 
   // -------------------------
@@ -198,9 +220,40 @@ describe('Taxes (e2e)', () => {
       .expect(404);
   });
 
+  it('PATCH /taxes/:id → 409 si el nuevo código ya existe', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'TAKEN', name: 'Codigo Existente Tax', value: 4 });
+
+    const created = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'PATCHCONFLICT', name: 'Para Conflicto Tax', value: 4 });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/taxes/${created.body.id}`)
+      .send({ code: 'TAKEN' })
+      .expect(409);
+  });
+
   // -------------------------
   // DELETE
   // -------------------------
+
+  it('DELETE /taxes/:id → 409 si está asignado a un producto', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/taxes')
+      .send({ code: 'ASSIGNED', name: 'Asignado a Producto Tax', value: 7 });
+
+    productTaxFindOne.mockResolvedValueOnce({
+      id: 1,
+      taxId: created.body.id,
+      productId: 1,
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/v1/taxes/${created.body.id}`)
+      .expect(409);
+  });
 
   it('DELETE /taxes/:id → 204 y luego 404', async () => {
     const created = await request(app.getHttpServer())
