@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { TaxesController } from './taxes.controller';
 import { TaxesService } from '../services/taxes.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -61,38 +62,21 @@ describe('TaxesController', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('should return all taxes', async () => {
-      const tax = mockTaxResponse();
+    it('delegates to service.findAll with page and limit', async () => {
       const paginated = {
-        data: [tax],
+        data: [mockTaxResponse()],
         total: 1,
-        page: 1,
-        limit: 20,
+        page: 3,
+        limit: 5,
         totalPages: 1,
         hasNextPage: false,
       };
       service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll({ page: 1, limit: 20 });
+      const result = await controller.findAll({ page: 3, limit: 5 });
 
-      expect(service.findAll).toHaveBeenCalledWith(1, 20);
-      expect(result.data).toEqual([tax]);
-    });
-
-    it('should return empty data if no taxes', async () => {
-      const paginated = {
-        data: [],
-        total: 0,
-        page: 1,
-        limit: 20,
-        totalPages: 0,
-        hasNextPage: false,
-      };
-      service.findAll.mockResolvedValue(paginated);
-
-      const result = await controller.findAll({ page: 1, limit: 20 });
-
-      expect(result.data).toEqual([]);
+      expect(service.findAll).toHaveBeenCalledWith(3, 5);
+      expect(result).toBe(paginated);
     });
   });
 
@@ -101,14 +85,22 @@ describe('TaxesController', () => {
   // ==========================
 
   describe('findOne', () => {
-    it('should return a tax by id', async () => {
+    it('delegates to service.findById', async () => {
       const tax = mockTaxResponse();
       service.findById.mockResolvedValue(tax);
 
       const result = await controller.findOne(1);
 
       expect(service.findById).toHaveBeenCalledWith(1);
-      expect(result).toEqual(tax);
+      expect(result).toBe(tax);
+    });
+
+    it('propagates NotFoundException from service', async () => {
+      service.findById.mockRejectedValue(
+        new NotFoundException('Impuesto no encontrado'),
+      );
+
+      await expect(controller.findOne(1)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -117,19 +109,30 @@ describe('TaxesController', () => {
   // ==========================
 
   describe('create', () => {
-    it('should create a tax', async () => {
-      const dto = {
-        code: 'IVA',
-        name: 'IMPUESTO AL VALOR AGREGADO',
-        value: 21,
-      };
+    const dto = {
+      code: 'IVA',
+      name: 'IMPUESTO AL VALOR AGREGADO',
+      value: 21,
+    };
+
+    it('delegates to service.create', async () => {
       const tax = mockTaxResponse();
       service.create.mockResolvedValue(tax);
 
       const result = await controller.create(dto);
 
       expect(service.create).toHaveBeenCalledWith(dto);
-      expect(result).toEqual(tax);
+      expect(result).toBe(tax);
+    });
+
+    it('propagates ConflictException from service when code already exists', async () => {
+      service.create.mockRejectedValue(
+        new ConflictException('Ya existe un impuesto con el código "IVA"'),
+      );
+
+      await expect(controller.create(dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -138,7 +141,7 @@ describe('TaxesController', () => {
   // ==========================
 
   describe('update', () => {
-    it('should update a tax', async () => {
+    it('delegates to service.update', async () => {
       const dto = { value: 15 };
       const tax = mockTaxResponse({ value: 15 });
       service.update.mockResolvedValue(tax);
@@ -146,7 +149,17 @@ describe('TaxesController', () => {
       const result = await controller.update(1, dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
-      expect(result).toEqual(tax);
+      expect(result).toBe(tax);
+    });
+
+    it('propagates NotFoundException from service', async () => {
+      service.update.mockRejectedValue(
+        new NotFoundException('Impuesto no encontrado'),
+      );
+
+      await expect(controller.update(1, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -155,12 +168,21 @@ describe('TaxesController', () => {
   // ==========================
 
   describe('remove', () => {
-    it('should delete a tax', async () => {
+    it('delegates to service.delete', async () => {
       service.delete.mockResolvedValue(undefined);
 
-      await controller.remove(1);
+      const result = await controller.remove(1);
 
       expect(service.delete).toHaveBeenCalledWith(1);
+      expect(result).toBeUndefined();
+    });
+
+    it('propagates NotFoundException from service', async () => {
+      service.delete.mockRejectedValue(
+        new NotFoundException('Impuesto no encontrado'),
+      );
+
+      await expect(controller.remove(1)).rejects.toThrow(NotFoundException);
     });
   });
 });
