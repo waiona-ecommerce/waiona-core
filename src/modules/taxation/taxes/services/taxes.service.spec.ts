@@ -216,9 +216,7 @@ describe('TaxesService', () => {
     it('throws NotFoundException without merging or saving', async () => {
       taxRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.update(999, {})).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.update(999, {})).rejects.toThrow(NotFoundException);
       expect(taxRepo.merge).not.toHaveBeenCalled();
       expect(taxRepo.save).not.toHaveBeenCalled();
     });

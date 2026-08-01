@@ -130,9 +130,7 @@ describe('TaxesController', () => {
         new ConflictException('Ya existe un impuesto con el código "IVA"'),
       );
 
-      await expect(controller.create(dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(controller.create(dto)).rejects.toThrow(ConflictException);
     });
   });
 
@@ -157,9 +155,7 @@ describe('TaxesController', () => {
         new NotFoundException('Impuesto no encontrado'),
       );
 
-      await expect(controller.update(1, {})).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(controller.update(1, {})).rejects.toThrow(NotFoundException);
     });
   });
 
