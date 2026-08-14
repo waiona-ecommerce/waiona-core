@@ -154,6 +154,13 @@ describe('ProductTaxes (e2e)', () => {
       .expect(400);
   });
 
+  it('POST /products/:productId/taxes -> should fail if tax already assigned', async () => {
+    await request(app.getHttpServer())
+      .post(`/v1/products/${productId}/taxes`)
+      .send({ taxId })
+      .expect(409);
+  });
+
   // -------------------------
   // FIND ALL
   // -------------------------
@@ -230,6 +237,130 @@ describe('ProductTaxes (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/v1/products/${productId}/taxes/999999`)
       .expect(404);
+  });
+
+  // -------------------------
+  // UPDATE
+  // -------------------------
+
+  describe('PATCH /products/:productId/taxes/:id', () => {
+    it('should update the assigned tax', async () => {
+      const category = await dataSource.manager.save(CategoryEntity, {
+        name: 'Category Update',
+        isActive: true,
+      });
+      const product = await dataSource.manager.save(ProductEntity, {
+        sku: 'TEST-UPDATE-001',
+        name: 'Test Product Update',
+        description: 'Test description',
+        isActive: true,
+        categoryId: category.id,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
+      const taxA = await dataSource.manager.save(TaxEntity, {
+        code: 'UPD-A',
+        name: 'Update Tax A',
+        value: 7,
+        isGlobal: false,
+      });
+      const taxB = await dataSource.manager.save(TaxEntity, {
+        code: 'UPD-B',
+        name: 'Update Tax B',
+        value: 9,
+        isGlobal: false,
+      });
+
+      const createRes = await request(app.getHttpServer())
+        .post(`/v1/products/${product.id}/taxes`)
+        .send({ taxId: taxA.id })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/products/${product.id}/taxes/${createRes.body.id}`)
+        .send({ taxId: taxB.id })
+        .expect(200);
+
+      expect(res.body.taxId).toBe(taxB.id);
+    });
+
+    it('should return 404 when not found', async () => {
+      await request(app.getHttpServer())
+        .patch(`/v1/products/${productId}/taxes/999999`)
+        .send({ taxId })
+        .expect(404);
+    });
+
+    it('should fail if the new tax is global', async () => {
+      const category = await dataSource.manager.save(CategoryEntity, {
+        name: 'Category Update Global',
+        isActive: true,
+      });
+      const product = await dataSource.manager.save(ProductEntity, {
+        sku: 'TEST-UPDATE-002',
+        name: 'Test Product Update Global',
+        description: 'Test description',
+        isActive: true,
+        categoryId: category.id,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
+      const tax = await dataSource.manager.save(TaxEntity, {
+        code: 'UPD-C',
+        name: 'Update Tax C',
+        value: 4,
+        isGlobal: false,
+      });
+
+      const createRes = await request(app.getHttpServer())
+        .post(`/v1/products/${product.id}/taxes`)
+        .send({ taxId: tax.id })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/v1/products/${product.id}/taxes/${createRes.body.id}`)
+        .send({ taxId: globalTaxId })
+        .expect(400);
+    });
+
+    it('should fail if the new tax is already assigned to the product', async () => {
+      const category = await dataSource.manager.save(CategoryEntity, {
+        name: 'Category Update Conflict',
+        isActive: true,
+      });
+      const product = await dataSource.manager.save(ProductEntity, {
+        sku: 'TEST-UPDATE-003',
+        name: 'Test Product Update Conflict',
+        description: 'Test description',
+        isActive: true,
+        categoryId: category.id,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
+      const taxA = await dataSource.manager.save(TaxEntity, {
+        code: 'UPD-D',
+        name: 'Update Tax D',
+        value: 2,
+        isGlobal: false,
+      });
+      const taxB = await dataSource.manager.save(TaxEntity, {
+        code: 'UPD-E',
+        name: 'Update Tax E',
+        value: 6,
+        isGlobal: false,
+      });
+
+      await request(app.getHttpServer())
+        .post(`/v1/products/${product.id}/taxes`)
+        .send({ taxId: taxA.id })
+        .expect(201);
+      const createResB = await request(app.getHttpServer())
+        .post(`/v1/products/${product.id}/taxes`)
+        .send({ taxId: taxB.id })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/v1/products/${product.id}/taxes/${createResB.body.id}`)
+        .send({ taxId: taxA.id })
+        .expect(409);
+    });
   });
 
   // -------------------------

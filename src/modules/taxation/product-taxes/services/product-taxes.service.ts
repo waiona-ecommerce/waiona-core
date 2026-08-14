@@ -142,6 +142,11 @@ export class ProductTaxesService {
           `El impuesto ${dto.taxId} ya está asignado a este producto`,
         );
       }
+
+      // Sincroniza la relación cargada — si solo se actualiza el taxId
+      // escalar, TypeORM prioriza el objeto `tax` (todavía el viejo) al
+      // armar el UPDATE, y el cambio se pierde silenciosamente.
+      productTax.tax = tax;
     }
 
     const merged = this.productTaxRepository.merge(productTax, dto);
