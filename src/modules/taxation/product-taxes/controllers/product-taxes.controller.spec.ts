@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProductTaxesController } from './product-taxes.controller';
 import { ProductTaxesService } from '../services/product-taxes.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -109,6 +114,13 @@ describe('ProductTaxesController', () => {
       expect(service.findOne).toHaveBeenCalledWith(1);
       expect(result).toEqual(tax);
     });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.findOne.mockRejectedValueOnce(
+        new NotFoundException('Impuesto de producto con id 999 no encontrado'),
+      );
+      await expect(controller.findOne(999)).rejects.toThrow(NotFoundException);
+    });
   });
 
   // ==========================
@@ -125,6 +137,38 @@ describe('ProductTaxesController', () => {
 
       expect(service.create).toHaveBeenCalledWith({ taxId: 1, productId: 1 });
       expect(result).toEqual(tax);
+    });
+
+    it('propagates NotFoundException when the tax does not exist', async () => {
+      const dto = { taxId: 999 };
+      service.create.mockRejectedValueOnce(
+        new NotFoundException('Impuesto con id 999 no encontrado'),
+      );
+      await expect(controller.create(1, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates BadRequestException when the tax is global', async () => {
+      const dto = { taxId: 1 };
+      service.create.mockRejectedValueOnce(
+        new BadRequestException(
+          'Un impuesto global no puede asignarse a un producto específico',
+        ),
+      );
+      await expect(controller.create(1, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates ConflictException when the tax is already assigned', async () => {
+      const dto = { taxId: 1 };
+      service.create.mockRejectedValueOnce(
+        new ConflictException('El impuesto 1 ya está asignado a este producto'),
+      );
+      await expect(controller.create(1, dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -143,6 +187,38 @@ describe('ProductTaxesController', () => {
       expect(service.update).toHaveBeenCalledWith(1, dto);
       expect(result).toEqual(tax);
     });
+
+    it('propagates NotFoundException when the product tax does not exist', async () => {
+      const dto = { taxId: 2 };
+      service.update.mockRejectedValueOnce(
+        new NotFoundException('Impuesto de producto con id 999 no encontrado'),
+      );
+      await expect(controller.update(999, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates BadRequestException when the new tax is global', async () => {
+      const dto = { taxId: 2 };
+      service.update.mockRejectedValueOnce(
+        new BadRequestException(
+          'Un impuesto global no puede asignarse a un producto específico',
+        ),
+      );
+      await expect(controller.update(1, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates ConflictException when the new tax is already assigned', async () => {
+      const dto = { taxId: 2 };
+      service.update.mockRejectedValueOnce(
+        new ConflictException('El impuesto 2 ya está asignado a este producto'),
+      );
+      await expect(controller.update(1, dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
   });
 
   // ==========================
@@ -156,6 +232,13 @@ describe('ProductTaxesController', () => {
       await controller.remove(1);
 
       expect(service.remove).toHaveBeenCalledWith(1);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.remove.mockRejectedValueOnce(
+        new NotFoundException('Impuesto de producto con id 999 no encontrado'),
+      );
+      await expect(controller.remove(999)).rejects.toThrow(NotFoundException);
     });
   });
 });
