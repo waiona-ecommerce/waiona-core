@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
@@ -73,6 +78,21 @@ describe('AuthController', () => {
       expect(service.register).toHaveBeenCalledWith(dto);
       expect(result.message).toContain('check your email');
     });
+
+    it('propagates ConflictException when the email already exists', async () => {
+      service.register.mockRejectedValueOnce(
+        new ConflictException('El email ya está en uso'),
+      );
+
+      const dto = {
+        email: 'juan@test.com',
+        password: '12345678',
+        name: 'Juan',
+        lastName: 'Pérez',
+      };
+
+      await expect(controller.register(dto)).rejects.toThrow(ConflictException);
+    });
   });
 
   // ==========================
@@ -87,6 +107,16 @@ describe('AuthController', () => {
 
       expect(service.activateAccount).toHaveBeenCalledWith('valid_token');
       expect(result.message).toContain('activated successfully');
+    });
+
+    it('propagates BadRequestException when the token is invalid or expired', async () => {
+      service.activateAccount.mockRejectedValueOnce(
+        new BadRequestException('Token inválido o expirado'),
+      );
+
+      await expect(controller.activate('bad_token')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -140,6 +170,16 @@ describe('AuthController', () => {
 
       expect(service.logout).toHaveBeenCalledWith('some_token');
     });
+
+    it('propagates UnauthorizedException when the refresh token is invalid or revoked', async () => {
+      service.logout.mockRejectedValueOnce(
+        new UnauthorizedException('El token de refresco fue revocado'),
+      );
+
+      await expect(
+        controller.logout({ refresh_token: 'revoked_token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   // ==========================
@@ -173,6 +213,17 @@ describe('AuthController', () => {
       expect(service.resetPassword).toHaveBeenCalledWith(dto);
       expect(result.message).toContain('reset successfully');
     });
+
+    it('propagates BadRequestException when the token is invalid or expired', async () => {
+      service.resetPassword.mockRejectedValueOnce(
+        new BadRequestException('Token inválido o expirado'),
+      );
+
+      const dto = { token: 'bad_token', password: 'newPassword123' };
+      await expect(controller.resetPassword(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 
   // ==========================
@@ -189,6 +240,18 @@ describe('AuthController', () => {
 
       expect(service.changePassword).toHaveBeenCalledWith(1, dto);
       expect(result.message).toContain('changed successfully');
+    });
+
+    it('propagates BadRequestException when the current password is incorrect', async () => {
+      service.changePassword.mockRejectedValueOnce(
+        new BadRequestException('La contraseña actual es incorrecta'),
+      );
+      const req = { sub: 1, role: RoleType.CLIENT };
+      const dto = { currentPassword: 'wrong', newPassword: 'NewPass1!' };
+
+      await expect(controller.changePassword(req, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
