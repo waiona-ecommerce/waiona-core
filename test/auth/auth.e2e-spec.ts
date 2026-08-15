@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   INestApplication,
@@ -181,6 +182,30 @@ describe('Auth (e2e)', () => {
       request(app.getHttpServer())
         .get('/v1/auth/activate?token=invalid')
         .expect(400));
+
+    it('should return 400 if token is expired', async () => {
+      mockMailService.sendActivationEmail.mockClear();
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/register')
+        .send({
+          email: 'expired-activation@waiona.com',
+          password: 'Test1234!',
+          name: 'Expired',
+          lastName: 'Token',
+        })
+        .expect(201);
+
+      const expiredToken = mockMailService.sendActivationEmail.mock.calls[0][2];
+
+      const tokenRepo = dataSource.getRepository(TokenEntity);
+      const tokenHash = createHash('sha256').update(expiredToken).digest('hex');
+      await tokenRepo.update({ tokenHash }, { expiresAt: new Date(0) });
+
+      await request(app.getHttpServer())
+        .get(`/v1/auth/activate?token=${expiredToken}`)
+        .expect(400);
+    });
   });
 
   // =============================================
@@ -207,6 +232,12 @@ describe('Auth (e2e)', () => {
       request(app.getHttpServer())
         .post('/v1/auth/login')
         .send({ email: testUser.email, password: 'wrong' })
+        .expect(401));
+
+    it('should return 401 with unknown email', () =>
+      request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: 'noexiste@waiona.com', password: 'whatever' })
         .expect(401));
   });
 
@@ -262,6 +293,22 @@ describe('Auth (e2e)', () => {
         .send({})
         .expect(400);
     });
+
+    it('401 — token expirado', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: testUser.email, password: testUser.password });
+      const expiredToken = loginRes.body.refresh_token;
+
+      const refreshRepo = dataSource.getRepository(RefreshTokenEntity);
+      const tokenHash = createHash('sha256').update(expiredToken).digest('hex');
+      await refreshRepo.update({ tokenHash }, { expiresAt: new Date(0) });
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/refresh')
+        .send({ refresh_token: expiredToken })
+        .expect(401);
+    });
   });
 
   // =============================================
@@ -296,6 +343,22 @@ describe('Auth (e2e)', () => {
         .send({})
         .expect(400);
     });
+
+    it('401 — token expirado', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: testUser.email, password: testUser.password });
+      const expiredToken = loginRes.body.refresh_token;
+
+      const refreshRepo = dataSource.getRepository(RefreshTokenEntity);
+      const tokenHash = createHash('sha256').update(expiredToken).digest('hex');
+      await refreshRepo.update({ tokenHash }, { expiresAt: new Date(0) });
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/logout')
+        .send({ refresh_token: expiredToken })
+        .expect(401);
+    });
   });
 
   // =============================================
@@ -325,12 +388,13 @@ describe('Auth (e2e)', () => {
   // =============================================
 
   describe('POST /auth/reset-password', () => {
+    let usedResetToken: string;
+
     it('should reset password and allow login with new password', async () => {
-      const resetToken =
-        mockMailService.sendPasswordResetEmail.mock.calls[0][2];
+      usedResetToken = mockMailService.sendPasswordResetEmail.mock.calls[0][2];
       await request(app.getHttpServer())
         .post('/v1/auth/reset-password')
-        .send({ token: resetToken, password: 'NewPass1234!' })
+        .send({ token: usedResetToken, password: 'NewPass1234!' })
         .expect(200);
       const loginRes = await request(app.getHttpServer())
         .post('/v1/auth/login')
@@ -344,6 +408,12 @@ describe('Auth (e2e)', () => {
       request(app.getHttpServer())
         .post('/v1/auth/reset-password')
         .send({ token: 'invalid', password: 'NewPass1234!' })
+        .expect(400));
+
+    it('should return 400 if token was already used', () =>
+      request(app.getHttpServer())
+        .post('/v1/auth/reset-password')
+        .send({ token: usedResetToken, password: 'AnotherPass1!' })
         .expect(400));
   });
 

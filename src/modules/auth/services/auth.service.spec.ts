@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 
 jest.mock('bcrypt', () => ({ compare: jest.fn() }));
 import * as bcrypt from 'bcrypt';
@@ -326,6 +330,15 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
     });
+
+    it('should throw 401 if refresh token is expired', async () => {
+      refreshTokenRepo.findOne.mockResolvedValue(
+        mockRefreshToken({ isExpired: true }),
+      );
+      await expect(service.logout('raw_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
   });
 
   // ==========================
@@ -360,6 +373,21 @@ describe('AuthService', () => {
         user.profile.name,
         expect.any(String),
       );
+    });
+
+    it('propagates ConflictException when the email already exists', async () => {
+      usersService.create.mockRejectedValue(
+        new ConflictException('El email ya está en uso'),
+      );
+
+      await expect(
+        service.register({
+          email: 'juan@test.com',
+          password: 'pw',
+          name: 'Juan',
+          lastName: 'Pérez',
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -471,6 +499,24 @@ describe('AuthService', () => {
       tokenRepo.findOne.mockResolvedValue(null);
       await expect(
         service.resetPassword({ token: 'bad', password: 'new' } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw 400 if token already used', async () => {
+      tokenRepo.findOne.mockResolvedValue(
+        mockToken({ type: TokenType.PASSWORD_RESET, isUsed: true }),
+      );
+      await expect(
+        service.resetPassword({ token: 'raw_token', password: 'new' } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw 400 if token is expired', async () => {
+      tokenRepo.findOne.mockResolvedValue(
+        mockToken({ type: TokenType.PASSWORD_RESET, isExpired: true }),
+      );
+      await expect(
+        service.resetPassword({ token: 'raw_token', password: 'new' } as any),
       ).rejects.toThrow(BadRequestException);
     });
 
