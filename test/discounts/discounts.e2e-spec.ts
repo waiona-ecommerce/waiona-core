@@ -487,6 +487,12 @@ describe('Discounts (e2e)', () => {
         .expect(404);
     });
 
+    it('404 — si el descuento no existe', async () => {
+      await request(app.getHttpServer())
+        .delete('/v1/discounts/999999/targets/products/1')
+        .expect(404);
+    });
+
     it('201 — un producto puede reasignarse a otro descuento después de eliminar el target', async () => {
       const d1 = await request(app.getHttpServer())
         .post('/v1/discounts')
@@ -701,6 +707,12 @@ describe('Discounts (e2e)', () => {
 
       await request(app.getHttpServer())
         .delete(`/v1/discounts/${discountRes.body.id}/targets/combos/999999`)
+        .expect(404);
+    });
+
+    it('404 — si el descuento no existe', async () => {
+      await request(app.getHttpServer())
+        .delete('/v1/discounts/999999/targets/combos/1')
         .expect(404);
     });
 
