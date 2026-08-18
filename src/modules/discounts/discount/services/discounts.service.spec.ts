@@ -95,14 +95,32 @@ describe('DiscountsService', () => {
   });
 
   describe('update', () => {
-    it('should update a discount', async () => {
+    it('should merge the dto into the entity and save it', async () => {
       const entity = mockDiscount();
-      const updated = mockDiscount({ name: 'PROMO ACTUALIZADA' });
       repo.findOne.mockResolvedValue(entity);
-      repo.save.mockResolvedValue(updated);
-      expect(
-        (await service.update(1, { name: 'PROMO ACTUALIZADA' } as any)).name,
-      ).toBe('PROMO ACTUALIZADA');
+      repo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+      const result = await service.update(1, {
+        name: 'PROMO ACTUALIZADA',
+        description: 'NUEVA DESCRIPCIÓN',
+        value: 25,
+      });
+
+      expect(result.name).toBe('PROMO ACTUALIZADA');
+      expect(result.description).toBe('NUEVA DESCRIPCIÓN');
+      expect(result.value).toBe(25);
+    });
+
+    it('keeps existing fields when only one is provided', async () => {
+      const entity = mockDiscount();
+      repo.findOne.mockResolvedValue(entity);
+      repo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+      const result = await service.update(1, { value: 30 });
+
+      expect(result.value).toBe(30);
+      expect(result.name).toBe(entity.name);
+      expect(result.description).toBe(entity.description);
     });
 
     it('should throw NotFoundException', async () => {
