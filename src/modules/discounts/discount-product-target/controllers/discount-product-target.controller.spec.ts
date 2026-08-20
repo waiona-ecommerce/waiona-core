@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DiscountProductTargetController } from './discount-product-target.controller';
 import { DiscountProductTargetService } from '../services/discount-product-target.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -68,7 +69,27 @@ describe('DiscountProductTargetController', () => {
       const result = await controller.create(1, dto);
 
       expect(service.create).toHaveBeenCalledWith(1, dto);
-      expect(result).toEqual(target);
+      expect(result).toBe(target);
+    });
+
+    it('propagates NotFoundException when the discount does not exist', async () => {
+      service.create.mockRejectedValueOnce(
+        new NotFoundException('Descuento con id 999 no encontrado'),
+      );
+
+      await expect(controller.create(999, { productId: 1 })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates ConflictException when the product already has an assigned discount', async () => {
+      service.create.mockRejectedValueOnce(
+        new ConflictException('El producto 1 ya tiene un descuento asignado'),
+      );
+
+      await expect(controller.create(1, { productId: 1 })).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -92,7 +113,7 @@ describe('DiscountProductTargetController', () => {
       const result = await controller.findAll(1, { page: 1, limit: 20 });
 
       expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
-      expect(result.data).toEqual([target]);
+      expect(result).toBe(paginated);
     });
 
     it('should return empty data if no targets', async () => {
@@ -110,6 +131,16 @@ describe('DiscountProductTargetController', () => {
 
       expect(result.data).toEqual([]);
     });
+
+    it('propagates NotFoundException when the discount does not exist', async () => {
+      service.findAll.mockRejectedValueOnce(
+        new NotFoundException('Descuento con id 999 no encontrado'),
+      );
+
+      await expect(
+        controller.findAll(999, { page: 1, limit: 20 }),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   // ==========================
@@ -123,6 +154,18 @@ describe('DiscountProductTargetController', () => {
       await controller.remove(1, 1);
 
       expect(service.remove).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.remove.mockRejectedValueOnce(
+        new NotFoundException(
+          'El producto 999 no está asignado al descuento 1',
+        ),
+      );
+
+      await expect(controller.remove(1, 999)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
