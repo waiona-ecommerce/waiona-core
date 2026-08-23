@@ -34,25 +34,6 @@ import { UserEntity } from '../../users/entities/user.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 
-const mockManagerRefreshRepo = {
-  findOne: jest.fn(),
-  create: jest.fn(),
-  save: jest.fn(),
-};
-
-const mockManager = {
-  findOne: jest.fn(),
-  update: jest.fn(),
-  save: jest.fn(),
-  getRepository: jest.fn(() => mockManagerRefreshRepo),
-};
-
-const mockDataSource = {
-  transaction: jest.fn((cb: (m: typeof mockManager) => Promise<any>) =>
-    cb(mockManager),
-  ),
-};
-
 describe('AuthService', () => {
   let service: AuthService;
   let usersService: any;
@@ -60,6 +41,9 @@ describe('AuthService', () => {
   let mailService: any;
   let tokenRepo: any;
   let refreshTokenRepo: any;
+  let mockManagerRefreshRepo: any;
+  let mockManager: any;
+  let mockDataSource: any;
 
   const mockUsersService = () => ({
     findByEmail: jest.fn(),
@@ -130,6 +114,25 @@ describe('AuthService', () => {
     }) as unknown as RefreshTokenEntity;
 
   beforeEach(async () => {
+    mockManagerRefreshRepo = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+
+    mockManager = {
+      findOne: jest.fn(),
+      update: jest.fn(),
+      save: jest.fn(),
+      getRepository: jest.fn(() => mockManagerRefreshRepo),
+    };
+
+    mockDataSource = {
+      transaction: jest.fn((cb: (m: typeof mockManager) => Promise<any>) =>
+        cb(mockManager),
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
