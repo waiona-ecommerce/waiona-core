@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { DiscountComboTargetController } from './discount-combo-target.controller';
@@ -50,22 +51,46 @@ describe('DiscountComboTargetController', () => {
 
   it('should be defined', () => expect(controller).toBeDefined());
 
+  // ==========================
+  // create
+  // ==========================
+
   describe('create', () => {
     it('should create a combo target', async () => {
+      const dto = { comboId: 1 };
       const target = mockTargetResponse();
       service.create.mockResolvedValue(target);
-      const result = await controller.create(1, { comboId: 1 });
-      expect(service.create).toHaveBeenCalledWith(1, { comboId: 1 });
-      expect(result).toEqual(target);
+
+      const result = await controller.create(1, dto);
+
+      expect(service.create).toHaveBeenCalledWith(1, dto);
+      expect(result).toBe(target);
     });
 
-    it('should propagate error from service', async () => {
-      service.create.mockRejectedValue(new Error('boom'));
-      await expect(controller.create(1, { comboId: 1 } as any)).rejects.toThrow(
-        'boom',
+    it('propagates NotFoundException when the discount does not exist', async () => {
+      service.create.mockRejectedValueOnce(
+        new NotFoundException('Descuento con id 999 no encontrado'),
+      );
+
+      await expect(controller.create(999, { comboId: 1 })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates ConflictException when the combo already has an assigned discount', async () => {
+      service.create.mockRejectedValueOnce(
+        new ConflictException('El combo 1 ya tiene un descuento asignado'),
+      );
+
+      await expect(controller.create(1, { comboId: 1 })).rejects.toThrow(
+        ConflictException,
       );
     });
   });
+
+  // ==========================
+  // findAll
+  // ==========================
 
   describe('findAll', () => {
     it('should return all combo targets for a discount', async () => {
@@ -79,9 +104,11 @@ describe('DiscountComboTargetController', () => {
         hasNextPage: false,
       };
       service.findAll.mockResolvedValue(paginated);
+
       const result = await controller.findAll(1, { page: 1, limit: 20 });
+
       expect(service.findAll).toHaveBeenCalledWith(1, 1, 20);
-      expect(result.data).toEqual([target]);
+      expect(result).toBe(paginated);
     });
 
     it('should return empty data if no targets', async () => {
@@ -94,29 +121,44 @@ describe('DiscountComboTargetController', () => {
         hasNextPage: false,
       };
       service.findAll.mockResolvedValue(paginated);
-      expect(
-        (await controller.findAll(1, { page: 1, limit: 20 })).data,
-      ).toEqual([]);
+
+      const result = await controller.findAll(1, { page: 1, limit: 20 });
+
+      expect(result.data).toEqual([]);
     });
 
-    it('should propagate error from service', async () => {
-      service.findAll.mockRejectedValue(new Error('boom'));
+    it('propagates NotFoundException when the discount does not exist', async () => {
+      service.findAll.mockRejectedValueOnce(
+        new NotFoundException('Descuento con id 999 no encontrado'),
+      );
+
       await expect(
-        controller.findAll(1, { page: 1, limit: 20 }),
-      ).rejects.toThrow('boom');
+        controller.findAll(999, { page: 1, limit: 20 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
+
+  // ==========================
+  // remove
+  // ==========================
 
   describe('remove', () => {
     it('should remove a combo target', async () => {
       service.remove.mockResolvedValue(undefined);
+
       await controller.remove(1, 1);
+
       expect(service.remove).toHaveBeenCalledWith(1, 1);
     });
 
-    it('should propagate error from service', async () => {
-      service.remove.mockRejectedValue(new Error('boom'));
-      await expect(controller.remove(1, 1)).rejects.toThrow('boom');
+    it('propagates NotFoundException when not found', async () => {
+      service.remove.mockRejectedValueOnce(
+        new NotFoundException('El combo 999 no está asignado al descuento 1'),
+      );
+
+      await expect(controller.remove(1, 999)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
