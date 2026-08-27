@@ -56,6 +56,7 @@ describe('CalculationService', () => {
     isGlobal: false,
     ...overrides,
   });
+  const mockDiscount = (overrides = {}) => ({ id: 1, value: 10, ...overrides });
 
   let productPricingRepo: any;
   let comboPricingRepo: any;
@@ -142,6 +143,83 @@ describe('CalculationService', () => {
         service.calculateProduct({ productId: 999 }),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should apply discount and leave fullPrice unaffected', async () => {
+      productPricingRepo.findOne.mockResolvedValue(
+        mockProductPricing({ unitPrice: 500, salePrice: 1000 }),
+      );
+      discountProductRepo.findOne.mockResolvedValue({
+        discount: mockDiscount({ value: 10 }),
+      });
+      productTaxRepo.find.mockResolvedValue([]);
+      taxRepo.find.mockResolvedValue([]);
+
+      const result = await service.calculateProduct({ productId: 1 });
+
+      // discount 10% on 1000=100 → priceAfterDiscount=900, sin impuestos
+      // fullPrice usa salePrice crudo (1000), no priceAfterDiscount
+      expect(result.discount).toBe(100);
+      expect(result.priceAfterDiscount).toBe(900);
+      expect(result.finalPrice).toBe(900);
+      expect(result.fullPrice).toBe(1000);
+    });
+
+    it('should apply global tax on priceAfterDiscount', async () => {
+      productPricingRepo.findOne.mockResolvedValue(
+        mockProductPricing({ unitPrice: 500, salePrice: 1000 }),
+      );
+      discountProductRepo.findOne.mockResolvedValue(null);
+      productTaxRepo.find.mockResolvedValue([]);
+      taxRepo.find.mockResolvedValue([mockGlobalTax({ value: 21 })]);
+
+      const result = await service.calculateProduct({ productId: 1 });
+
+      // sin descuento: priceAfterDiscount=1000, IVA 21%=210, finalPrice=1210
+      expect(result.taxes).toBe(210);
+      expect(result.finalPrice).toBe(1210);
+      expect(result.fullPrice).toBe(1210);
+    });
+
+    it('should apply product-specific tax', async () => {
+      productPricingRepo.findOne.mockResolvedValue(
+        mockProductPricing({ unitPrice: 500, salePrice: 1000 }),
+      );
+      discountProductRepo.findOne.mockResolvedValue(null);
+      productTaxRepo.find.mockResolvedValue([
+        { productId: 1, tax: mockSpecificTax({ id: 5, value: 5 }) },
+      ]);
+      taxRepo.find.mockResolvedValue([]);
+
+      const result = await service.calculateProduct({ productId: 1 });
+
+      // IIBB 5% sobre 1000=50
+      expect(result.taxes).toBe(50);
+      expect(result.finalPrice).toBe(1050);
+    });
+
+    it('should combine discount, global tax and specific tax without double counting', async () => {
+      productPricingRepo.findOne.mockResolvedValue(
+        mockProductPricing({ unitPrice: 500, salePrice: 1000 }),
+      );
+      discountProductRepo.findOne.mockResolvedValue({
+        discount: mockDiscount({ value: 10 }),
+      });
+      productTaxRepo.find.mockResolvedValue([
+        { productId: 1, tax: mockSpecificTax({ id: 5, value: 5 }) },
+      ]);
+      taxRepo.find.mockResolvedValue([mockGlobalTax({ id: 1, value: 21 })]);
+
+      const result = await service.calculateProduct({ productId: 1 });
+
+      // discount 10% on 1000=100 → priceAfterDiscount=900
+      // IVA 21% on 900=189 | IIBB 5% on 900=45 → taxes=234 → finalPrice=1134
+      // fullTaxes: IVA 21% on 1000=210 | IIBB 5% on 1000=50 → fullPrice=1260
+      expect(result.discount).toBe(100);
+      expect(result.priceAfterDiscount).toBe(900);
+      expect(result.taxes).toBe(234);
+      expect(result.finalPrice).toBe(1134);
+      expect(result.fullPrice).toBe(1260);
+    });
   });
 
   describe('calculateCombo — prorrateo', () => {
@@ -173,8 +251,8 @@ describe('CalculationService', () => {
         { productId: 2, quantity: 1 },
       ]);
       productPricingRepo.find.mockResolvedValue([
-        { productId: 1, unitPrice: 800 },
-        { productId: 2, unitPrice: 400 },
+        { productId: 1, salePrice: 800 },
+        { productId: 2, salePrice: 400 },
       ]);
       productTaxRepo.find.mockResolvedValue([
         { productId: 1, tax: mockSpecificTax({ id: 10, value: 3 }) },
@@ -198,8 +276,8 @@ describe('CalculationService', () => {
         { productId: 2, quantity: 1 },
       ]);
       productPricingRepo.find.mockResolvedValue([
-        { productId: 1, unitPrice: 800 },
-        { productId: 2, unitPrice: 400 },
+        { productId: 1, salePrice: 800 },
+        { productId: 2, salePrice: 400 },
       ]);
       productTaxRepo.find.mockResolvedValue([
         { productId: 1, tax: mockSpecificTax({ id: 2, value: 3 }) },
@@ -222,8 +300,8 @@ describe('CalculationService', () => {
         { productId: 2, quantity: 1 },
       ]);
       productPricingRepo.find.mockResolvedValue([
-        { productId: 1, unitPrice: 800 },
-        { productId: 2, unitPrice: 400 },
+        { productId: 1, salePrice: 800 },
+        { productId: 2, salePrice: 400 },
       ]);
       productTaxRepo.find.mockResolvedValue([
         { productId: 1, tax: mockSpecificTax({ id: 10, value: 10 }) },
