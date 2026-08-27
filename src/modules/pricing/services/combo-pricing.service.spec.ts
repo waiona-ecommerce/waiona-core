@@ -107,11 +107,26 @@ describe('ComboPricingService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all pricings', async () => {
-      repo.findAndCount.mockResolvedValue([[mockPricing()], 1]);
-      const result = await service.findAll();
+    it('should return all pricings and query with skip/take', async () => {
+      repo.findAndCount.mockResolvedValue([[mockPricing()], 25]);
+
+      const result = await service.findAll(2, 10);
+
+      expect(repo.findAndCount).toHaveBeenCalledWith({ skip: 10, take: 10 });
       expect(result.data).toHaveLength(1);
       expect(result.data[0].comboId).toBe(1);
+      expect(result.total).toBe(25);
+      expect(result.totalPages).toBe(3);
+    });
+
+    it('should return empty data when there are no pricings', async () => {
+      repo.findAndCount.mockResolvedValue([[], 0]);
+
+      const result = await service.findAll();
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
     });
   });
 
@@ -140,13 +155,36 @@ describe('ComboPricingService', () => {
   });
 
   describe('update', () => {
-    it('should update pricing', async () => {
-      const updated = mockPricing({ unitPrice: 1300 });
+    it('should merge the dto into the entity and save it', async () => {
       repo.findOne.mockResolvedValueOnce(mockPricing()); // unitPrice=1200, salePrice=1500
-      repo.save.mockResolvedValue(updated);
+      repo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+      const result = await service.update(1, {
+        unitPrice: 1300,
+        salePrice: 1800,
+      });
+
+      expect(result.unitPrice).toBe(1300);
+      expect(result.salePrice).toBe(1800);
+    });
+
+    it('keeps existing fields when only one is provided', async () => {
+      repo.findOne.mockResolvedValueOnce(mockPricing()); // unitPrice=1200, salePrice=1500
+      repo.save.mockImplementation((e: any) => Promise.resolve(e));
 
       const result = await service.update(1, { unitPrice: 1300 });
+
       expect(result.unitPrice).toBe(1300);
+      expect(result.salePrice).toBe(1500);
+      expect(result.currency).toBe(CurrencyCode.ARS);
+    });
+
+    it('should throw BadRequestException on numeric overflow', async () => {
+      repo.findOne.mockResolvedValueOnce(mockPricing()); // unitPrice=1200, salePrice=1500
+      repo.save.mockRejectedValue({ code: '22003' });
+      await expect(
+        service.update(1, { salePrice: 999999999999 } as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if effective salePrice <= unitPrice', async () => {
