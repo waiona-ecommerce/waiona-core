@@ -95,8 +95,16 @@ export class ComboPricingService {
       salePrice: effectiveSalePrice,
     });
 
-    const saved = await this.repo.save(entity);
-    return new ComboPricingResponseDto(saved);
+    try {
+      const saved = await this.repo.save(entity);
+      return new ComboPricingResponseDto(saved);
+    } catch (err: any) {
+      if (err.code === PG_NUMERIC_OVERFLOW)
+        throw new BadRequestException(
+          'El valor del precio supera el máximo permitido',
+        );
+      throw err;
+    }
   }
 
   // ==========================

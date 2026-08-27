@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { ProductPricingController } from './../controllers/product-pricing.controller';
@@ -31,6 +36,15 @@ describe('ProductPricingController', () => {
     ...overrides,
   });
 
+  const mockPaginated = (items: any[] = [mockResponse()]) => ({
+    data: items,
+    total: items.length,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
+  });
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProductPricingController],
@@ -53,49 +67,208 @@ describe('ProductPricingController', () => {
 
   it('should be defined', () => expect(controller).toBeDefined());
 
-  it('create should delegate to service', async () => {
-    service.create.mockResolvedValue(mockResponse());
-    const result = await controller.create({
-      productId: 1,
-      currency: CurrencyCode.ARS,
-      unitPrice: 500,
-      salePrice: 750,
+  // ==========================
+  // create
+  // ==========================
+
+  describe('create', () => {
+    it('delegates to service.create', async () => {
+      const dto = {
+        productId: 1,
+        currency: CurrencyCode.ARS,
+        unitPrice: 500,
+        salePrice: 750,
+      };
+      const pricing = mockResponse();
+      service.create.mockResolvedValue(pricing);
+
+      const result = await controller.create(dto);
+
+      expect(service.create).toHaveBeenCalledWith(dto);
+      expect(result).toBe(pricing);
     });
-    expect(service.create).toHaveBeenCalled();
-    expect(result.productId).toBe(1);
+
+    it('propagates BadRequestException when salePrice <= unitPrice', async () => {
+      service.create.mockRejectedValueOnce(
+        new BadRequestException(
+          'El precio de venta debe ser mayor al precio de costo',
+        ),
+      );
+
+      await expect(
+        controller.create({
+          productId: 1,
+          currency: CurrencyCode.ARS,
+          unitPrice: 750,
+          salePrice: 500,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('propagates ConflictException when the product already has pricing', async () => {
+      service.create.mockRejectedValueOnce(
+        new ConflictException('El producto ya tiene un pricing asignado'),
+      );
+
+      await expect(
+        controller.create({
+          productId: 1,
+          currency: CurrencyCode.ARS,
+          unitPrice: 500,
+          salePrice: 750,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('propagates NotFoundException when the product does not exist', async () => {
+      service.create.mockRejectedValueOnce(
+        new NotFoundException('Producto con id 999 no encontrado'),
+      );
+
+      await expect(
+        controller.create({
+          productId: 999,
+          currency: CurrencyCode.ARS,
+          unitPrice: 500,
+          salePrice: 750,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
-  it('findAll should return all pricings', async () => {
-    const paginated = { data: [mockResponse()], total: 1, page: 1, limit: 20 };
-    service.findAll.mockResolvedValue(paginated as any);
-    const result = await controller.findAll({});
-    expect(result.data).toHaveLength(1);
+  // ==========================
+  // findAll
+  // ==========================
+
+  describe('findAll', () => {
+    it('delegates to service.findAll with page and limit', async () => {
+      const paginated = mockPaginated();
+      service.findAll.mockResolvedValue(paginated);
+
+      const result = await controller.findAll({ page: 2, limit: 10 });
+
+      expect(service.findAll).toHaveBeenCalledWith(2, 10);
+      expect(result).toBe(paginated);
+    });
+
+    it('returns empty data when there are no pricings', async () => {
+      const paginated = mockPaginated([]);
+      service.findAll.mockResolvedValue(paginated);
+
+      const result = await controller.findAll({ page: 1, limit: 20 });
+
+      expect(result.data).toEqual([]);
+    });
   });
 
-  it('findOne should delegate to service', async () => {
-    service.findOne.mockResolvedValue(mockResponse());
-    const result = await controller.findOne(1);
-    expect(service.findOne).toHaveBeenCalledWith(1);
-    expect(result.id).toBe(1);
+  // ==========================
+  // findByProduct
+  // ==========================
+
+  describe('findByProduct', () => {
+    it('delegates to service.findByProduct', async () => {
+      const pricing = mockResponse();
+      service.findByProduct.mockResolvedValue(pricing);
+
+      const result = await controller.findByProduct(1);
+
+      expect(service.findByProduct).toHaveBeenCalledWith(1);
+      expect(result).toBe(pricing);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.findByProduct.mockRejectedValueOnce(
+        new NotFoundException('Pricing de producto no encontrado'),
+      );
+
+      await expect(controller.findByProduct(999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
-  it('findByProduct should delegate to service', async () => {
-    service.findByProduct.mockResolvedValue(mockResponse());
-    const result = await controller.findByProduct(1);
-    expect(service.findByProduct).toHaveBeenCalledWith(1);
-    expect(result.productId).toBe(1);
+  // ==========================
+  // findOne
+  // ==========================
+
+  describe('findOne', () => {
+    it('delegates to service.findOne', async () => {
+      const pricing = mockResponse();
+      service.findOne.mockResolvedValue(pricing);
+
+      const result = await controller.findOne(1);
+
+      expect(service.findOne).toHaveBeenCalledWith(1);
+      expect(result).toBe(pricing);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.findOne.mockRejectedValueOnce(
+        new NotFoundException('Pricing de producto no encontrado'),
+      );
+
+      await expect(controller.findOne(999)).rejects.toThrow(NotFoundException);
+    });
   });
 
-  it('update should delegate to service', async () => {
-    service.update.mockResolvedValue(mockResponse({ unitPrice: 600 }));
-    const result = await controller.update(1, { unitPrice: 600 });
-    expect(service.update).toHaveBeenCalledWith(1, { unitPrice: 600 });
-    expect(result.unitPrice).toBe(600);
+  // ==========================
+  // update
+  // ==========================
+
+  describe('update', () => {
+    it('delegates to service.update', async () => {
+      const dto = { salePrice: 900 };
+      const pricing = mockResponse({ salePrice: 900 });
+      service.update.mockResolvedValue(pricing);
+
+      const result = await controller.update(1, dto);
+
+      expect(service.update).toHaveBeenCalledWith(1, dto);
+      expect(result).toBe(pricing);
+    });
+
+    it('propagates BadRequestException when salePrice <= unitPrice', async () => {
+      service.update.mockRejectedValueOnce(
+        new BadRequestException(
+          'El precio de venta debe ser mayor al precio de costo',
+        ),
+      );
+
+      await expect(controller.update(1, { salePrice: 100 })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.update.mockRejectedValueOnce(
+        new NotFoundException('Pricing de producto no encontrado'),
+      );
+
+      await expect(controller.update(999, { salePrice: 900 })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
-  it('remove should delegate to service', async () => {
-    service.remove.mockResolvedValue(undefined);
-    await controller.remove(1);
-    expect(service.remove).toHaveBeenCalledWith(1);
+  // ==========================
+  // remove
+  // ==========================
+
+  describe('remove', () => {
+    it('delegates to service.remove', async () => {
+      service.remove.mockResolvedValue(undefined);
+
+      await controller.remove(1);
+
+      expect(service.remove).toHaveBeenCalledWith(1);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.remove.mockRejectedValueOnce(
+        new NotFoundException('Pricing de producto no encontrado'),
+      );
+
+      await expect(controller.remove(999)).rejects.toThrow(NotFoundException);
+    });
   });
 });

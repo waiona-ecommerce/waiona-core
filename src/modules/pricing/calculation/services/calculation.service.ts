@@ -247,8 +247,11 @@ export class CalculationService {
     const pricings = await this.productPricingRepo.find({
       where: { productId: In(productIds) },
     });
+    // El peso de prorrateo tiene que reflejar el valor de venta relativo de
+    // cada componente, no su costo — si no, un producto barato de fabricar
+    // pero caro de vender terminaría subvaluado en la base imponible.
     const pricingMap = new Map(
-      pricings.map((p) => [p.productId, Number(p.unitPrice)]),
+      pricings.map((p) => [p.productId, Number(p.salePrice)]),
     );
 
     const allProductTaxes = await this.productTaxRepo.find({
