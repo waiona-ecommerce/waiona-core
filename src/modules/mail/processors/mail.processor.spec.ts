@@ -83,6 +83,19 @@ describe('MailProcessor', () => {
       expect(html).not.toContain('<script>');
       expect(html).toContain('&lt;script&gt;');
     });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<ActivationJobData>({
+        to: 'user@test.com',
+        name: 'Juan',
+        activationUrl: 'http://localhost:4200/auth/activate?token=abc',
+      });
+
+      await expect(processor.sendActivation(job)).rejects.toThrow(
+        'Resend API error',
+      );
+    });
   });
 
   // ==========================
@@ -104,6 +117,19 @@ describe('MailProcessor', () => {
           to: 'user@test.com',
           subject: 'Recuperá tu contraseña en Waiona',
         }),
+      );
+    });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<PasswordResetJobData>({
+        to: 'user@test.com',
+        name: 'Juan',
+        resetUrl: 'http://localhost:4200/auth/reset-password?token=xyz',
+      });
+
+      await expect(processor.sendPasswordReset(job)).rejects.toThrow(
+        'Resend API error',
       );
     });
   });
@@ -130,6 +156,20 @@ describe('MailProcessor', () => {
         }),
       );
     });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<OrderEmailJobData>({
+        to: 'user@test.com',
+        name: 'Ana',
+        orderId: 42,
+        orderUrl: 'http://localhost:4200/orders/42',
+      });
+
+      await expect(processor.sendOrderConfirmed(job)).rejects.toThrow(
+        'Resend API error',
+      );
+    });
   });
 
   // ==========================
@@ -151,6 +191,20 @@ describe('MailProcessor', () => {
         expect.objectContaining({
           subject: 'Tu pedido #42 está en camino — Waiona',
         }),
+      );
+    });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<OrderEmailJobData>({
+        to: 'user@test.com',
+        name: 'Ana',
+        orderId: 42,
+        orderUrl: 'http://localhost:4200/orders/42',
+      });
+
+      await expect(processor.sendOrderDispatched(job)).rejects.toThrow(
+        'Resend API error',
       );
     });
   });
@@ -175,6 +229,19 @@ describe('MailProcessor', () => {
         }),
       );
     });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<OrderCancelledJobData>({
+        to: 'user@test.com',
+        name: 'Ana',
+        orderId: 42,
+      });
+
+      await expect(processor.sendOrderCancelled(job)).rejects.toThrow(
+        'Resend API error',
+      );
+    });
   });
 
   // ==========================
@@ -196,6 +263,20 @@ describe('MailProcessor', () => {
         expect.objectContaining({
           subject: '¿Cómo fue tu experiencia con el pedido #42? — Waiona',
         }),
+      );
+    });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<OrderEmailJobData>({
+        to: 'user@test.com',
+        name: 'Ana',
+        orderId: 42,
+        orderUrl: 'http://localhost:4200/orders/42/review',
+      });
+
+      await expect(processor.sendOrderDelivered(job)).rejects.toThrow(
+        'Resend API error',
       );
     });
   });
@@ -239,6 +320,21 @@ describe('MailProcessor', () => {
       expect(html).toContain('Producto &lt;B&amp;W&gt;');
       expect(html).toContain('Depósito &amp; Norte');
       expect(html).not.toContain('<B&W>');
+    });
+
+    it('propagates the error when Resend rejects', async () => {
+      mockSend.mockRejectedValueOnce(new Error('Resend API error'));
+      const job = makeJob<StockAlertJobData>({
+        productName: 'Producto A',
+        locationName: 'Depósito 1',
+        quantityAvailable: 1,
+        threshold: 5,
+        adminEmail: 'admin@waiona.com',
+      });
+
+      await expect(processor.sendStockAlert(job)).rejects.toThrow(
+        'Resend API error',
+      );
     });
   });
 });
