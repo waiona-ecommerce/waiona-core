@@ -49,6 +49,13 @@ describe('MailService', () => {
         expect.any(Object),
       );
     });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendActivationEmail('user@test.com', 'Juan', 'token_abc'),
+      ).rejects.toThrow('Redis connection lost');
+    });
   });
 
   describe('sendPasswordResetEmail', () => {
@@ -70,6 +77,13 @@ describe('MailService', () => {
         expect.any(Object),
       );
     });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendPasswordResetEmail('user@test.com', 'Juan', 'reset_token'),
+      ).rejects.toThrow('Redis connection lost');
+    });
   });
 
   describe('sendOrderConfirmedEmail', () => {
@@ -81,6 +95,13 @@ describe('MailService', () => {
         expect.objectContaining({ to: 'u@t.com', orderId: 42 }),
         expect.any(Object),
       );
+    });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendOrderConfirmedEmail('u@t.com', 'Ana', 42),
+      ).rejects.toThrow('Redis connection lost');
     });
   });
 
@@ -98,6 +119,13 @@ describe('MailService', () => {
         expect.any(Object),
       );
     });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendOrderDispatchedEmail('u@t.com', 'Ana', 42),
+      ).rejects.toThrow('Redis connection lost');
+    });
   });
 
   describe('sendOrderDeliveredEmail', () => {
@@ -114,6 +142,13 @@ describe('MailService', () => {
         expect.any(Object),
       );
     });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendOrderDeliveredEmail('u@t.com', 'Ana', 42),
+      ).rejects.toThrow('Redis connection lost');
+    });
   });
 
   describe('sendOrderCancelledEmail', () => {
@@ -125,6 +160,13 @@ describe('MailService', () => {
         expect.objectContaining({ to: 'u@t.com', orderId: 42 }),
         expect.any(Object),
       );
+    });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendOrderCancelledEmail('u@t.com', 'Ana', 42),
+      ).rejects.toThrow('Redis connection lost');
     });
   });
 
@@ -143,6 +185,19 @@ describe('MailService', () => {
         expect.objectContaining({ productName: 'Producto A' }),
         expect.any(Object),
       );
+    });
+
+    it('propagates the error when the queue rejects', async () => {
+      mockQueue.add.mockRejectedValueOnce(new Error('Redis connection lost'));
+      await expect(
+        service.sendStockAlertEmail({
+          productName: 'Producto A',
+          locationName: 'Depósito 1',
+          quantityAvailable: 1,
+          threshold: 2,
+          adminEmail: 'admin@test.com',
+        }),
+      ).rejects.toThrow('Redis connection lost');
     });
   });
 });
