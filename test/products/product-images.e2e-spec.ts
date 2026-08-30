@@ -26,6 +26,10 @@ describe('ProductImages (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let productId: number;
+  let categoryId: number;
+
+  const mockUpload = jest.fn();
+  const mockDelete = jest.fn();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -59,13 +63,7 @@ describe('ProductImages (e2e)', () => {
         ProductImageService,
         {
           provide: StorageService,
-          useValue: {
-            upload: jest.fn().mockResolvedValue({
-              url: 'https://cdn.example.com/img.jpg',
-              publicId: 'test/img',
-            }),
-            delete: jest.fn().mockResolvedValue(undefined),
-          },
+          useValue: { upload: mockUpload, delete: mockDelete },
         },
       ],
     })
@@ -101,11 +99,20 @@ describe('ProductImages (e2e)', () => {
       measurementUnit: ProductMeasurementUnit.UNIT,
     });
     productId = product.id;
+    categoryId = category.id;
   }, 30000);
 
   afterAll(async () => {
     await dataSource.destroy();
     await app.close();
+  });
+
+  beforeEach(() => {
+    mockUpload.mockReset().mockResolvedValue({
+      url: 'https://cdn.example.com/img.jpg',
+      publicId: 'test/img',
+    });
+    mockDelete.mockReset().mockResolvedValue(undefined);
   });
 
   // -------------------------
@@ -135,6 +142,18 @@ describe('ProductImages (e2e)', () => {
       .post('/v1/product-images')
       .send({})
       .expect(400);
+  });
+
+  it('POST /product-images → 409 si la posición ya está ocupada', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/product-images')
+      .send({ productId, url: 'https://img.com/coca-dup-a.jpg', position: 20 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/product-images')
+      .send({ productId, url: 'https://img.com/coca-dup-b.jpg', position: 20 })
+      .expect(409);
   });
 
   // -------------------------
@@ -193,6 +212,27 @@ describe('ProductImages (e2e)', () => {
       .expect(404);
   });
 
+  it('PATCH /product-images/:id → 409 si la nueva posición ya está ocupada', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/v1/product-images')
+      .send({
+        productId,
+        url: 'https://img.com/coca-patch-a.jpg',
+        position: 21,
+      });
+
+    await request(app.getHttpServer()).post('/v1/product-images').send({
+      productId,
+      url: 'https://img.com/coca-patch-b.jpg',
+      position: 22,
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/product-images/${first.body.id}`)
+      .send({ position: 22 })
+      .expect(409);
+  });
+
   // -------------------------
   // DELETE (soft)
   // -------------------------
@@ -215,5 +255,157 @@ describe('ProductImages (e2e)', () => {
     await request(app.getHttpServer())
       .delete('/v1/product-images/999999')
       .expect(404);
+  });
+
+  // -------------------------
+  // UPLOAD (multipart → Cloudinary)
+  // -------------------------
+
+  describe('UPLOAD', () => {
+    const attachFile = (
+      req: request.Test,
+      filename = 'test.jpg',
+      contentType = 'image/jpeg',
+    ) =>
+      req.attach('file', Buffer.from('fake-image-data'), {
+        filename,
+        contentType,
+      });
+
+    it('POST /product-images/upload → 201 con archivo válido', async () => {
+      const res = await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/product-images/upload')
+          .field('productId', String(productId))
+          .field('position', '30'),
+      ).expect(201);
+
+      expect(res.body.url).toBe('https://cdn.example.com/img.jpg');
+      expect(mockUpload).toHaveBeenCalledWith(
+        expect.anything(),
+        'waiona/products',
+      );
+    });
+
+    it('POST /product-images/upload → 400 si no se envía archivo', async () => {
+      await request(app.getHttpServer())
+        .post('/v1/product-images/upload')
+        .field('productId', String(productId))
+        .field('position', '31')
+        .expect(400);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /product-images/upload → 400 si el tipo de archivo no está permitido', async () => {
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/product-images/upload')
+          .field('productId', String(productId))
+          .field('position', '32'),
+        'test.txt',
+        'text/plain',
+      ).expect(400);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /product-images/upload → 404 si el producto no existe', async () => {
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/product-images/upload')
+          .field('productId', '999999')
+          .field('position', '1'),
+      ).expect(404);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /product-images/upload → 409 si la posición ya está ocupada', async () => {
+      await request(app.getHttpServer()).post('/v1/product-images').send({
+        productId,
+        url: 'https://img.com/coca-upload-dup.jpg',
+        position: 33,
+      });
+
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/product-images/upload')
+          .field('productId', String(productId))
+          .field('position', '33'),
+      ).expect(409);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /product-images/upload → 404 y elimina el archivo de Cloudinary si el producto fue eliminado durante el upload', async () => {
+      const tempProduct = await dataSource.getRepository(ProductEntity).save({
+        sku: `ROLLBACK-DEL-${Date.now()}`,
+        name: 'Producto Temporal',
+        description: 'Para test de rollback',
+        isActive: true,
+        categoryId,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
+
+      mockUpload.mockImplementationOnce(async () => {
+        await dataSource.getRepository(ProductEntity).delete(tempProduct.id);
+        return {
+          url: 'https://cdn.example.com/rollback-deleted.jpg',
+          publicId: 'test/rollback-deleted-product',
+        };
+      });
+
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/product-images/upload')
+          .field('productId', String(tempProduct.id))
+          .field('position', '1'),
+      ).expect(404);
+
+      expect(mockDelete).toHaveBeenCalledWith('test/rollback-deleted-product');
+
+      const persisted = await dataSource
+        .getRepository(ProductImageEntity)
+        .findOne({ where: { publicId: 'test/rollback-deleted-product' } });
+      expect(persisted).toBeNull();
+    });
+
+    it('POST /product-images/upload → 409 y elimina el archivo de Cloudinary si la posición fue tomada durante el upload', async () => {
+      const tempProduct = await dataSource.getRepository(ProductEntity).save({
+        sku: `ROLLBACK-RACE-${Date.now()}`,
+        name: 'Producto Temporal Race',
+        description: 'Para test de rollback',
+        isActive: true,
+        categoryId,
+        measurementUnit: ProductMeasurementUnit.UNIT,
+      });
+
+      mockUpload.mockImplementationOnce(async () => {
+        await dataSource.getRepository(ProductImageEntity).save({
+          productId: tempProduct.id,
+          url: 'https://img.com/race-winner.jpg',
+          position: 1,
+        });
+        return {
+          url: 'https://cdn.example.com/rollback-race.jpg',
+          publicId: 'test/rollback-race',
+        };
+      });
+
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/product-images/upload')
+          .field('productId', String(tempProduct.id))
+          .field('position', '1'),
+      ).expect(409);
+
+      expect(mockDelete).toHaveBeenCalledWith('test/rollback-race');
+
+      const persisted = await dataSource
+        .getRepository(ProductImageEntity)
+        .findOne({ where: { publicId: 'test/rollback-race' } });
+      expect(persisted).toBeNull();
+    });
   });
 });
