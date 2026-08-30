@@ -26,6 +26,10 @@ describe('ComboImages (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let comboId: number;
+  let categoryId: number;
+
+  const mockUpload = jest.fn();
+  const mockDelete = jest.fn();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -59,13 +63,7 @@ describe('ComboImages (e2e)', () => {
         ComboImageService,
         {
           provide: StorageService,
-          useValue: {
-            upload: jest.fn().mockResolvedValue({
-              url: 'https://cdn.example.com/img.jpg',
-              publicId: 'test/img',
-            }),
-            delete: jest.fn().mockResolvedValue(undefined),
-          },
+          useValue: { upload: mockUpload, delete: mockDelete },
         },
       ],
     })
@@ -112,11 +110,20 @@ describe('ComboImages (e2e)', () => {
       quantity: 3,
     });
     comboId = combo.id;
+    categoryId = category.id;
   }, 30000);
 
   afterAll(async () => {
     await dataSource.destroy();
     await app.close();
+  });
+
+  beforeEach(() => {
+    mockUpload.mockReset().mockResolvedValue({
+      url: 'https://cdn.example.com/img.jpg',
+      publicId: 'test/img',
+    });
+    mockDelete.mockReset().mockResolvedValue(undefined);
   });
 
   // -------------------------
@@ -146,6 +153,18 @@ describe('ComboImages (e2e)', () => {
       .post('/v1/combo-images')
       .send({})
       .expect(400);
+  });
+
+  it('POST /combo-images → 409 si la posición ya está ocupada', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/combo-images')
+      .send({ comboId, url: 'https://img.com/combo-dup-a.jpg', position: 20 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/combo-images')
+      .send({ comboId, url: 'https://img.com/combo-dup-b.jpg', position: 20 })
+      .expect(409);
   });
 
   // -------------------------
@@ -204,6 +223,27 @@ describe('ComboImages (e2e)', () => {
       .expect(404);
   });
 
+  it('PATCH /combo-images/:id → 409 si la nueva posición ya está ocupada', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/v1/combo-images')
+      .send({
+        comboId,
+        url: 'https://img.com/combo-patch-a.jpg',
+        position: 21,
+      });
+
+    await request(app.getHttpServer()).post('/v1/combo-images').send({
+      comboId,
+      url: 'https://img.com/combo-patch-b.jpg',
+      position: 22,
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/combo-images/${first.body.id}`)
+      .send({ position: 22 })
+      .expect(409);
+  });
+
   // -------------------------
   // DELETE (soft)
   // -------------------------
@@ -226,5 +266,153 @@ describe('ComboImages (e2e)', () => {
     await request(app.getHttpServer())
       .delete('/v1/combo-images/999999')
       .expect(404);
+  });
+
+  // -------------------------
+  // UPLOAD (multipart → Cloudinary)
+  // -------------------------
+
+  describe('UPLOAD', () => {
+    const attachFile = (
+      req: request.Test,
+      filename = 'test.jpg',
+      contentType = 'image/jpeg',
+    ) =>
+      req.attach('file', Buffer.from('fake-image-data'), {
+        filename,
+        contentType,
+      });
+
+    it('POST /combo-images/upload → 201 con archivo válido', async () => {
+      const res = await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/combo-images/upload')
+          .field('comboId', String(comboId))
+          .field('position', '30'),
+      ).expect(201);
+
+      expect(res.body.url).toBe('https://cdn.example.com/img.jpg');
+      expect(mockUpload).toHaveBeenCalledWith(
+        expect.anything(),
+        'waiona/combos',
+      );
+    });
+
+    it('POST /combo-images/upload → 400 si no se envía archivo', async () => {
+      await request(app.getHttpServer())
+        .post('/v1/combo-images/upload')
+        .field('comboId', String(comboId))
+        .field('position', '31')
+        .expect(400);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /combo-images/upload → 400 si el tipo de archivo no está permitido', async () => {
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/combo-images/upload')
+          .field('comboId', String(comboId))
+          .field('position', '32'),
+        'test.txt',
+        'text/plain',
+      ).expect(400);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /combo-images/upload → 404 si el combo no existe', async () => {
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/combo-images/upload')
+          .field('comboId', '999999')
+          .field('position', '1'),
+      ).expect(404);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /combo-images/upload → 409 si la posición ya está ocupada', async () => {
+      await request(app.getHttpServer()).post('/v1/combo-images').send({
+        comboId,
+        url: 'https://img.com/combo-upload-dup.jpg',
+        position: 33,
+      });
+
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/combo-images/upload')
+          .field('comboId', String(comboId))
+          .field('position', '33'),
+      ).expect(409);
+
+      expect(mockUpload).not.toHaveBeenCalled();
+    });
+
+    it('POST /combo-images/upload → 404 y elimina el archivo de Cloudinary si el combo fue eliminado durante el upload', async () => {
+      const tempCombo = await dataSource.getRepository(ComboEntity).save({
+        name: 'Combo Temporal Rollback',
+        description: 'Para test de rollback',
+        isActive: true,
+        categoryId,
+      });
+
+      mockUpload.mockImplementationOnce(async () => {
+        await dataSource.getRepository(ComboEntity).delete(tempCombo.id);
+        return {
+          url: 'https://cdn.example.com/rollback-deleted.jpg',
+          publicId: 'test/rollback-deleted-combo',
+        };
+      });
+
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/combo-images/upload')
+          .field('comboId', String(tempCombo.id))
+          .field('position', '1'),
+      ).expect(404);
+
+      expect(mockDelete).toHaveBeenCalledWith('test/rollback-deleted-combo');
+
+      const persisted = await dataSource
+        .getRepository(ComboImageEntity)
+        .findOne({ where: { publicId: 'test/rollback-deleted-combo' } });
+      expect(persisted).toBeNull();
+    });
+
+    it('POST /combo-images/upload → 409 y elimina el archivo de Cloudinary si la posición fue tomada durante el upload', async () => {
+      const tempCombo = await dataSource.getRepository(ComboEntity).save({
+        name: 'Combo Temporal Race',
+        description: 'Para test de rollback',
+        isActive: true,
+        categoryId,
+      });
+
+      mockUpload.mockImplementationOnce(async () => {
+        await dataSource.getRepository(ComboImageEntity).save({
+          comboId: tempCombo.id,
+          url: 'https://img.com/race-winner.jpg',
+          position: 1,
+        });
+        return {
+          url: 'https://cdn.example.com/rollback-race.jpg',
+          publicId: 'test/rollback-race-combo',
+        };
+      });
+
+      await attachFile(
+        request(app.getHttpServer())
+          .post('/v1/combo-images/upload')
+          .field('comboId', String(tempCombo.id))
+          .field('position', '1'),
+      ).expect(409);
+
+      expect(mockDelete).toHaveBeenCalledWith('test/rollback-race-combo');
+
+      const persisted = await dataSource
+        .getRepository(ComboImageEntity)
+        .findOne({ where: { publicId: 'test/rollback-race-combo' } });
+      expect(persisted).toBeNull();
+    });
   });
 });
