@@ -114,6 +114,25 @@ describe('Categories (e2e)', () => {
       .expect(400);
   });
 
+  it('POST /categories → 409 si el nombre ya existe', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({ name: 'Duplicada' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({ name: 'Duplicada' })
+      .expect(409);
+  });
+
+  it('POST /categories → 400 si la categoría padre no existe', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({ name: 'Huérfana', parentId: 999999 })
+      .expect(400);
+  });
+
   it('POST /categories → 201 con categoría padre', async () => {
     const parent = await request(app.getHttpServer())
       .post('/v1/categories')
@@ -191,6 +210,34 @@ describe('Categories (e2e)', () => {
       .expect(200);
 
     expect(res.body.name).toBe('SNACKS PREMIUM');
+  });
+
+  it('PATCH /categories/:id → 409 si el nuevo nombre ya existe', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({ name: 'Ya Existente' });
+
+    const toRename = await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({ name: 'Por Renombrar' });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/categories/${toRename.body.id}`)
+      .send({ name: 'Ya Existente' })
+      .expect(409);
+  });
+
+  it('PATCH /categories/:id → 200 sin conflicto si se manda el mismo nombre', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/categories')
+      .send({ name: 'Sin Cambios', description: 'Original' });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/categories/${created.body.id}`)
+      .send({ name: 'Sin Cambios', description: 'Actualizada' })
+      .expect(200);
+
+    expect(res.body.description).toBe('Actualizada');
   });
 
   it('PATCH /categories/:id → 404 si no existe', async () => {
