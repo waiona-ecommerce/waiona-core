@@ -47,7 +47,6 @@ export class ShopService {
 
   async getCategories(): Promise<CategoryTreeResponseDto[]> {
     const all = await this.categoryRepository.find({
-      where: { isActive: true },
       order: { name: 'ASC' },
     });
 
@@ -64,7 +63,7 @@ export class ShopService {
         if (parent) {
           parent.children!.push(cat);
         }
-        // padre inactivo o ausente → no mostrar en el shop
+        // padre ausente (borrado) → no mostrar en el shop
       } else {
         roots.push(cat);
       }
