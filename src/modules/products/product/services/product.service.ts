@@ -138,7 +138,7 @@ export class ProductService {
     const product = await this.findOne(id);
 
     if (changes.categoryId !== undefined) {
-      await this.validateCategoryExists(changes.categoryId);
+      product.category = await this.validateCategoryExists(changes.categoryId);
     }
 
     if (changes.sku && changes.sku !== product.sku) {
@@ -220,7 +220,9 @@ export class ProductService {
   // PRIVATE
   // ==========================
 
-  private async validateCategoryExists(categoryId: number): Promise<void> {
+  private async validateCategoryExists(
+    categoryId: number,
+  ): Promise<CategoryEntity> {
     const category = await this.categoryRepository.findOne({
       where: { id: categoryId },
     });
@@ -230,6 +232,8 @@ export class ProductService {
         `Categoría con id ${categoryId} no encontrada`,
       );
     }
+
+    return category;
   }
 
   private async findOne(id: number): Promise<ProductEntity> {

@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { Repository, QueryFailedError } from 'typeorm';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 
 import { ProductService } from './product.service';
 import { ProductEntity } from '../entities/product.entity';
@@ -246,6 +250,53 @@ describe('ProductService', () => {
         ConflictException,
       );
     });
+
+    it('should throw BadRequestException if category does not exist', async () => {
+      categoryRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.create({ ...createDto, categoryId: 999 } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(productRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should honor an explicit isActive: false instead of defaulting to true', async () => {
+      const savedProduct = mockProduct({ isActive: false });
+      categoryRepository.findOne.mockResolvedValue({ id: 1 } as any);
+      productRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(savedProduct);
+      productRepository.create.mockReturnValue(savedProduct);
+      productRepository.save.mockResolvedValue(savedProduct);
+
+      await service.create({ ...createDto, isActive: false });
+
+      expect(productRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: false }),
+      );
+    });
+
+    it('should throw ConflictException on unique constraint race condition', async () => {
+      categoryRepository.findOne.mockResolvedValue({ id: 1 } as any);
+      productRepository.findOne.mockResolvedValue(null);
+      productRepository.create.mockReturnValue(mockProduct());
+      productRepository.save.mockRejectedValue(
+        new QueryFailedError('INSERT', [], new Error('duplicate key')),
+      );
+
+      await expect(service.create(createDto as any)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should rethrow unexpected errors from save', async () => {
+      categoryRepository.findOne.mockResolvedValue({ id: 1 } as any);
+      productRepository.findOne.mockResolvedValue(null);
+      productRepository.create.mockReturnValue(mockProduct());
+      productRepository.save.mockRejectedValue(new Error('db down'));
+
+      await expect(service.create(createDto as any)).rejects.toThrow('db down');
+    });
   });
 
   // ==========================
@@ -283,6 +334,86 @@ describe('ProductService', () => {
       await expect(
         service.update(1, { sku: 'sprite-500' } as any),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should not re-check SKU uniqueness when the SKU is unchanged', async () => {
+      const original = mockProduct({ sku: 'COCA-500' });
+      const updated = mockProduct({ description: 'Nueva desc' });
+
+      productRepository.findOne
+        .mockResolvedValueOnce(original) // findOne inicial
+        .mockResolvedValueOnce(updated); // recarga post-save
+      productRepository.merge.mockReturnValue(updated);
+      productRepository.save.mockResolvedValue(updated);
+
+      await service.update(1, {
+        sku: 'COCA-500',
+        description: 'Nueva desc',
+      });
+
+      // solo 2 llamadas: findOne inicial + recarga post-save (no el check de SKU)
+      expect(productRepository.findOne).toHaveBeenCalledTimes(2);
+    });
+
+    it('should sync the loaded category relation when categoryId changes', async () => {
+      const oldCategory = { id: 1, name: 'Bebidas' };
+      const newCategory = { id: 2, name: 'Snacks' };
+      const original = mockProduct({ categoryId: 1, category: oldCategory });
+      const updated = mockProduct({ categoryId: 2, category: newCategory });
+
+      categoryRepository.findOne.mockResolvedValue(newCategory as any);
+      productRepository.findOne
+        .mockResolvedValueOnce(original) // findOne inicial
+        .mockResolvedValueOnce(updated); // recarga post-save
+      productRepository.merge.mockImplementation((entity) => entity);
+      productRepository.save.mockResolvedValue(updated);
+
+      await service.update(1, { categoryId: 2 });
+
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 2 },
+      });
+      // el objeto pasado a merge/save debe llevar la categoría NUEVA ya
+      // sincronizada, no la vieja que quedó cargada en el findOne inicial
+      expect(productRepository.merge).toHaveBeenCalledWith(
+        expect.objectContaining({ category: newCategory }),
+        { categoryId: 2 },
+      );
+    });
+
+    it('should throw BadRequestException if new categoryId does not exist', async () => {
+      const original = mockProduct();
+      productRepository.findOne.mockResolvedValueOnce(original);
+      categoryRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.update(1, { categoryId: 999 } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(productRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException on unique constraint race condition', async () => {
+      const original = mockProduct();
+      productRepository.findOne.mockResolvedValueOnce(original); // solo findOne inicial, sku no cambia
+      productRepository.merge.mockReturnValue(mockProduct({ name: 'X' }));
+      productRepository.save.mockRejectedValue(
+        new QueryFailedError('UPDATE', [], new Error('duplicate key')),
+      );
+
+      await expect(service.update(1, { name: 'X' } as any)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should rethrow unexpected errors from save', async () => {
+      const original = mockProduct();
+      productRepository.findOne.mockResolvedValueOnce(original);
+      productRepository.merge.mockReturnValue(mockProduct({ name: 'X' }));
+      productRepository.save.mockRejectedValue(new Error('db down'));
+
+      await expect(service.update(1, { name: 'X' } as any)).rejects.toThrow(
+        'db down',
+      );
     });
 
     it('should throw NotFoundException if product not found', async () => {
@@ -341,5 +472,21 @@ describe('ProductService', () => {
         expect(productRepository.softDelete).not.toHaveBeenCalled();
       },
     );
+
+    it('should list every blocking reason in the error message', async () => {
+      productRepository.findOne.mockResolvedValue(mockProduct());
+      productImageRepository.count.mockResolvedValue(2);
+      productPricingRepository.count.mockResolvedValue(1);
+      stockItemRepository.count.mockResolvedValue(0);
+      productTaxRepository.count.mockResolvedValue(0);
+      discountProductTargetRepository.count.mockResolvedValue(0);
+      couponProductTargetRepository.count.mockResolvedValue(0);
+      orderItemRepository.count.mockResolvedValue(5);
+      comboItemRepository.count.mockResolvedValue(0);
+
+      await expect(service.delete(1)).rejects.toThrow(
+        'tiene 2 imagen(es), precio configurado, 5 orden(es) que lo incluyen',
+      );
+    });
   });
 });
