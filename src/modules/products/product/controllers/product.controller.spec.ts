@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 
@@ -69,19 +74,19 @@ describe('ProductController', () => {
   // ==========================
 
   describe('findAll', () => {
-    it('should return all products', async () => {
+    it('delegates to service.findAll with page and limit', async () => {
       const products = [mockProductResponse()];
-      const paginated = new PaginatedResponseDto(products, 1, 1, 20);
+      const paginated = new PaginatedResponseDto(products, 1, 2, 10);
       service.findAll.mockResolvedValue(paginated);
 
-      const result = await controller.findAll({});
+      const result = await controller.findAll({ page: 2, limit: 10 });
 
-      expect(service.findAll).toHaveBeenCalled();
-      expect(result.data).toEqual(products);
+      expect(service.findAll).toHaveBeenCalledWith(2, 10);
+      expect(result).toBe(paginated);
     });
 
-    it('should return empty array if no products', async () => {
-      const paginated = new PaginatedResponseDto([], 0, 1, 20) as any;
+    it('returns empty data when there are no products', async () => {
+      const paginated = new PaginatedResponseDto([], 0, 1, 20);
       service.findAll.mockResolvedValue(paginated);
 
       const result = await controller.findAll({});
@@ -95,14 +100,22 @@ describe('ProductController', () => {
   // ==========================
 
   describe('findById', () => {
-    it('should return a product by id', async () => {
+    it('delegates to service.findById', async () => {
       const product = mockProductResponse();
       service.findById.mockResolvedValue(product);
 
       const result = await controller.findById(1);
 
       expect(service.findById).toHaveBeenCalledWith(1);
-      expect(result).toEqual(product);
+      expect(result).toBe(product);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.findById.mockRejectedValueOnce(
+        new NotFoundException('Producto con id 999 no encontrado'),
+      );
+
+      await expect(controller.findById(999)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -111,7 +124,7 @@ describe('ProductController', () => {
   // ==========================
 
   describe('create', () => {
-    it('should create a product', async () => {
+    it('delegates to service.create', async () => {
       const dto = { sku: 'COCA-500', name: 'Coca Cola 500ml', categoryId: 1 };
       const product = mockProductResponse();
       service.create.mockResolvedValue(product);
@@ -119,7 +132,27 @@ describe('ProductController', () => {
       const result = await controller.create(dto as any);
 
       expect(service.create).toHaveBeenCalledWith(dto);
-      expect(result).toEqual(product);
+      expect(result).toBe(product);
+    });
+
+    it('propagates BadRequestException when the category does not exist', async () => {
+      service.create.mockRejectedValueOnce(
+        new BadRequestException('Categoría con id 999 no encontrada'),
+      );
+
+      await expect(
+        controller.create({ categoryId: 999 } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('propagates ConflictException when the SKU already exists', async () => {
+      service.create.mockRejectedValueOnce(
+        new ConflictException('Ya existe un producto con el SKU COCA-500'),
+      );
+
+      await expect(
+        controller.create({ sku: 'COCA-500' } as any),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -128,7 +161,7 @@ describe('ProductController', () => {
   // ==========================
 
   describe('update', () => {
-    it('should update a product', async () => {
+    it('delegates to service.update', async () => {
       const dto = { name: 'Coca Cola 1L' };
       const product = mockProductResponse({ name: 'Coca Cola 1L' });
       service.update.mockResolvedValue(product);
@@ -136,7 +169,37 @@ describe('ProductController', () => {
       const result = await controller.update(1, dto);
 
       expect(service.update).toHaveBeenCalledWith(1, dto);
-      expect(result).toEqual(product);
+      expect(result).toBe(product);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.update.mockRejectedValueOnce(
+        new NotFoundException('Producto con id 999 no encontrado'),
+      );
+
+      await expect(controller.update(999, { name: 'Test' })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('propagates BadRequestException when the new category does not exist', async () => {
+      service.update.mockRejectedValueOnce(
+        new BadRequestException('Categoría con id 999 no encontrada'),
+      );
+
+      await expect(controller.update(1, { categoryId: 999 })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('propagates ConflictException when the new SKU already exists', async () => {
+      service.update.mockRejectedValueOnce(
+        new ConflictException('Ya existe un producto con el SKU SPRITE-500'),
+      );
+
+      await expect(controller.update(1, { sku: 'SPRITE-500' })).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -145,12 +208,30 @@ describe('ProductController', () => {
   // ==========================
 
   describe('delete', () => {
-    it('should delete a product', async () => {
+    it('delegates to service.delete', async () => {
       service.delete.mockResolvedValue(undefined);
 
       await controller.delete(1);
 
       expect(service.delete).toHaveBeenCalledWith(1);
+    });
+
+    it('propagates NotFoundException when not found', async () => {
+      service.delete.mockRejectedValueOnce(
+        new NotFoundException('Producto con id 999 no encontrado'),
+      );
+
+      await expect(controller.delete(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('propagates ConflictException when the product has dependents', async () => {
+      service.delete.mockRejectedValueOnce(
+        new ConflictException(
+          'No se puede eliminar el producto: tiene 3 orden(es) que lo incluyen',
+        ),
+      );
+
+      await expect(controller.delete(1)).rejects.toThrow(ConflictException);
     });
   });
 });

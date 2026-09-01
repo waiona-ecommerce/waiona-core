@@ -19,7 +19,6 @@ import { ComboEntity } from '../../src/modules/products/combos/entities/combo.en
 import { ComboItemEntity } from '../../src/modules/products/combos/entities/combo-item.entity';
 import { ComboImageEntity } from '../../src/modules/products/combo-images/entities/combo-image.entity';
 import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
-import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
 import { ProductPricingEntity } from '../../src/modules/pricing/entities/product-pricing.entity';
 import { StockItemEntity } from '../../src/modules/stocks/stock-item/entities/stock-item.entity';
 import { ProductTaxEntity } from '../../src/modules/taxation/product-taxes/entities/product-taxes.entity';
@@ -233,6 +232,68 @@ describe('Product (e2e)', () => {
       .patch('/v1/products/999999')
       .send({ name: 'Actualizado' })
       .expect(404);
+  });
+
+  it('PATCH /products/:id → 400 con categoryId inválida', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(validProduct());
+
+    await request(app.getHttpServer())
+      .patch(`/v1/products/${created.body.id}`)
+      .send({ categoryId: 999999 })
+      .expect(400);
+  });
+
+  it('PATCH /products/:id → 409 si el nuevo SKU ya existe', async () => {
+    const existing = await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(validProduct());
+
+    const toRename = await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(validProduct());
+
+    await request(app.getHttpServer())
+      .patch(`/v1/products/${toRename.body.id}`)
+      .send({ sku: existing.body.sku })
+      .expect(409);
+  });
+
+  it('PATCH /products/:id → 200 sin conflicto si se manda el mismo SKU', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(validProduct());
+
+    await request(app.getHttpServer())
+      .patch(`/v1/products/${created.body.id}`)
+      .send({ sku: created.body.sku, description: 'Nueva descripción' })
+      .expect(200);
+  });
+
+  it('PATCH /products/:id → 200 y persiste el categoryId nuevo (regresión desync escalar/relación)', async () => {
+    const otherCategory = await dataSource
+      .getRepository(CategoryEntity)
+      .save({ name: 'Snacks', isActive: true });
+
+    const created = await request(app.getHttpServer())
+      .post('/v1/products')
+      .send(validProduct());
+    expect(created.body.categoryId).toBe(categoryId);
+
+    const patched = await request(app.getHttpServer())
+      .patch(`/v1/products/${created.body.id}`)
+      .send({ categoryId: otherCategory.id })
+      .expect(200);
+
+    expect(patched.body.categoryId).toBe(otherCategory.id);
+
+    // releer desde la DB real: el fix debe sobrevivir a un save() real de TypeORM,
+    // no solo a la respuesta que arma el propio request
+    const reloaded = await request(app.getHttpServer())
+      .get(`/v1/products/${created.body.id}`)
+      .expect(200);
+    expect(reloaded.body.categoryId).toBe(otherCategory.id);
   });
 
   // -------------------------
