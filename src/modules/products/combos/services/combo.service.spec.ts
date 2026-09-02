@@ -259,6 +259,46 @@ describe('ComboService', () => {
         BadRequestException,
       );
     });
+
+    it('should throw BadRequestException if category does not exist', async () => {
+      mockCategoryRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          name: 'Combo',
+          description: 'Desc',
+          categoryId: 999,
+          items: [{ productId: 1, quantity: 1 }],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('should honor an explicit isActive: false instead of defaulting to true', async () => {
+      const dto = {
+        name: 'Combo',
+        description: 'Desc',
+        categoryId: 1,
+        isActive: false,
+        items: [{ productId: 1, quantity: 2 }],
+      };
+      const combo = mockCombo({ isActive: false });
+
+      mockCategoryRepo.findOne.mockResolvedValue({ id: 1 });
+      mockEntityManager.findBy
+        .mockResolvedValueOnce([{ id: 1 }])
+        .mockResolvedValueOnce([{ productId: 1 }]);
+      mockEntityManager.create.mockReturnValue(combo);
+      mockEntityManager.save.mockResolvedValue(combo);
+      mockEntityManager.findOne.mockResolvedValueOnce(combo);
+
+      await service.create(dto);
+
+      expect(mockEntityManager.create).toHaveBeenCalledWith(
+        ComboEntity,
+        expect.objectContaining({ isActive: false }),
+      );
+    });
   });
 
   // ==========================
@@ -314,6 +354,78 @@ describe('ComboService', () => {
         NotFoundException,
       );
     });
+
+    it('should throw BadRequestException if new categoryId does not exist', async () => {
+      mockCategoryRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.update(1, { categoryId: 999 } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when replacing items with a duplicate productId', async () => {
+      const combo = mockCombo();
+      mockEntityManager.findOne.mockResolvedValueOnce(combo);
+      mockEntityManager.merge.mockReturnValue(combo);
+      mockEntityManager.save.mockResolvedValue(combo);
+
+      await expect(
+        service.update(1, {
+          items: [
+            { productId: 1, quantity: 1 },
+            { productId: 1, quantity: 2 },
+          ],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should not touch existing items when dto.items is not provided', async () => {
+      const combo = mockCombo();
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(combo)
+        .mockResolvedValueOnce(combo);
+      mockEntityManager.merge.mockReturnValue(combo);
+      mockEntityManager.save.mockResolvedValue(combo);
+
+      await service.update(1, { name: 'Nuevo nombre' });
+
+      expect(mockEntityManager.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('should keep the current categoryId when not provided', async () => {
+      const combo = mockCombo({ categoryId: 5 });
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(combo)
+        .mockResolvedValueOnce(combo);
+      mockEntityManager.merge.mockReturnValue(combo);
+      mockEntityManager.save.mockResolvedValue(combo);
+
+      await service.update(1, { name: 'Nuevo nombre' });
+
+      expect(mockEntityManager.merge).toHaveBeenCalledWith(
+        ComboEntity,
+        combo,
+        expect.objectContaining({ categoryId: 5 }),
+      );
+    });
+
+    it('should honor an explicit isActive: false instead of keeping the current value', async () => {
+      const combo = mockCombo({ isActive: true });
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(combo)
+        .mockResolvedValueOnce(combo);
+      mockEntityManager.merge.mockReturnValue(combo);
+      mockEntityManager.save.mockResolvedValue(combo);
+
+      await service.update(1, { isActive: false });
+
+      expect(mockEntityManager.merge).toHaveBeenCalledWith(
+        ComboEntity,
+        combo,
+        expect.objectContaining({ isActive: false }),
+      );
+    });
   });
 
   // ==========================
@@ -357,5 +469,18 @@ describe('ComboService', () => {
         expect(mockDataSource.transaction).not.toHaveBeenCalled();
       },
     );
+
+    it('should list every blocking reason in the error message', async () => {
+      mockComboRepo.findOne.mockResolvedValue(mockCombo());
+      comboImageRepository.count.mockResolvedValue(2);
+      comboPricingRepository.count.mockResolvedValue(1);
+      discountComboTargetRepository.count.mockResolvedValue(0);
+      couponComboTargetRepository.count.mockResolvedValue(0);
+      orderItemRepository.count.mockResolvedValue(4);
+
+      await expect(service.delete(1)).rejects.toThrow(
+        'tiene 2 imagen(es), precio configurado, 4 orden(es) que lo incluyen',
+      );
+    });
   });
 });
