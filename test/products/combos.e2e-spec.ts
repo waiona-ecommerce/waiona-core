@@ -187,6 +187,44 @@ describe('Combos (e2e)', () => {
       .expect(400);
   });
 
+  it('POST /combos → 400 con producto inactivo en items', async () => {
+    const inactiveProduct = await dataSource.getRepository(ProductEntity).save({
+      sku: `INACTIVE-${Date.now()}`,
+      name: 'Producto Inactivo',
+      description: 'No debería poder usarse en combos',
+      isActive: false,
+      categoryId,
+      measurementUnit: ProductMeasurementUnit.UNIT,
+    });
+
+    await request(app.getHttpServer())
+      .post('/v1/combos')
+      .send({
+        ...validCombo(),
+        items: [{ productId: inactiveProduct.id, quantity: 1 }],
+      })
+      .expect(400);
+  });
+
+  it('POST /combos → 400 si el producto no tiene pricing configurado', async () => {
+    const unpricedProduct = await dataSource.getRepository(ProductEntity).save({
+      sku: `NOPRICE-${Date.now()}`,
+      name: 'Producto Sin Precio',
+      description: 'No tiene ProductPricingEntity',
+      isActive: true,
+      categoryId,
+      measurementUnit: ProductMeasurementUnit.UNIT,
+    });
+
+    await request(app.getHttpServer())
+      .post('/v1/combos')
+      .send({
+        ...validCombo(),
+        items: [{ productId: unpricedProduct.id, quantity: 1 }],
+      })
+      .expect(400);
+  });
+
   it('POST /combos → 400 sin items', async () => {
     await request(app.getHttpServer())
       .post('/v1/combos')
@@ -279,6 +317,48 @@ describe('Combos (e2e)', () => {
     expect(res.body.items[0].productId).toBe(product2.id);
   });
 
+  it('PATCH /combos/:id → 200 no toca los items si no se envían', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/combos')
+      .send(validCombo());
+
+    const res = await request(app.getHttpServer())
+      .patch(`/v1/combos/${created.body.id}`)
+      .send({ description: 'Nueva descripción' })
+      .expect(200);
+
+    expect(res.body.description).toBe('Nueva descripción');
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].productId).toBe(productId);
+  });
+
+  it('PATCH /combos/:id → 400 con categoryId inválida', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/combos')
+      .send(validCombo());
+
+    await request(app.getHttpServer())
+      .patch(`/v1/combos/${created.body.id}`)
+      .send({ categoryId: 999999 })
+      .expect(400);
+  });
+
+  it('PATCH /combos/:id → 400 con items duplicados', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/combos')
+      .send(validCombo());
+
+    await request(app.getHttpServer())
+      .patch(`/v1/combos/${created.body.id}`)
+      .send({
+        items: [
+          { productId, quantity: 1 },
+          { productId, quantity: 2 },
+        ],
+      })
+      .expect(400);
+  });
+
   it('PATCH /combos/:id → 404 si no existe', async () => {
     await request(app.getHttpServer())
       .patch('/v1/combos/999999')
@@ -306,5 +386,21 @@ describe('Combos (e2e)', () => {
 
   it('DELETE /combos/:id → 404 si no existe', async () => {
     await request(app.getHttpServer()).delete('/v1/combos/999999').expect(404);
+  });
+
+  it('DELETE /combos/:id → 409 si tiene imágenes asignadas', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/combos')
+      .send(validCombo());
+
+    await dataSource.getRepository(ComboImageEntity).save({
+      comboId: created.body.id,
+      url: 'https://img.com/combo.jpg',
+      position: 1,
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/v1/combos/${created.body.id}`)
+      .expect(409);
   });
 });
