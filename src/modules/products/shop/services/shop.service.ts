@@ -47,6 +47,7 @@ export class ShopService {
 
   async getCategories(): Promise<CategoryTreeResponseDto[]> {
     const all = await this.categoryRepository.find({
+      where: { isActive: true },
       order: { name: 'ASC' },
     });
 
@@ -148,33 +149,9 @@ export class ShopService {
 
     candidates.sort((a, b) => a.entity.name.localeCompare(b.entity.name));
 
-    const hasPriceFilter = minPrice !== undefined || maxPrice !== undefined;
-
-    if (!hasPriceFilter) {
-      const total = candidates.length;
-      const totalPages = Math.ceil(total / limit);
-      const pageSlice = candidates.slice(skip, skip + limit);
-
-      const data = (
-        await Promise.all(
-          pageSlice.map((c) =>
-            c.kind === 'product'
-              ? this.buildProductListItem(c.entity, undefined, undefined)
-              : this.buildComboListItem(c.entity, undefined, undefined),
-          ),
-        )
-      ).filter((i): i is ShopItemResponseDto => i !== null);
-
-      return {
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        data,
-      };
-    }
-
+    // Se calcula el precio de TODOS los candidatos antes de paginar: un item
+    // sin pricing configurado (buildXListItem devuelve null) no debe contar
+    // en `total`/`totalPages`, sea cual sea el filtro de precio aplicado.
     const allItems = (
       await Promise.all(
         candidates.map((c) =>

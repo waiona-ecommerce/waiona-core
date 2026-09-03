@@ -68,6 +68,8 @@ describe('Shop (e2e)', () => {
   let dataSource: DataSource;
   let productId: number;
   let comboId: number;
+  let categoryId: number;
+  let inactiveCategoryId: number;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -125,6 +127,7 @@ describe('Shop (e2e)', () => {
       name: 'Bebidas',
       isActive: true,
     });
+    categoryId = category.id;
     const product = await dataSource.getRepository(ProductEntity).save({
       sku: 'SHOP-001',
       name: 'Coca Cola 500ml',
@@ -147,11 +150,39 @@ describe('Shop (e2e)', () => {
       quantity: 3,
     });
     comboId = combo.id;
+
+    const inactiveCategory = await dataSource
+      .getRepository(CategoryEntity)
+      .save({ name: 'Descontinuados', isActive: false });
+    inactiveCategoryId = inactiveCategory.id;
   }, 30000);
 
   afterAll(async () => {
     await dataSource.destroy();
     await app.close();
+  });
+
+  // -------------------------
+  // CATEGORIES
+  // -------------------------
+
+  it('GET /shop/categories → 200 con árbol de categorías activas', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/shop/categories')
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.some((c: any) => c.name === 'Bebidas')).toBe(true);
+  });
+
+  it('GET /shop/categories → no incluye categorías inactivas', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/v1/shop/categories')
+      .expect(200);
+
+    expect(res.body.some((c: any) => c.id === inactiveCategoryId)).toBe(
+      false,
+    );
   });
 
   // -------------------------
@@ -207,6 +238,29 @@ describe('Shop (e2e)', () => {
       .expect(400);
   });
 
+  it('GET /shop/items?type=invalid → 400 tipo inválido', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/shop/items?type=invalid')
+      .expect(400);
+  });
+
+  it('GET /shop/items?categoryId=<id> → filtra por categoría', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/v1/shop/items?categoryId=${categoryId}`)
+      .expect(200);
+
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(
+      res.body.data.every((i: any) => i.category === 'Bebidas'),
+    ).toBe(true);
+  });
+
+  it('GET /shop/items?categoryId=999999 → 404 categoría inexistente', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/shop/items?categoryId=999999')
+      .expect(404);
+  });
+
   // -------------------------
   // FIND BY ID
   // -------------------------
@@ -235,6 +289,18 @@ describe('Shop (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/v1/shop/items/${productId}`)
       .expect(400);
+  });
+
+  it('GET /shop/items/:id?type=invalid → 400 tipo inválido', async () => {
+    await request(app.getHttpServer())
+      .get(`/v1/shop/items/${productId}?type=invalid`)
+      .expect(400);
+  });
+
+  it('GET /shop/items/:id?type=combo → 404 combo inexistente', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/shop/items/999999?type=combo')
+      .expect(404);
   });
 
   it('GET /shop/items/999999?type=product → 404', async () => {

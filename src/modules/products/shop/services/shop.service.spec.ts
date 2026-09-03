@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { In } from 'typeorm';
 
 import { ShopService } from '../../../products/shop/services/shop.service';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
@@ -141,6 +142,16 @@ describe('ShopService', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should only query active categories', async () => {
+      mockCategoryRepo.find.mockResolvedValue([]);
+
+      await service.getCategories();
+
+      expect(mockCategoryRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: true } }),
+      );
+    });
   });
 
   // ==========================
@@ -204,6 +215,31 @@ describe('ShopService', () => {
       const result = await service.search({});
 
       expect(result.data).toHaveLength(0);
+      // el item sin pricing no debe contarse en total/totalPages tampoco
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('should exclude items without pricing from total even without a price filter', async () => {
+      // 2 productos, uno sin pricing configurado → total debe ser 1, no 2
+      const products = [
+        mockProduct({ id: 1, name: 'Con precio' }),
+        mockProduct({ id: 2, name: 'Sin precio' }),
+      ];
+      mockProductRepo.find.mockResolvedValue(products);
+      mockComboRepo.find.mockResolvedValue([]);
+      mockCalculation.calculateProduct.mockImplementation(({ productId }) =>
+        productId === 2
+          ? Promise.reject(new Error('No pricing'))
+          : Promise.resolve(mockPriceBreakdown()),
+      );
+      mockStock.findByProduct.mockResolvedValue(mockStockItem());
+
+      const result = await service.search({});
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.totalPages).toBe(1);
     });
 
     it('should filter by minPrice and reflect correct total', async () => {
@@ -263,6 +299,86 @@ describe('ShopService', () => {
       expect(result.hasNextPage).toBe(false);
       expect(result.data).toHaveLength(1);
     });
+
+    it('should skip combo without pricing', async () => {
+      mockProductRepo.find.mockResolvedValue([]);
+      mockComboRepo.find.mockResolvedValue([mockCombo()]);
+      mockCalculation.calculateCombo.mockRejectedValue(
+        new Error('No pricing'),
+      );
+
+      const result = await service.search({});
+
+      expect(result.data).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+
+    it('should filter by maxPrice', async () => {
+      mockProductRepo.find.mockResolvedValue([mockProduct()]);
+      mockComboRepo.find.mockResolvedValue([]);
+      mockCalculation.calculateProduct.mockResolvedValue(
+        mockPriceBreakdown({ finalPrice: 1000 }),
+      );
+      mockStock.findByProduct.mockResolvedValue(mockStockItem());
+
+      const result = await service.search({ maxPrice: 500 });
+
+      expect(result.data).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+
+    it('should throw BadRequestException when minPrice is greater than maxPrice', async () => {
+      await expect(
+        service.search({ minPrice: 100, maxPrice: 50 }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockProductRepo.find).not.toHaveBeenCalled();
+      expect(mockComboRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when categoryId does not match any active category', async () => {
+      mockCategoryRepo.find.mockResolvedValue([{ id: 5, parentId: null }]);
+
+      await expect(service.search({ categoryId: 999 })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should filter products and combos by categoryId including active descendants', async () => {
+      mockCategoryRepo.find.mockResolvedValue([
+        { id: 1, parentId: null },
+        { id: 2, parentId: 1 },
+        { id: 3, parentId: null },
+      ]);
+      mockProductRepo.find.mockResolvedValue([mockProduct()]);
+      mockComboRepo.find.mockResolvedValue([mockCombo()]);
+      mockCalculation.calculateProduct.mockResolvedValue(mockPriceBreakdown());
+      mockCalculation.calculateCombo.mockResolvedValue(mockPriceBreakdown());
+      mockStock.findByProduct.mockResolvedValue(mockStockItem());
+      mockStock.findByCombo.mockResolvedValue({
+        quantityAvailable: 3,
+        inStock: true,
+      });
+
+      await service.search({ categoryId: 1 });
+
+      expect(mockProductRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ categoryId: In([1, 2]) }),
+        }),
+      );
+      expect(mockComboRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ categoryId: In([1, 2]) }),
+        }),
+      );
+      // categoría 3 (hermana, sin relación con la 1) queda fuera del filtro
+      expect(mockProductRepo.find).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ categoryId: In([1, 2, 3]) }),
+        }),
+      );
+    });
   });
 
   // ==========================
@@ -319,6 +435,32 @@ describe('ShopService', () => {
       );
     });
 
+    it('should throw NotFoundException if combo not found', async () => {
+      mockComboRepo.findOne.mockResolvedValue(null);
+      await expect(service.findById(999, 'combo')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw NotFoundException if combo has no pricing', async () => {
+      mockComboRepo.findOne.mockResolvedValue(mockCombo());
+      mockCalculation.calculateCombo.mockRejectedValue(
+        new Error('No pricing'),
+      );
+      await expect(service.findById(1, 'combo')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException for an invalid type value', async () => {
+      await expect(
+        service.findById(1, 'invalid' as any),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockProductRepo.findOne).not.toHaveBeenCalled();
+      expect(mockComboRepo.findOne).not.toHaveBeenCalled();
+    });
+
     it('should resolve stockStatus correctly', async () => {
       mockProductRepo.findOne.mockResolvedValue(mockProduct());
       mockCalculation.calculateProduct.mockResolvedValue(mockPriceBreakdown());
@@ -343,6 +485,43 @@ describe('ShopService', () => {
       );
       const out = await service.findById(1, 'product');
       expect(out.stockStatus).toBe('out_of_stock');
+    });
+
+    it('should resolve combo stockStatus correctly', async () => {
+      mockComboRepo.findOne.mockResolvedValue(mockCombo());
+      mockCalculation.calculateCombo.mockResolvedValue(mockPriceBreakdown());
+
+      mockStock.findByCombo.mockResolvedValue({
+        quantityAvailable: 1,
+        inStock: true,
+        stockCritical: 2,
+        stockMin: 5,
+      });
+      const critical = await service.findById(1, 'combo');
+      expect(critical.stockStatus).toBe('critical');
+
+      mockStock.findByCombo.mockResolvedValue({
+        quantityAvailable: 3,
+        inStock: true,
+        stockCritical: 1,
+        stockMin: 5,
+      });
+      const low = await service.findById(1, 'combo');
+      expect(low.stockStatus).toBe('low');
+
+      mockStock.findByCombo.mockResolvedValue({
+        quantityAvailable: 0,
+        inStock: false,
+        stockCritical: 1,
+        stockMin: 5,
+      });
+      const out = await service.findById(1, 'combo');
+      expect(out.stockStatus).toBe('out_of_stock');
+
+      mockStock.findByCombo.mockResolvedValue(null);
+      const noStock = await service.findById(1, 'combo');
+      expect(noStock.stockStatus).toBe('out_of_stock');
+      expect(noStock.inStock).toBe(false);
     });
   });
 });
