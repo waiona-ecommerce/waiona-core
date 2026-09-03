@@ -180,9 +180,7 @@ describe('Shop (e2e)', () => {
       .get('/v1/shop/categories')
       .expect(200);
 
-    expect(res.body.some((c: any) => c.id === inactiveCategoryId)).toBe(
-      false,
-    );
+    expect(res.body.some((c: any) => c.id === inactiveCategoryId)).toBe(false);
   });
 
   // -------------------------
@@ -250,9 +248,9 @@ describe('Shop (e2e)', () => {
       .expect(200);
 
     expect(res.body.data.length).toBeGreaterThan(0);
-    expect(
-      res.body.data.every((i: any) => i.category === 'Bebidas'),
-    ).toBe(true);
+    expect(res.body.data.every((i: any) => i.category === 'Bebidas')).toBe(
+      true,
+    );
   });
 
   it('GET /shop/items?categoryId=999999 → 404 categoría inexistente', async () => {

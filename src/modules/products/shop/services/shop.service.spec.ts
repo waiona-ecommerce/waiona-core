@@ -303,9 +303,7 @@ describe('ShopService', () => {
     it('should skip combo without pricing', async () => {
       mockProductRepo.find.mockResolvedValue([]);
       mockComboRepo.find.mockResolvedValue([mockCombo()]);
-      mockCalculation.calculateCombo.mockRejectedValue(
-        new Error('No pricing'),
-      );
+      mockCalculation.calculateCombo.mockRejectedValue(new Error('No pricing'));
 
       const result = await service.search({});
 
@@ -444,18 +442,16 @@ describe('ShopService', () => {
 
     it('should throw NotFoundException if combo has no pricing', async () => {
       mockComboRepo.findOne.mockResolvedValue(mockCombo());
-      mockCalculation.calculateCombo.mockRejectedValue(
-        new Error('No pricing'),
-      );
+      mockCalculation.calculateCombo.mockRejectedValue(new Error('No pricing'));
       await expect(service.findById(1, 'combo')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should throw BadRequestException for an invalid type value', async () => {
-      await expect(
-        service.findById(1, 'invalid' as any),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.findById(1, 'invalid' as any)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockProductRepo.findOne).not.toHaveBeenCalled();
       expect(mockComboRepo.findOne).not.toHaveBeenCalled();
