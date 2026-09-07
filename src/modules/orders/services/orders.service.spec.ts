@@ -675,6 +675,180 @@ describe('OrdersService', () => {
   });
 
   // ==========================
+  // applyCoupon
+  // ==========================
+
+  describe('applyCoupon', () => {
+    const pendingOrder = (overrides: any = {}) => ({
+      id: 1,
+      userId: 1,
+      status: OrderStatus.PENDING,
+      subtotal: 653.4,
+      couponId: null,
+      ...overrides,
+    });
+
+    const orderWithItems = (overrides: any = {}) => ({
+      id: 1,
+      userId: 1,
+      status: OrderStatus.PENDING,
+      subtotal: 653.4,
+      couponId: null,
+      items: [
+        {
+          id: 1,
+          quantity: 1,
+          finalPrice: 653.4,
+          product: { id: 1 },
+          combo: null,
+        },
+      ],
+      ...overrides,
+    });
+
+    const validCoupon = (overrides: any = {}) => ({
+      id: 1,
+      code: 'DESC10',
+      value: 10,
+      isGlobal: true,
+      usageLimit: null,
+      usageCount: 0,
+      startsAt: null,
+      endsAt: null,
+      ...overrides,
+    });
+
+    it('should throw NotFoundException if order not found', async () => {
+      mockEntityManager.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw NotFoundException if order belongs to another user', async () => {
+      mockEntityManager.findOne.mockResolvedValueOnce(
+        pendingOrder({ userId: 2 }),
+      );
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException if order is not pending', async () => {
+      mockEntityManager.findOne.mockResolvedValueOnce(
+        pendingOrder({ status: OrderStatus.CONFIRMED }),
+      );
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw ConflictException if the order already has a coupon', async () => {
+      mockEntityManager.findOne.mockResolvedValueOnce(
+        pendingOrder({ couponId: 5 }),
+      );
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should throw NotFoundException if coupon not found', async () => {
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(orderWithItems())
+        .mockResolvedValueOnce(null);
+
+      await expect(service.applyCoupon(1, 'NOEXISTE', 1)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException if coupon is expired', async () => {
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(orderWithItems())
+        .mockResolvedValueOnce(
+          validCoupon({ endsAt: new Date(Date.now() - 60_000) }),
+        );
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if coupon usage limit is reached', async () => {
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(orderWithItems())
+        .mockResolvedValueOnce(validCoupon({ usageLimit: 5, usageCount: 5 }));
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw ConflictException if the user already used the coupon', async () => {
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(orderWithItems())
+        .mockResolvedValueOnce(validCoupon())
+        .mockResolvedValueOnce({ id: 9 }); // alreadyUsed
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should throw BadRequestException if the coupon does not apply to any item', async () => {
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(orderWithItems())
+        .mockResolvedValueOnce(validCoupon({ isGlobal: false }))
+        .mockResolvedValueOnce(null); // sin uso previo
+      mockEntityManager.find.mockResolvedValueOnce([]); // sin targets
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should apply a global coupon, update the order total, and register the usage', async () => {
+      const order = orderWithItems();
+      const coupon = validCoupon();
+      const usage = { couponId: 1, userId: 1, orderId: 1 };
+
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce(coupon)
+        .mockResolvedValueOnce(null); // sin uso previo
+      mockEntityManager.save
+        .mockResolvedValueOnce(order)
+        .mockResolvedValueOnce({ ...coupon, usageCount: 1 })
+        .mockResolvedValueOnce(undefined);
+      mockEntityManager.create.mockReturnValueOnce(usage);
+
+      const result = await service.applyCoupon(1, 'DESC10', 1);
+
+      expect(order.couponDiscount).toBeCloseTo(65.34);
+      expect(order.total).toBeCloseTo(588.06);
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponEntity,
+        expect.objectContaining({ usageCount: 1 }),
+      );
+      expect(mockEntityManager.save).toHaveBeenCalledWith(
+        CouponUsageEntity,
+        expect.objectContaining({ couponId: 1, userId: 1, orderId: 1 }),
+      );
+      expect(result.id).toBe(1);
+    });
+  });
+
+  // ==========================
   // findAll
   // ==========================
 

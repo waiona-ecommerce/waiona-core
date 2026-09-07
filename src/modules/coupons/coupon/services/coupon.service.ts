@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
 
 import { CouponEntity } from '../entities/coupon.entity';
+import { CouponUsageEntity } from '../../usage/entities/coupon-usage.entity';
 import { CreateCouponDto } from '../dto/create-coupon.dto';
 import { UpdateCouponDto } from '../dto/update-coupon.dto';
 import { CouponResponseDto } from '../dto/coupon-response.dto';
@@ -19,6 +20,9 @@ export class CouponService {
   constructor(
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
+
+    @InjectRepository(CouponUsageEntity)
+    private readonly couponUsageRepository: Repository<CouponUsageEntity>,
   ) {}
 
   // ==========================
@@ -140,6 +144,16 @@ export class CouponService {
 
   async remove(id: number): Promise<void> {
     const coupon = await this.findEntity(id);
+
+    const usageCount = await this.couponUsageRepository.count({
+      where: { couponId: coupon.id },
+    });
+    if (usageCount > 0) {
+      throw new ConflictException(
+        'El cupón ya fue utilizado en órdenes y no puede eliminarse',
+      );
+    }
+
     await this.couponRepository.softDelete(coupon.id);
   }
 
