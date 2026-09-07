@@ -1,11 +1,4 @@
-import {
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
+import { IsInt, IsString, Min, MinLength, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -17,17 +10,8 @@ export class CreateCouponUsageDto {
   @MaxLength(100)
   code: string;
 
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ example: 1, description: 'Orden propia y pendiente' })
   @IsInt()
   @Min(1)
   orderId: number;
-
-  @ApiProperty({
-    required: false,
-    description: 'Inferido del JWT — no enviar desde el cliente',
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  userId?: number;
 }

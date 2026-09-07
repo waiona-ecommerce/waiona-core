@@ -86,7 +86,10 @@ describe('Coupons (e2e)', () => {
         { provide: getRepositoryToken(ComboEntity), useValue: mockComboRepo },
         {
           provide: getRepositoryToken(CouponUsageEntity),
-          useValue: { findOne: jest.fn().mockResolvedValue(null) },
+          useValue: {
+            findOne: jest.fn().mockResolvedValue(null),
+            count: jest.fn().mockResolvedValue(0),
+          },
         },
       ],
     })
@@ -322,6 +325,20 @@ describe('Coupons (e2e)', () => {
       await request(app.getHttpServer())
         .delete('/v1/coupons/999999')
         .expect(404);
+    });
+
+    it('409 — no se puede eliminar un cupón ya utilizado', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/coupons')
+        .send({ code: 'USADO', value: 5, isGlobal: false })
+        .expect(201);
+
+      const usageRepo = app.get(getRepositoryToken(CouponUsageEntity));
+      usageRepo.count.mockResolvedValueOnce(1);
+
+      await request(app.getHttpServer())
+        .delete(`/v1/coupons/${res.body.id}`)
+        .expect(409);
     });
   });
 
