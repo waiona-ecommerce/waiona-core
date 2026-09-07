@@ -330,6 +330,112 @@ export class OrdersService {
   }
 
   // ==========================
+  // APPLY COUPON (a una orden pendiente ya creada)
+  // ==========================
+
+  async applyCoupon(
+    orderId: number,
+    code: string,
+    userId: number,
+  ): Promise<OrderResponseDto> {
+    const now = new Date();
+
+    const saved = await this.dataSource.transaction(async (manager) => {
+      // lock only — no relations, evita el error de Postgres "FOR UPDATE
+      // on nullable outer join" (items.product/items.combo son LEFT JOIN)
+      const locked = await manager.findOne(OrderEntity, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked || locked.userId !== userId) {
+        throw new NotFoundException('Orden no encontrada');
+      }
+      if (locked.status !== OrderStatus.PENDING) {
+        throw new BadRequestException(
+          'Solo se puede aplicar un cupón a una orden pendiente',
+        );
+      }
+      if (locked.couponId) {
+        throw new ConflictException('La orden ya tiene un cupón aplicado');
+      }
+
+      const order = await manager.findOne(OrderEntity, {
+        where: { id: orderId },
+        relations: ['items', 'items.product', 'items.combo'],
+      });
+      if (!order) throw new NotFoundException('Orden no encontrada');
+
+      // Lock del cupón — serializa concurrencia y garantiza datos frescos
+      const lockedCoupon = await manager.findOne(CouponEntity, {
+        where: { code },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedCoupon) throw new NotFoundException('Cupón no encontrado');
+
+      if (lockedCoupon.startsAt && now < lockedCoupon.startsAt) {
+        throw new BadRequestException('El cupón aún no está vigente');
+      }
+      if (lockedCoupon.endsAt && now > lockedCoupon.endsAt) {
+        throw new BadRequestException('El cupón ha expirado');
+      }
+      if (
+        lockedCoupon.usageLimit !== null &&
+        lockedCoupon.usageLimit !== undefined &&
+        lockedCoupon.usageCount >= lockedCoupon.usageLimit
+      ) {
+        throw new BadRequestException(
+          'El cupón ha alcanzado su límite de usos',
+        );
+      }
+
+      const alreadyUsed = await manager.findOne(CouponUsageEntity, {
+        where: { couponId: lockedCoupon.id, userId },
+      });
+      if (alreadyUsed) {
+        throw new ConflictException('El usuario ya utilizó este cupón');
+      }
+
+      const couponItems = order.items.map((item) => ({
+        productId: item.product?.id,
+        comboId: item.combo?.id,
+        subtotal: Number(item.finalPrice),
+      }));
+
+      const couponDiscount = await this.computeCouponDiscountWithManager(
+        lockedCoupon,
+        couponItems,
+        manager,
+      );
+
+      if (couponDiscount === 0) {
+        throw new BadRequestException(
+          'El cupón no aplica a ningún ítem de esta orden',
+        );
+      }
+
+      order.couponDiscount = couponDiscount;
+      order.coupon = lockedCoupon;
+      order.total = Math.max(0, Number(order.subtotal) - couponDiscount);
+      const savedOrder = await manager.save(OrderEntity, order);
+
+      lockedCoupon.usageCount += 1;
+      await manager.save(CouponEntity, lockedCoupon);
+
+      const usage = manager.create(CouponUsageEntity, {
+        couponId: lockedCoupon.id,
+        userId,
+        orderId: savedOrder.id,
+        appliedAt: now,
+      });
+      await manager.save(CouponUsageEntity, usage);
+
+      return savedOrder;
+    });
+
+    return new OrderResponseDto(saved);
+  }
+
+  // ==========================
   // FIND ALL
   // ==========================
 

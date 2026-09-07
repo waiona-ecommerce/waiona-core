@@ -27,29 +27,41 @@ import { RoleType } from '../../../../common/enums/role-type.enum';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../../../../common/decorators/current-user.decorator';
+import { OrdersService } from '../../../orders/services/orders.service';
+import { OrderResponseDto } from '../../../orders/dto/order-response.dto';
 
 @ApiTags('Coupon Usage')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller({ version: '1', path: 'coupon-usage' })
 export class CouponUsageController {
-  constructor(private readonly couponUsageService: CouponUsageService) {}
+  constructor(
+    private readonly couponUsageService: CouponUsageService,
+    private readonly ordersService: OrdersService,
+  ) {}
 
   @Post()
   @Roles(RoleType.CLIENT)
-  @ApiOperation({ summary: 'Aplicar un cupón a una orden (solo cliente)' })
-  @ApiResponse({ status: 201, type: CouponUsageResponseDto })
+  @ApiOperation({
+    summary: 'Aplicar un cupón a una orden pendiente propia (solo cliente)',
+  })
+  @ApiResponse({ status: 201, type: OrderResponseDto })
   @ApiResponse({
     status: 400,
-    description: 'Cupón inactivo, expirado o agotado',
+    description:
+      'Cupón inactivo, expirado, agotado, no aplica a la orden, o la orden no está pendiente',
   })
-  @ApiResponse({ status: 404, description: 'Cupón no encontrado' })
-  @ApiResponse({ status: 409, description: 'El usuario ya usó este cupón' })
+  @ApiResponse({ status: 404, description: 'Cupón u orden no encontrados' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'El usuario ya usó este cupón o la orden ya tiene un cupón aplicado',
+  })
   create(
     @Body() dto: CreateCouponUsageDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<CouponUsageResponseDto> {
-    return this.couponUsageService.create({ ...dto, userId: user.sub });
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.applyCoupon(dto.orderId, dto.code, user.sub);
   }
 
   @Get()

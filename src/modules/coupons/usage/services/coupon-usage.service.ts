@@ -1,18 +1,16 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryFailedError } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CouponUsageEntity } from '../entities/coupon-usage.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
 import { UserEntity } from '../../../users/entities/user.entity';
 import { CouponUsageResponseDto } from '../dto/coupon-usage-response.dto';
 import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
-import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
 
+// La escritura de usos (crear/incrementar usageCount) vive en
+// OrdersService.applyCoupon — necesita lockear la orden y sus ítems para
+// validar elegibilidad y recalcular el total de forma atómica. Este service
+// queda solo de lectura para no duplicar esa lógica en dos lugares.
 @Injectable()
 export class CouponUsageService {
   constructor(
@@ -24,76 +22,7 @@ export class CouponUsageService {
 
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-
-    private readonly dataSource: DataSource,
   ) {}
-
-  // ==========================
-  // CREATE (llamado desde órdenes al confirmar compra con cupón)
-  // ==========================
-
-  async create(dto: CreateCouponUsageDto): Promise<CouponUsageResponseDto> {
-    const now = new Date();
-
-    // Toda la validación y escritura ocurren dentro de la transacción con lock
-    // sobre la fila del cupón para evitar race conditions en el límite de uso.
-    const usage = await this.dataSource.transaction(async (manager) => {
-      const coupon = await manager.findOne(CouponEntity, {
-        where: { code: dto.code },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!coupon) {
-        throw new NotFoundException(
-          `Cupón con código "${dto.code}" no encontrado`,
-        );
-      }
-
-      if (coupon.startsAt && now < coupon.startsAt) {
-        throw new BadRequestException('El cupón aún no está activo');
-      }
-      if (coupon.endsAt && now > coupon.endsAt) {
-        throw new BadRequestException('El cupón ha expirado');
-      }
-      if (coupon.usageLimit !== null && coupon.usageLimit !== undefined) {
-        if (coupon.usageCount >= coupon.usageLimit) {
-          throw new BadRequestException(
-            'El cupón ha alcanzado su límite de uso',
-          );
-        }
-      }
-
-      const alreadyUsed = await manager.findOne(CouponUsageEntity, {
-        where: { couponId: coupon.id, userId: dto.userId },
-      });
-      if (alreadyUsed) {
-        throw new ConflictException('El usuario ya utilizó este cupón');
-      }
-
-      const newUsage = manager.create(CouponUsageEntity, {
-        couponId: coupon.id,
-        orderId: dto.orderId,
-        userId: dto.userId,
-        appliedAt: now,
-      });
-
-      try {
-        await manager.save(newUsage);
-      } catch (err) {
-        if (err instanceof QueryFailedError) {
-          throw new ConflictException('El usuario ya utilizó este cupón');
-        }
-        throw err;
-      }
-
-      coupon.usageCount += 1;
-      await manager.save(coupon);
-
-      return newUsage;
-    });
-
-    return new CouponUsageResponseDto(usage);
-  }
 
   // ==========================
   // GET ALL

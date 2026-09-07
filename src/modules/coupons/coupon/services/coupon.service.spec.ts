@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { CouponService } from '../../../coupons/coupon/services/coupon.service';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
+import { CouponUsageEntity } from '../../../coupons/usage/entities/coupon-usage.entity';
 import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
 
 describe('CouponService', () => {
@@ -20,6 +21,8 @@ describe('CouponService', () => {
     save: jest.fn(),
     softDelete: jest.fn(),
   });
+
+  const mockUsageRepo = () => ({ count: jest.fn() });
 
   const mockCoupon = (overrides = {}) =>
     ({
@@ -42,6 +45,10 @@ describe('CouponService', () => {
       providers: [
         CouponService,
         { provide: getRepositoryToken(CouponEntity), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(CouponUsageEntity),
+          useFactory: mockUsageRepo,
+        },
       ],
     }).compile();
 
@@ -51,6 +58,7 @@ describe('CouponService', () => {
   afterEach(() => jest.clearAllMocks());
 
   const repo = () => (service as any).couponRepository;
+  const usageRepo = () => (service as any).couponUsageRepository;
 
   describe('create', () => {
     const dto = {
@@ -169,9 +177,10 @@ describe('CouponService', () => {
   });
 
   describe('remove', () => {
-    it('should soft delete a coupon', async () => {
+    it('should soft delete a coupon without usages', async () => {
       const coupon = mockCoupon();
       repo().findOne.mockResolvedValue(coupon);
+      usageRepo().count.mockResolvedValue(0);
       repo().softDelete.mockResolvedValue(undefined);
 
       await service.remove(1);
@@ -182,6 +191,15 @@ describe('CouponService', () => {
     it('should throw NotFoundException if coupon not found', async () => {
       repo().findOne.mockResolvedValue(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException if the coupon was already used', async () => {
+      const coupon = mockCoupon();
+      repo().findOne.mockResolvedValue(coupon);
+      usageRepo().count.mockResolvedValue(3);
+
+      await expect(service.remove(1)).rejects.toThrow(ConflictException);
+      expect(repo().softDelete).not.toHaveBeenCalled();
     });
   });
 
