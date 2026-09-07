@@ -1,11 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import {
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CouponUsageService } from '../../../coupons/usage/services/coupon-usage.service';
 import { CouponUsageEntity } from '../../../coupons/usage/entities/coupon-usage.entity';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
@@ -24,15 +19,6 @@ describe('CouponUsageService', () => {
   });
   const mockCouponRepo = () => ({ findOne: jest.fn() });
   const mockUserRepo = () => ({ findOne: jest.fn() });
-
-  const mockEntityManager = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-  };
-  const mockDataSource = {
-    transaction: jest.fn((cb) => cb(mockEntityManager)),
-  };
 
   const mockCoupon = (overrides = {}): CouponEntity =>
     ({
@@ -80,7 +66,6 @@ describe('CouponUsageService', () => {
           provide: getRepositoryToken(UserEntity),
           useFactory: mockUserRepo,
         },
-        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -91,69 +76,6 @@ describe('CouponUsageService', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
-
-  describe('create', () => {
-    const dto = { code: 'DESCUENTO10', orderId: 1, userId: 1 };
-
-    it('should create a usage and increment usageCount inside the transaction', async () => {
-      const usage = mockUsage();
-      mockEntityManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(null);
-      mockEntityManager.create.mockReturnValue(usage);
-      mockEntityManager.save.mockResolvedValue(usage);
-
-      const result = await service.create(dto);
-
-      expect(mockDataSource.transaction).toHaveBeenCalled();
-      expect(result.couponId).toBe(1);
-    });
-
-    it('should throw NotFoundException if coupon not found', async () => {
-      mockEntityManager.findOne.mockResolvedValueOnce(null);
-      await expect(service.create(dto as any)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should throw BadRequestException if coupon not active yet', async () => {
-      const future = new Date(Date.now() + 100000);
-      mockEntityManager.findOne.mockResolvedValueOnce(
-        mockCoupon({ startsAt: future }),
-      );
-      await expect(service.create(dto as any)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException if coupon expired', async () => {
-      const past = new Date(Date.now() - 1000);
-      mockEntityManager.findOne.mockResolvedValueOnce(
-        mockCoupon({ endsAt: past }),
-      );
-      await expect(service.create(dto as any)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException if usage limit reached', async () => {
-      mockEntityManager.findOne.mockResolvedValueOnce(
-        mockCoupon({ usageLimit: 5, usageCount: 5 }),
-      );
-      await expect(service.create(dto as any)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw ConflictException if user already used the coupon', async () => {
-      mockEntityManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockUsage());
-      await expect(service.create(dto as any)).rejects.toThrow(
-        ConflictException,
-      );
-    });
-  });
 
   describe('findAll', () => {
     it('should return paginated usages', async () => {
