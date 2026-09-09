@@ -55,7 +55,7 @@ export class CouponUsageController {
   @ApiResponse({
     status: 409,
     description:
-      'El usuario ya usó este cupón o la orden ya tiene un cupón aplicado',
+      'El usuario ya usó este cupón, la orden ya tiene un cupón aplicado, o la orden tiene un pago en curso',
   })
   create(
     @Body() dto: CreateCouponUsageDto,

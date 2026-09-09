@@ -6,10 +6,13 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryFailedError } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 
+import { PG_UNIQUE_VIOLATION } from '../../../../common/constants/postgres-error-codes';
 import { CouponEntity } from '../entities/coupon.entity';
 import { CouponUsageEntity } from '../../usage/entities/coupon-usage.entity';
+import { CouponProductTargetEntity } from '../../coupon-product-target/entities/coupon-product-target.entity';
+import { CouponComboTargetEntity } from '../../coupon-combo-target/entities/coupon-combo-target.entity';
 import { CreateCouponDto } from '../dto/create-coupon.dto';
 import { UpdateCouponDto } from '../dto/update-coupon.dto';
 import { CouponResponseDto } from '../dto/coupon-response.dto';
@@ -23,6 +26,8 @@ export class CouponService {
 
     @InjectRepository(CouponUsageEntity)
     private readonly couponUsageRepository: Repository<CouponUsageEntity>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   // ==========================
@@ -46,8 +51,8 @@ export class CouponService {
     try {
       const saved = await this.couponRepository.save(coupon);
       return new CouponResponseDto(saved);
-    } catch (err) {
-      if (err instanceof QueryFailedError) {
+    } catch (err: any) {
+      if (err.code === PG_UNIQUE_VIOLATION) {
         throw new ConflictException(
           `Ya existe un cupón con el código "${dto.code}"`,
         );
@@ -92,50 +97,85 @@ export class CouponService {
   // ==========================
 
   async update(id: number, dto: UpdateCouponDto): Promise<CouponResponseDto> {
-    const coupon = await this.findEntity(id);
+    // Se lockea la fila del cupón porque el chequeo "sin targets" de más
+    // abajo compite con CouponProductTargetService/CouponComboTargetService
+    // .create(), que lockean el mismo cupón antes de insertar un target.
+    const updated = await this.dataSource.transaction(async (manager) => {
+      const coupon = await manager.findOne(CouponEntity, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!coupon) {
+        throw new NotFoundException(`Cupón con id ${id} no encontrado`);
+      }
 
-    if (dto.code && dto.code !== coupon.code) {
-      await this.validateUniqueCode(dto.code);
-    }
+      if (dto.code && dto.code !== coupon.code) {
+        const existing = await manager.findOne(CouponEntity, {
+          where: { code: dto.code },
+        });
+        if (existing) {
+          throw new ConflictException(
+            `Ya existe un cupón con el código "${dto.code}"`,
+          );
+        }
+      }
 
-    // Usar !== undefined para permitir nullear explícitamente fechas y límite
-    const startsAt =
-      dto.startsAt !== undefined ? dto.startsAt : coupon.startsAt;
-    const endsAt = dto.endsAt !== undefined ? dto.endsAt : coupon.endsAt;
+      // Usar !== undefined para permitir nullear explícitamente fechas y límite
+      const startsAt =
+        dto.startsAt !== undefined ? dto.startsAt : coupon.startsAt;
+      const endsAt = dto.endsAt !== undefined ? dto.endsAt : coupon.endsAt;
 
-    this.validateDates(startsAt, endsAt);
+      this.validateDates(startsAt, endsAt);
 
-    const newUsageLimit =
-      dto.usageLimit !== undefined ? dto.usageLimit : coupon.usageLimit;
+      const newUsageLimit =
+        dto.usageLimit !== undefined ? dto.usageLimit : coupon.usageLimit;
 
-    if (
-      newUsageLimit !== null &&
-      newUsageLimit !== undefined &&
-      newUsageLimit < coupon.usageCount
-    ) {
-      throw new BadRequestException(
-        `El límite de uso (${newUsageLimit}) no puede ser menor que el uso actual (${coupon.usageCount})`,
-      );
-    }
-
-    coupon.code = dto.code ?? coupon.code;
-    coupon.isGlobal = dto.isGlobal ?? coupon.isGlobal;
-    coupon.value = Number(dto.value ?? coupon.value);
-    coupon.usageLimit = newUsageLimit;
-    coupon.startsAt = startsAt ?? null;
-    coupon.endsAt = endsAt ?? null;
-
-    try {
-      const updated = await this.couponRepository.save(coupon);
-      return new CouponResponseDto(updated);
-    } catch (err) {
-      if (err instanceof QueryFailedError) {
-        throw new ConflictException(
-          `Ya existe un cupón con el código "${coupon.code}"`,
+      if (
+        newUsageLimit !== null &&
+        newUsageLimit !== undefined &&
+        newUsageLimit < coupon.usageCount
+      ) {
+        throw new BadRequestException(
+          `El límite de uso (${newUsageLimit}) no puede ser menor que el uso actual (${coupon.usageCount})`,
         );
       }
-      throw err;
-    }
+
+      if (dto.isGlobal === true && !coupon.isGlobal) {
+        const [productTargets, comboTargets] = await Promise.all([
+          manager.count(CouponProductTargetEntity, {
+            where: { couponId: coupon.id },
+          }),
+          manager.count(CouponComboTargetEntity, {
+            where: { couponId: coupon.id },
+          }),
+        ]);
+        if (productTargets > 0 || comboTargets > 0) {
+          throw new BadRequestException(
+            'No se puede marcar como global un cupón que ya tiene productos o combos asignados; quítelos primero',
+          );
+        }
+      }
+
+      coupon.code = dto.code ?? coupon.code;
+      coupon.isGlobal = dto.isGlobal ?? coupon.isGlobal;
+      coupon.value = Number(dto.value ?? coupon.value);
+      coupon.usageLimit = newUsageLimit;
+      coupon.startsAt = startsAt ?? null;
+      coupon.endsAt = endsAt ?? null;
+
+      try {
+        return await manager.save(CouponEntity, coupon);
+      } catch (err: any) {
+        if (err.code === PG_UNIQUE_VIOLATION) {
+          throw new ConflictException(
+            `Ya existe un cupón con el código "${coupon.code}"`,
+          );
+        }
+        throw err;
+      }
+    });
+
+    return new CouponResponseDto(updated);
   }
 
   // ==========================
