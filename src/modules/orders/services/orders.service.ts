@@ -19,6 +19,8 @@ import { CouponProductTargetEntity } from '../../coupons/coupon-product-target/e
 import { CouponComboTargetEntity } from '../../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { StockItemEntity } from '../../stocks/stock-item/entities/stock-item.entity';
 import { UserEntity } from '../../users/entities/user.entity';
+import { PaymentEntity } from '../../payments/entities/payment.entity';
+import { PaymentStatus } from '../../payments/enums/payment-status.enum';
 
 import { StockItemsService } from '../../stocks/stock-item/services/stock-item.service';
 import { CalculationService } from '../../pricing/calculation/services/calculation.service';
@@ -357,6 +359,19 @@ export class OrdersService {
       }
       if (locked.couponId) {
         throw new ConflictException('La orden ya tiene un cupón aplicado');
+      }
+
+      // Si ya existe una preferencia de pago pendiente, su monto quedó
+      // fijado (MercadoPago, etc.) con el total viejo — cambiar el total acá
+      // desincronizaría lo que el cliente paga de lo que la orden dice que
+      // cuesta. Se bloquea hasta que ese pago se resuelva o cancele.
+      const pendingPayment = await manager.findOne(PaymentEntity, {
+        where: { orderId, status: PaymentStatus.PENDING },
+      });
+      if (pendingPayment) {
+        throw new ConflictException(
+          'La orden tiene un pago en curso; no se puede modificar el cupón',
+        );
       }
 
       const order = await manager.findOne(OrderEntity, {

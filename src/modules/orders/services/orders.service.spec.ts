@@ -756,9 +756,20 @@ describe('OrdersService', () => {
       );
     });
 
+    it('should throw ConflictException if the order has a pending payment', async () => {
+      mockEntityManager.findOne
+        .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce({ id: 1, status: 'pending' }); // pago pendiente
+
+      await expect(service.applyCoupon(1, 'DESC10', 1)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
     it('should throw NotFoundException if coupon not found', async () => {
       mockEntityManager.findOne
         .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(null) // sin pago pendiente
         .mockResolvedValueOnce(orderWithItems())
         .mockResolvedValueOnce(null);
 
@@ -770,6 +781,7 @@ describe('OrdersService', () => {
     it('should throw BadRequestException if coupon is expired', async () => {
       mockEntityManager.findOne
         .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(null) // sin pago pendiente
         .mockResolvedValueOnce(orderWithItems())
         .mockResolvedValueOnce(
           validCoupon({ endsAt: new Date(Date.now() - 60_000) }),
@@ -783,6 +795,7 @@ describe('OrdersService', () => {
     it('should throw BadRequestException if coupon usage limit is reached', async () => {
       mockEntityManager.findOne
         .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(null) // sin pago pendiente
         .mockResolvedValueOnce(orderWithItems())
         .mockResolvedValueOnce(validCoupon({ usageLimit: 5, usageCount: 5 }));
 
@@ -794,6 +807,7 @@ describe('OrdersService', () => {
     it('should throw ConflictException if the user already used the coupon', async () => {
       mockEntityManager.findOne
         .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(null) // sin pago pendiente
         .mockResolvedValueOnce(orderWithItems())
         .mockResolvedValueOnce(validCoupon())
         .mockResolvedValueOnce({ id: 9 }); // alreadyUsed
@@ -806,6 +820,7 @@ describe('OrdersService', () => {
     it('should throw BadRequestException if the coupon does not apply to any item', async () => {
       mockEntityManager.findOne
         .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(null) // sin pago pendiente
         .mockResolvedValueOnce(orderWithItems())
         .mockResolvedValueOnce(validCoupon({ isGlobal: false }))
         .mockResolvedValueOnce(null); // sin uso previo
@@ -823,6 +838,7 @@ describe('OrdersService', () => {
 
       mockEntityManager.findOne
         .mockResolvedValueOnce(pendingOrder())
+        .mockResolvedValueOnce(null) // sin pago pendiente
         .mockResolvedValueOnce(order)
         .mockResolvedValueOnce(coupon)
         .mockResolvedValueOnce(null); // sin uso previo
