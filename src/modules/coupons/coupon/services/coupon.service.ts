@@ -24,9 +24,6 @@ export class CouponService {
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
 
-    @InjectRepository(CouponUsageEntity)
-    private readonly couponUsageRepository: Repository<CouponUsageEntity>,
-
     private readonly dataSource: DataSource,
   ) {}
 
@@ -183,18 +180,30 @@ export class CouponService {
   // ==========================
 
   async remove(id: number): Promise<void> {
-    const coupon = await this.findEntity(id);
+    // Se lockea la fila del cupón porque el chequeo de usos compite con
+    // OrdersService.create()/applyCoupon(), que lockean el mismo cupón antes
+    // de registrar un uso — sin este lock, un uso podría colarse entre el
+    // conteo y el softDelete.
+    await this.dataSource.transaction(async (manager) => {
+      const coupon = await manager.findOne(CouponEntity, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!coupon) {
+        throw new NotFoundException(`Cupón con id ${id} no encontrado`);
+      }
 
-    const usageCount = await this.couponUsageRepository.count({
-      where: { couponId: coupon.id },
+      const usageCount = await manager.count(CouponUsageEntity, {
+        where: { couponId: coupon.id },
+      });
+      if (usageCount > 0) {
+        throw new ConflictException(
+          'El cupón ya fue utilizado en órdenes y no puede eliminarse',
+        );
+      }
+
+      await manager.softDelete(CouponEntity, coupon.id);
     });
-    if (usageCount > 0) {
-      throw new ConflictException(
-        'El cupón ya fue utilizado en órdenes y no puede eliminarse',
-      );
-    }
-
-    await this.couponRepository.softDelete(coupon.id);
   }
 
   // ==========================

@@ -1,8 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
-  Body,
   Param,
   ParseIntPipe,
   Query,
@@ -19,50 +17,21 @@ import { AuthGuard } from '@nestjs/passport';
 
 import { CouponUsageService } from '../services/coupon-usage.service';
 import { CouponUsageResponseDto } from '../dto/coupon-usage-response.dto';
-import { CreateCouponUsageDto } from '../dto/create-coupon-usage.dto';
 import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
 import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.dto';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { RoleType } from '../../../../common/enums/role-type.enum';
 import { RolesGuard } from '../../../../common/guards/roles.guard';
-import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '../../../../common/decorators/current-user.decorator';
-import { OrdersService } from '../../../orders/services/orders.service';
-import { OrderResponseDto } from '../../../orders/dto/order-response.dto';
 
+// El alta (aplicar un cupón a una orden) vive en OrdersModule —
+// ver OrderCouponController — porque es una acción sobre la orden, no
+// un reporte de cupones. Este controller queda solo de lectura/admin.
 @ApiTags('Coupon Usage')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller({ version: '1', path: 'coupon-usage' })
 export class CouponUsageController {
-  constructor(
-    private readonly couponUsageService: CouponUsageService,
-    private readonly ordersService: OrdersService,
-  ) {}
-
-  @Post()
-  @Roles(RoleType.CLIENT)
-  @ApiOperation({
-    summary: 'Aplicar un cupón a una orden pendiente propia (solo cliente)',
-  })
-  @ApiResponse({ status: 201, type: OrderResponseDto })
-  @ApiResponse({
-    status: 400,
-    description:
-      'Cupón inactivo, expirado, agotado, no aplica a la orden, o la orden no está pendiente',
-  })
-  @ApiResponse({ status: 404, description: 'Cupón u orden no encontrados' })
-  @ApiResponse({
-    status: 409,
-    description:
-      'El usuario ya usó este cupón, la orden ya tiene un cupón aplicado, o la orden tiene un pago en curso',
-  })
-  create(
-    @Body() dto: CreateCouponUsageDto,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<OrderResponseDto> {
-    return this.ordersService.applyCoupon(dto.orderId, dto.code, user.sub);
-  }
+  constructor(private readonly couponUsageService: CouponUsageService) {}
 
   @Get()
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
