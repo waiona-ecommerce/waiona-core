@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager, In } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 
 import { OrderEntity } from '../entities/order.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
@@ -14,15 +14,18 @@ import { OrderItemEntity } from '../entities/order-item.entity';
 import { ProductEntity } from '../../products/product/entities/product.entity';
 import { ComboEntity } from '../../products/combos/entities/combo.entity';
 import { CouponEntity } from '../../coupons/coupon/entities/coupon.entity';
-import { CouponUsageEntity } from '../../coupons/usage/entities/coupon-usage.entity';
-import { CouponProductTargetEntity } from '../../coupons/coupon-product-target/entities/coupon-product-target.entity';
-import { CouponComboTargetEntity } from '../../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { StockItemEntity } from '../../stocks/stock-item/entities/stock-item.entity';
 import { UserEntity } from '../../users/entities/user.entity';
+import { PaymentEntity } from '../../payments/entities/payment.entity';
+import { PaymentStatus } from '../../payments/enums/payment-status.enum';
 
 import { StockItemsService } from '../../stocks/stock-item/services/stock-item.service';
 import { CalculationService } from '../../pricing/calculation/services/calculation.service';
 import { MailService } from '../../mail/services/mail.service';
+import {
+  CouponUsageService,
+  CouponUsageItem,
+} from '../../coupons/usage/services/coupon-usage.service';
 
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
@@ -53,12 +56,10 @@ export class OrdersService {
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
 
-    @InjectRepository(CouponEntity)
-    private readonly couponRepo: Repository<CouponEntity>,
-
     private readonly stockItemsService: StockItemsService,
     private readonly calculationService: CalculationService,
     private readonly mailService: MailService,
+    private readonly couponUsageService: CouponUsageService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -67,8 +68,6 @@ export class OrdersService {
   // ==========================
 
   async create(userId: number, dto: CreateOrderDto): Promise<OrderResponseDto> {
-    const now = new Date();
-
     const user = await this.userRepo.findOne({
       where: { id: userId },
     });
@@ -110,11 +109,7 @@ export class OrdersService {
       needs: { productId: number; quantity: number }[];
     }[] = [];
     let subtotal = 0;
-    const couponItems: Array<{
-      productId?: number;
-      comboId?: number;
-      subtotal: number;
-    }> = [];
+    const couponItems: CouponUsageItem[] = [];
 
     for (const item of dto.items) {
       if (item.productId) {
@@ -236,49 +231,20 @@ export class OrdersService {
         orderItem.comboReservations = comboReservations;
       }
 
-      // 4b. Validar y aplicar cupón
+      // 4b. Validar y calcular descuento de cupón — lógica de coupons,
+      // orders solo le pasa su transacción y aplica el resultado.
       let lockedCoupon: CouponEntity | null = null;
       let couponDiscount = 0;
 
       if (dto.couponCode) {
-        // Lock del cupón — serializa concurrencia y garantiza datos frescos
-        lockedCoupon = await manager.findOne(CouponEntity, {
-          where: { code: dto.couponCode },
-          lock: { mode: 'pessimistic_write' },
-        });
-
-        if (!lockedCoupon) throw new NotFoundException('Cupón no encontrado');
-
-        if (lockedCoupon.startsAt && now < lockedCoupon.startsAt)
-          throw new BadRequestException('El cupón aún no está vigente');
-        if (lockedCoupon.endsAt && now > lockedCoupon.endsAt)
-          throw new BadRequestException('El cupón ha expirado');
-        if (
-          lockedCoupon.usageLimit !== null &&
-          lockedCoupon.usageLimit !== undefined &&
-          lockedCoupon.usageCount >= lockedCoupon.usageLimit
-        )
-          throw new BadRequestException(
-            'El cupón ha alcanzado su límite de usos',
-          );
-
-        const alreadyUsed = await manager.findOne(CouponUsageEntity, {
-          where: { couponId: lockedCoupon.id, userId: user.id },
-        });
-        if (alreadyUsed)
-          throw new ConflictException('El usuario ya utilizó este cupón');
-
-        couponDiscount = await this.computeCouponDiscountWithManager(
-          lockedCoupon,
+        const result = await this.couponUsageService.validateAndComputeDiscount(
+          dto.couponCode,
+          user.id,
           couponItems,
           manager,
         );
-
-        if (couponDiscount === 0) {
-          throw new BadRequestException(
-            'El cupón no aplica a ningún ítem de esta orden',
-          );
-        }
+        lockedCoupon = result.coupon;
+        couponDiscount = result.discount;
       }
 
       const total = Math.max(0, subtotal - couponDiscount);
@@ -311,16 +277,12 @@ export class OrdersService {
 
       // 4e. Registrar uso del cupón — solo si efectivamente generó descuento
       if (lockedCoupon && couponDiscount > 0) {
-        lockedCoupon.usageCount += 1;
-        await manager.save(CouponEntity, lockedCoupon);
-
-        const usage = manager.create(CouponUsageEntity, {
-          couponId: lockedCoupon.id,
-          userId: user.id,
-          orderId: savedOrder.id,
-          appliedAt: now,
-        });
-        await manager.save(CouponUsageEntity, usage);
+        await this.couponUsageService.recordUsage(
+          lockedCoupon,
+          user.id,
+          savedOrder.id,
+          manager,
+        );
       }
 
       return savedOrder;
@@ -338,8 +300,6 @@ export class OrdersService {
     code: string,
     userId: number,
   ): Promise<OrderResponseDto> {
-    const now = new Date();
-
     const saved = await this.dataSource.transaction(async (manager) => {
       // lock only — no relations, evita el error de Postgres "FOR UPDATE
       // on nullable outer join" (items.product/items.combo son LEFT JOIN)
@@ -359,75 +319,50 @@ export class OrdersService {
         throw new ConflictException('La orden ya tiene un cupón aplicado');
       }
 
+      // Si ya existe una preferencia de pago pendiente, su monto quedó
+      // fijado (MercadoPago, etc.) con el total viejo — cambiar el total acá
+      // desincronizaría lo que el cliente paga de lo que la orden dice que
+      // cuesta. Se bloquea hasta que ese pago se resuelva o cancele.
+      const pendingPayment = await manager.findOne(PaymentEntity, {
+        where: { orderId, status: PaymentStatus.PENDING },
+      });
+      if (pendingPayment) {
+        throw new ConflictException(
+          'La orden tiene un pago en curso; no se puede modificar el cupón',
+        );
+      }
+
       const order = await manager.findOne(OrderEntity, {
         where: { id: orderId },
         relations: ['items', 'items.product', 'items.combo'],
       });
       if (!order) throw new NotFoundException('Orden no encontrada');
 
-      // Lock del cupón — serializa concurrencia y garantiza datos frescos
-      const lockedCoupon = await manager.findOne(CouponEntity, {
-        where: { code },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!lockedCoupon) throw new NotFoundException('Cupón no encontrado');
-
-      if (lockedCoupon.startsAt && now < lockedCoupon.startsAt) {
-        throw new BadRequestException('El cupón aún no está vigente');
-      }
-      if (lockedCoupon.endsAt && now > lockedCoupon.endsAt) {
-        throw new BadRequestException('El cupón ha expirado');
-      }
-      if (
-        lockedCoupon.usageLimit !== null &&
-        lockedCoupon.usageLimit !== undefined &&
-        lockedCoupon.usageCount >= lockedCoupon.usageLimit
-      ) {
-        throw new BadRequestException(
-          'El cupón ha alcanzado su límite de usos',
-        );
-      }
-
-      const alreadyUsed = await manager.findOne(CouponUsageEntity, {
-        where: { couponId: lockedCoupon.id, userId },
-      });
-      if (alreadyUsed) {
-        throw new ConflictException('El usuario ya utilizó este cupón');
-      }
-
-      const couponItems = order.items.map((item) => ({
+      const couponItems: CouponUsageItem[] = order.items.map((item) => ({
         productId: item.product?.id,
         comboId: item.combo?.id,
         subtotal: Number(item.finalPrice),
       }));
 
-      const couponDiscount = await this.computeCouponDiscountWithManager(
-        lockedCoupon,
-        couponItems,
-        manager,
-      );
-
-      if (couponDiscount === 0) {
-        throw new BadRequestException(
-          'El cupón no aplica a ningún ítem de esta orden',
+      const { coupon, discount } =
+        await this.couponUsageService.validateAndComputeDiscount(
+          code,
+          userId,
+          couponItems,
+          manager,
         );
-      }
 
-      order.couponDiscount = couponDiscount;
-      order.coupon = lockedCoupon;
-      order.total = Math.max(0, Number(order.subtotal) - couponDiscount);
+      order.couponDiscount = discount;
+      order.coupon = coupon;
+      order.total = Math.max(0, Number(order.subtotal) - discount);
       const savedOrder = await manager.save(OrderEntity, order);
 
-      lockedCoupon.usageCount += 1;
-      await manager.save(CouponEntity, lockedCoupon);
-
-      const usage = manager.create(CouponUsageEntity, {
-        couponId: lockedCoupon.id,
+      await this.couponUsageService.recordUsage(
+        coupon,
         userId,
-        orderId: savedOrder.id,
-        appliedAt: now,
-      });
-      await manager.save(CouponUsageEntity, usage);
+        savedOrder.id,
+        manager,
+      );
 
       return savedOrder;
     });
@@ -618,50 +553,6 @@ export class OrdersService {
   }
 
   // ==========================
-  // PRIVATE — descuento de cupón sobre la orden
-  // ==========================
-
-  private async computeCouponDiscountWithManager(
-    coupon: CouponEntity,
-    items: Array<{ productId?: number; comboId?: number; subtotal: number }>,
-    manager: EntityManager,
-  ): Promise<number> {
-    const apply = (base: number) => base * (coupon.value / 100);
-
-    if (coupon.isGlobal) {
-      return apply(items.reduce((sum, i) => sum + i.subtotal, 0));
-    }
-
-    const productIds = items.flatMap((i) => (i.productId ? [i.productId] : []));
-    const comboIds = items.flatMap((i) => (i.comboId ? [i.comboId] : []));
-
-    const [productTargets, comboTargets] = await Promise.all([
-      productIds.length
-        ? manager.find(CouponProductTargetEntity, {
-            where: { couponId: coupon.id, productId: In(productIds) },
-          })
-        : Promise.resolve([]),
-      comboIds.length
-        ? manager.find(CouponComboTargetEntity, {
-            where: { couponId: coupon.id, comboId: In(comboIds) },
-          })
-        : Promise.resolve([]),
-    ]);
-
-    const eligibleProductIds = new Set(productTargets.map((t) => t.productId));
-    const eligibleComboIds = new Set(comboTargets.map((t) => t.comboId));
-
-    const eligibleSubtotal = items.reduce((sum, i) => {
-      if (i.productId && eligibleProductIds.has(i.productId))
-        return sum + i.subtotal;
-      if (i.comboId && eligibleComboIds.has(i.comboId)) return sum + i.subtotal;
-      return sum;
-    }, 0);
-
-    return eligibleSubtotal === 0 ? 0 : apply(eligibleSubtotal);
-  }
-
-  // ==========================
   // PRIVATE — despachar
   // ==========================
 
@@ -727,19 +618,11 @@ export class OrdersService {
     }
 
     if (order.couponId) {
-      // Re-leer con lock para evitar lost update si dos cancelaciones son concurrentes
-      const coupon = await manager.findOne(CouponEntity, {
-        where: { id: order.couponId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (coupon) {
-        coupon.usageCount = Math.max(0, coupon.usageCount - 1);
-        await manager.save(CouponEntity, coupon);
-        await manager.softDelete(CouponUsageEntity, {
-          couponId: coupon.id,
-          orderId: order.id,
-        });
-      }
+      await this.couponUsageService.releaseUsage(
+        order.couponId,
+        order.id,
+        manager,
+      );
     }
   }
 

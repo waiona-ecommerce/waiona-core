@@ -5,8 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryFailedError } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 
+import { PG_UNIQUE_VIOLATION } from '../../../../common/constants/postgres-error-codes';
 import { CouponProductTargetEntity } from '../entities/coupon-product-target.entity';
 import { CouponEntity } from '../../coupon/entities/coupon.entity';
 import { ProductEntity } from '../../../products/product/entities/product.entity';
@@ -21,8 +22,11 @@ export class CouponProductTargetService {
     private readonly repo: Repository<CouponProductTargetEntity>,
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
+
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   // ==========================
@@ -33,28 +37,35 @@ export class CouponProductTargetService {
     couponId: number,
     dto: CreateCouponProductTargetDto,
   ): Promise<CouponProductTargetResponseDto> {
-    const coupon = await this.findCoupon(couponId);
-    this.validateCouponNotGlobal(coupon);
-    this.validateCouponUsable(coupon);
-    await this.validateProductExists(dto.productId);
-    await this.validateUniqueTarget(couponId, dto.productId);
+    // La existencia del producto y la unicidad del target no compiten con
+    // nada — solo lockeamos el cupón (y hacemos el insert final) dentro de
+    // la transacción, porque es la fila que CouponService.update() también
+    // lockea al chequear "sin targets" antes de marcar el cupón como global.
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const coupon = await this.findCoupon(couponId, manager);
+      this.validateCouponNotGlobal(coupon);
+      this.validateCouponUsable(coupon);
+      await this.validateProductExists(dto.productId);
+      await this.validateUniqueTarget(couponId, dto.productId);
 
-    const entity = this.repo.create({
-      couponId,
-      productId: dto.productId,
+      const entity = manager.create(CouponProductTargetEntity, {
+        couponId,
+        productId: dto.productId,
+      });
+
+      try {
+        return await manager.save(CouponProductTargetEntity, entity);
+      } catch (err: any) {
+        if (err.code === PG_UNIQUE_VIOLATION) {
+          throw new ConflictException(
+            `El producto ${dto.productId} ya es un target del cupón ${couponId}`,
+          );
+        }
+        throw err;
+      }
     });
 
-    try {
-      const saved = await this.repo.save(entity);
-      return new CouponProductTargetResponseDto(saved);
-    } catch (err) {
-      if (err instanceof QueryFailedError) {
-        throw new ConflictException(
-          `El producto ${dto.productId} ya es un target del cupón ${couponId}`,
-        );
-      }
-      throw err;
-    }
+    return new CouponProductTargetResponseDto(saved);
   }
 
   // ==========================
@@ -106,10 +117,16 @@ export class CouponProductTargetService {
   // PRIVATE HELPERS
   // ==========================
 
-  private async findCoupon(couponId: number): Promise<CouponEntity> {
-    const coupon = await this.couponRepository.findOne({
-      where: { id: couponId },
-    });
+  private async findCoupon(
+    couponId: number,
+    manager?: EntityManager,
+  ): Promise<CouponEntity> {
+    const coupon = manager
+      ? await manager.findOne(CouponEntity, {
+          where: { id: couponId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : await this.couponRepository.findOne({ where: { id: couponId } });
 
     if (!coupon) {
       throw new NotFoundException(`Cupón con id ${couponId} no encontrado`);

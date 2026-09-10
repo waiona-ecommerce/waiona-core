@@ -2,7 +2,7 @@ import { IsInt, IsString, Min, MinLength, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateCouponUsageDto {
+export class ApplyCouponDto {
   @ApiProperty({ example: 'PROMO10' })
   @Transform(({ value }) => value?.toUpperCase().trim())
   @IsString()
