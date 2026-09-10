@@ -212,5 +212,11 @@ describe('CouponProductTargetService', () => {
       targetRepo.findOne.mockResolvedValue(null);
       await expect(service.remove(1, 999)).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw NotFoundException if coupon not found', async () => {
+      couponRepo.findOne.mockResolvedValue(null);
+      await expect(service.remove(999, 1)).rejects.toThrow(NotFoundException);
+      expect(targetRepo.findOne).not.toHaveBeenCalled();
+    });
   });
 });

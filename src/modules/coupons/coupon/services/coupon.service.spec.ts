@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import {
   NotFoundException,
   BadRequestException,
@@ -8,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { CouponService } from '../../../coupons/coupon/services/coupon.service';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
-import { CouponUsageEntity } from '../../../coupons/usage/entities/coupon-usage.entity';
+import { CreateCouponDto } from '../../../coupons/coupon/dto/create-coupon.dto';
 import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
 
 describe('CouponService', () => {
@@ -23,13 +25,12 @@ describe('CouponService', () => {
     softDelete: jest.fn(),
   });
 
-  const mockUsageRepo = () => ({ count: jest.fn() });
-
-  // update() ahora corre dentro de una transacción con lock sobre el cupón
+  // update()/remove() ahora corren dentro de una transacción con lock sobre el cupón
   const mockManager = {
     findOne: jest.fn(),
     count: jest.fn(),
     save: jest.fn(),
+    softDelete: jest.fn(),
   };
   const mockDataSource = {
     transaction: jest.fn((cb) => cb(mockManager)),
@@ -56,10 +57,6 @@ describe('CouponService', () => {
       providers: [
         CouponService,
         { provide: getRepositoryToken(CouponEntity), useFactory: mockRepo },
-        {
-          provide: getRepositoryToken(CouponUsageEntity),
-          useFactory: mockUsageRepo,
-        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -73,7 +70,6 @@ describe('CouponService', () => {
   });
 
   const repo = () => (service as any).couponRepository;
-  const usageRepo = () => (service as any).couponUsageRepository;
 
   describe('create', () => {
     const dto = {
@@ -102,10 +98,6 @@ describe('CouponService', () => {
       );
     });
 
-    it('should throw BadRequestException if value > 100', () => {
-      expect(dto.value).toBeLessThanOrEqual(100);
-    });
-
     it('should throw BadRequestException if startsAt >= endsAt', async () => {
       repo().findOne.mockResolvedValue(null);
       const now = new Date();
@@ -131,6 +123,49 @@ describe('CouponService', () => {
       await expect(service.create(dto)).rejects.toMatchObject({
         code: '08000',
       });
+    });
+  });
+
+  // La cota 0.01–100 de "value" la aplica el ValidationPipe vía CreateCouponDto,
+  // no CouponService — se testea acá contra el DTO real, no contra el service.
+  describe('CreateCouponDto validation', () => {
+    const baseDto = { code: 'DESCUENTO10', isGlobal: true };
+
+    it('should accept a value within 0.01–100', async () => {
+      const dto = plainToInstance(CreateCouponDto, { ...baseDto, value: 50 });
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should reject a value greater than 100', async () => {
+      const dto = plainToInstance(CreateCouponDto, { ...baseDto, value: 101 });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'value')).toBe(true);
+    });
+
+    it('should reject a value less than 0.01', async () => {
+      const dto = plainToInstance(CreateCouponDto, { ...baseDto, value: 0 });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'value')).toBe(true);
+    });
+
+    it('should reject a code shorter than 3 characters', async () => {
+      const dto = plainToInstance(CreateCouponDto, {
+        ...baseDto,
+        code: 'AB',
+        value: 10,
+      });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'code')).toBe(true);
+    });
+
+    it('should uppercase and trim the code', () => {
+      const dto = plainToInstance(CreateCouponDto, {
+        ...baseDto,
+        code: '  promo10  ',
+        value: 10,
+      });
+      expect(dto.code).toBe('PROMO10');
     });
   });
 
@@ -276,27 +311,30 @@ describe('CouponService', () => {
   describe('remove', () => {
     it('should soft delete a coupon without usages', async () => {
       const coupon = mockCoupon();
-      repo().findOne.mockResolvedValue(coupon);
-      usageRepo().count.mockResolvedValue(0);
-      repo().softDelete.mockResolvedValue(undefined);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.count.mockResolvedValueOnce(0);
+      mockManager.softDelete.mockResolvedValue(undefined);
 
       await service.remove(1);
 
-      expect(repo().softDelete).toHaveBeenCalledWith(coupon.id);
+      expect(mockManager.softDelete).toHaveBeenCalledWith(
+        CouponEntity,
+        coupon.id,
+      );
     });
 
     it('should throw NotFoundException if coupon not found', async () => {
-      repo().findOne.mockResolvedValue(null);
+      mockManager.findOne.mockResolvedValueOnce(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if the coupon was already used', async () => {
       const coupon = mockCoupon();
-      repo().findOne.mockResolvedValue(coupon);
-      usageRepo().count.mockResolvedValue(3);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.count.mockResolvedValueOnce(3);
 
       await expect(service.remove(1)).rejects.toThrow(ConflictException);
-      expect(repo().softDelete).not.toHaveBeenCalled();
+      expect(mockManager.softDelete).not.toHaveBeenCalled();
     });
   });
 
