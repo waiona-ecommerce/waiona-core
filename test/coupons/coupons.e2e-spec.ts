@@ -35,6 +35,16 @@ import { OrderEntity } from '../../src/modules/orders/entities/order.entity';
 import { OrderItemEntity } from '../../src/modules/orders/entities/order-item.entity';
 import { DeliveryType } from '../../src/modules/orders/enums/delivery-type.enum';
 
+// CouponUsageEntity referencia OrderEntity, que a su vez referencia
+// OrderItemEntity → ProductEntity/ComboEntity → CategoryEntity/imágenes/
+// combo-items. TypeORM exige que TODA esa cadena esté registrada en la
+// misma conexión para poder construir las relaciones, aunque Product/Combo
+// sigan mockeados a nivel de repositorio (ver mockProductRepo/mockComboRepo).
+import { CategoryEntity } from '../../src/modules/products/categories/entities/category.entity';
+import { ProductImageEntity } from '../../src/modules/products/product-images/entities/product-image.entity';
+import { ComboItemEntity } from '../../src/modules/products/combos/entities/combo-item.entity';
+import { ComboImageEntity } from '../../src/modules/products/combo-images/entities/combo-image.entity';
+
 describe('Coupons (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -85,6 +95,12 @@ describe('Coupons (e2e)', () => {
               UserEntity,
               OrderEntity,
               OrderItemEntity,
+              ProductEntity,
+              ComboEntity,
+              CategoryEntity,
+              ProductImageEntity,
+              ComboItemEntity,
+              ComboImageEntity,
             ],
             synchronize: true,
             dropSchema: true,
