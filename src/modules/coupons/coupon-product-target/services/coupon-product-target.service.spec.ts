@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import {
   NotFoundException,
   ConflictException,
@@ -23,6 +24,18 @@ describe('CouponProductTargetService', () => {
   });
   const mockCouponRepo = () => ({ findOne: jest.fn() });
   const mockProductRepo = () => ({ findOne: jest.fn() });
+
+  // create() lockea el cupón dentro de una transacción; la existencia del
+  // producto y la unicidad del target siguen yendo por los repos inyectados
+  // (no compiten con nada, no necesitan la misma transacción/lock).
+  const mockManager = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+  const mockDataSource = {
+    transaction: jest.fn((cb) => cb(mockManager)),
+  };
 
   const mockCoupon = (overrides = {}) => ({
     id: 1,
@@ -70,6 +83,7 @@ describe('CouponProductTargetService', () => {
           provide: getRepositoryToken(ProductEntity),
           useFactory: mockProductRepo,
         },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
@@ -81,30 +95,34 @@ describe('CouponProductTargetService', () => {
     productRepo = module.get(getRepositoryToken(ProductEntity));
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+    Object.values(mockManager).forEach((fn) => fn.mockReset());
+  });
 
   describe('create', () => {
     it('should create a product target', async () => {
       const target = mockTarget();
-      couponRepo.findOne.mockResolvedValue(mockCoupon());
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon()); // coupon (locked)
       productRepo.findOne.mockResolvedValue(mockProduct());
-      targetRepo.findOne.mockResolvedValue(null);
-      targetRepo.create.mockReturnValue(target);
-      targetRepo.save.mockResolvedValue(target);
+      targetRepo.findOne.mockResolvedValue(null); // sin target previo
+      mockManager.create.mockReturnValue(target);
+      mockManager.save.mockResolvedValue(target);
 
       const result = await service.create(1, { productId: 1 });
       expect(result.productId).toBe(1);
+      expect(mockDataSource.transaction).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if coupon not found', async () => {
-      couponRepo.findOne.mockResolvedValue(null);
+      mockManager.findOne.mockResolvedValueOnce(null);
       await expect(
         service.create(999, { productId: 1 } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if coupon is global', async () => {
-      couponRepo.findOne.mockResolvedValue(mockCoupon({ isGlobal: true }));
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon({ isGlobal: true }));
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );
@@ -112,14 +130,14 @@ describe('CouponProductTargetService', () => {
 
     it('should throw BadRequestException if coupon is expired', async () => {
       const past = new Date(Date.now() - 1000);
-      couponRepo.findOne.mockResolvedValue(mockCoupon({ endsAt: past }));
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon({ endsAt: past }));
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should throw BadRequestException if coupon is exhausted', async () => {
-      couponRepo.findOne.mockResolvedValue(
+      mockManager.findOne.mockResolvedValueOnce(
         mockCoupon({ usageLimit: 10, usageCount: 10 }),
       );
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
@@ -128,7 +146,7 @@ describe('CouponProductTargetService', () => {
     });
 
     it('should throw NotFoundException if product not found', async () => {
-      couponRepo.findOne.mockResolvedValue(mockCoupon());
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
       productRepo.findOne.mockResolvedValue(null);
       await expect(
         service.create(1, { productId: 999 } as any),
@@ -136,12 +154,36 @@ describe('CouponProductTargetService', () => {
     });
 
     it('should throw ConflictException if target already exists', async () => {
-      couponRepo.findOne.mockResolvedValue(mockCoupon());
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
       productRepo.findOne.mockResolvedValue(mockProduct());
       targetRepo.findOne.mockResolvedValue(mockTarget());
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );
+    });
+
+    it('should throw ConflictException on a unique constraint race at save time', async () => {
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(null); // pasó el chequeo previo
+      mockManager.create.mockReturnValue(mockTarget());
+      mockManager.save.mockRejectedValue({ code: '23505' });
+
+      await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('should rethrow unrelated database errors', async () => {
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(null);
+      mockManager.create.mockReturnValue(mockTarget());
+      mockManager.save.mockRejectedValue({ code: '08000' });
+
+      await expect(
+        service.create(1, { productId: 1 } as any),
+      ).rejects.toMatchObject({ code: '08000' });
     });
   });
 
@@ -174,6 +216,12 @@ describe('CouponProductTargetService', () => {
       couponRepo.findOne.mockResolvedValue(mockCoupon());
       targetRepo.findOne.mockResolvedValue(null);
       await expect(service.remove(1, 999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if coupon not found', async () => {
+      couponRepo.findOne.mockResolvedValue(null);
+      await expect(service.remove(999, 1)).rejects.toThrow(NotFoundException);
+      expect(targetRepo.findOne).not.toHaveBeenCalled();
     });
   });
 });

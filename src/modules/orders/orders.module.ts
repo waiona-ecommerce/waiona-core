@@ -9,12 +9,13 @@ import { StockItemEntity } from '../stocks/stock-item/entities/stock-item.entity
 
 import { OrdersService } from './services/orders.service';
 import { OrdersController } from './controllers/orders.controller';
+import { OrderCouponController } from './controllers/order-coupon.controller';
 
 import { StocksModule } from '../stocks/stocks.module';
 import { CalculationModule } from '../pricing/calculation/calculation.module';
 import { MailModule } from '../mail/mail.module';
+import { CouponsModule } from '../coupons/coupons.module';
 import { UserEntity } from '../users/entities/user.entity';
-import { CouponEntity } from '../coupons/coupon/entities/coupon.entity';
 
 @Module({
   imports: [
@@ -25,13 +26,13 @@ import { CouponEntity } from '../coupons/coupon/entities/coupon.entity';
       ComboEntity,
       StockItemEntity,
       UserEntity,
-      CouponEntity,
     ]),
     StocksModule,
     CalculationModule,
     MailModule,
+    CouponsModule,
   ],
-  controllers: [OrdersController],
+  controllers: [OrdersController, OrderCouponController],
   providers: [OrdersService],
   exports: [OrdersService],
 })

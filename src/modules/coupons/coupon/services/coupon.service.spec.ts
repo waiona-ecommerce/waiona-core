@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import {
   NotFoundException,
   BadRequestException,
@@ -7,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { CouponService } from '../../../coupons/coupon/services/coupon.service';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
-import { CouponUsageEntity } from '../../../coupons/usage/entities/coupon-usage.entity';
+import { CreateCouponDto } from '../../../coupons/coupon/dto/create-coupon.dto';
 import { CouponStatus } from '../../../coupons/coupon/enums/coupon-status.enum';
 
 describe('CouponService', () => {
@@ -22,7 +25,16 @@ describe('CouponService', () => {
     softDelete: jest.fn(),
   });
 
-  const mockUsageRepo = () => ({ count: jest.fn() });
+  // update()/remove() ahora corren dentro de una transacción con lock sobre el cupón
+  const mockManager = {
+    findOne: jest.fn(),
+    count: jest.fn(),
+    save: jest.fn(),
+    softDelete: jest.fn(),
+  };
+  const mockDataSource = {
+    transaction: jest.fn((cb) => cb(mockManager)),
+  };
 
   const mockCoupon = (overrides = {}) =>
     ({
@@ -45,20 +57,19 @@ describe('CouponService', () => {
       providers: [
         CouponService,
         { provide: getRepositoryToken(CouponEntity), useFactory: mockRepo },
-        {
-          provide: getRepositoryToken(CouponUsageEntity),
-          useFactory: mockUsageRepo,
-        },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 
     service = module.get<CouponService>(CouponService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+    Object.values(mockManager).forEach((fn) => fn.mockReset());
+  });
 
   const repo = () => (service as any).couponRepository;
-  const usageRepo = () => (service as any).couponUsageRepository;
 
   describe('create', () => {
     const dto = {
@@ -87,10 +98,6 @@ describe('CouponService', () => {
       );
     });
 
-    it('should throw BadRequestException if value > 100', () => {
-      expect(dto.value).toBeLessThanOrEqual(100);
-    });
-
     it('should throw BadRequestException if startsAt >= endsAt', async () => {
       repo().findOne.mockResolvedValue(null);
       const now = new Date();
@@ -98,6 +105,67 @@ describe('CouponService', () => {
       await expect(
         service.create({ ...dto, startsAt: now, endsAt: past } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException on a unique constraint race at save time', async () => {
+      repo().findOne.mockResolvedValue(null); // pasó el chequeo previo
+      repo().create.mockReturnValue(mockCoupon());
+      repo().save.mockRejectedValue({ code: '23505' });
+
+      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('should rethrow unrelated database errors', async () => {
+      repo().findOne.mockResolvedValue(null);
+      repo().create.mockReturnValue(mockCoupon());
+      repo().save.mockRejectedValue({ code: '08000' });
+
+      await expect(service.create(dto)).rejects.toMatchObject({
+        code: '08000',
+      });
+    });
+  });
+
+  // La cota 0.01–100 de "value" la aplica el ValidationPipe vía CreateCouponDto,
+  // no CouponService — se testea acá contra el DTO real, no contra el service.
+  describe('CreateCouponDto validation', () => {
+    const baseDto = { code: 'DESCUENTO10', isGlobal: true };
+
+    it('should accept a value within 0.01–100', async () => {
+      const dto = plainToInstance(CreateCouponDto, { ...baseDto, value: 50 });
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should reject a value greater than 100', async () => {
+      const dto = plainToInstance(CreateCouponDto, { ...baseDto, value: 101 });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'value')).toBe(true);
+    });
+
+    it('should reject a value less than 0.01', async () => {
+      const dto = plainToInstance(CreateCouponDto, { ...baseDto, value: 0 });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'value')).toBe(true);
+    });
+
+    it('should reject a code shorter than 3 characters', async () => {
+      const dto = plainToInstance(CreateCouponDto, {
+        ...baseDto,
+        code: 'AB',
+        value: 10,
+      });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'code')).toBe(true);
+    });
+
+    it('should uppercase and trim the code', () => {
+      const dto = plainToInstance(CreateCouponDto, {
+        ...baseDto,
+        code: '  promo10  ',
+        value: 10,
+      });
+      expect(dto.code).toBe('PROMO10');
     });
   });
 
@@ -133,18 +201,19 @@ describe('CouponService', () => {
     it('should update a coupon', async () => {
       const coupon = mockCoupon();
       const updated = mockCoupon({ usageLimit: 200 });
-      repo().findOne.mockResolvedValue(coupon);
-      repo().save.mockResolvedValue(updated);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.save.mockResolvedValueOnce(updated);
 
       const result = await service.update(1, { usageLimit: 200 });
       expect(result.usageLimit).toBe(200);
+      expect(mockDataSource.transaction).toHaveBeenCalled();
     });
 
     it('should allow nulling usageLimit to make it unlimited', async () => {
       const coupon = mockCoupon({ usageLimit: 100, usageCount: 10 });
       const updated = mockCoupon({ usageLimit: null });
-      repo().findOne.mockResolvedValue(coupon);
-      repo().save.mockResolvedValue(updated);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.save.mockResolvedValueOnce(updated);
 
       const result = await service.update(1, { usageLimit: null } as any);
       expect(result.usageLimit).toBeUndefined();
@@ -152,7 +221,7 @@ describe('CouponService', () => {
 
     it('should throw BadRequestException if usageLimit < usageCount', async () => {
       const coupon = mockCoupon({ usageLimit: 100, usageCount: 50 });
-      repo().findOne.mockResolvedValue(coupon);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
 
       await expect(
         service.update(1, { usageLimit: 30 } as any),
@@ -160,8 +229,8 @@ describe('CouponService', () => {
     });
 
     it('should throw ConflictException if new code already exists', async () => {
-      repo()
-        .findOne.mockResolvedValueOnce(mockCoupon({ code: 'OLD' }))
+      mockManager.findOne
+        .mockResolvedValueOnce(mockCoupon({ code: 'OLD' }))
         .mockResolvedValueOnce(mockCoupon({ code: 'TAKEN' }));
       await expect(service.update(1, { code: 'TAKEN' } as any)).rejects.toThrow(
         ConflictException,
@@ -169,37 +238,103 @@ describe('CouponService', () => {
     });
 
     it('should throw NotFoundException', async () => {
-      repo().findOne.mockResolvedValue(null);
+      mockManager.findOne.mockResolvedValueOnce(null);
       await expect(service.update(999, {} as any)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('should throw ConflictException on a unique constraint race at save time', async () => {
+      const coupon = mockCoupon();
+      mockManager.findOne.mockResolvedValueOnce(coupon); // sin cambio de code, no re-valida unicidad
+      mockManager.save.mockRejectedValueOnce({ code: '23505' });
+
+      await expect(
+        service.update(1, { usageLimit: 50 } as any),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should rethrow unrelated database errors', async () => {
+      const coupon = mockCoupon();
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.save.mockRejectedValueOnce({ code: '08000' });
+
+      await expect(
+        service.update(1, { usageLimit: 50 } as any),
+      ).rejects.toMatchObject({ code: '08000' });
+    });
+
+    it('should throw BadRequestException when marking as global a coupon with product targets', async () => {
+      mockManager.findOne.mockResolvedValueOnce(
+        mockCoupon({ isGlobal: false }),
+      );
+      mockManager.count.mockResolvedValueOnce(2).mockResolvedValueOnce(0);
+
+      await expect(
+        service.update(1, { isGlobal: true } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockManager.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when marking as global a coupon with combo targets', async () => {
+      mockManager.findOne.mockResolvedValueOnce(
+        mockCoupon({ isGlobal: false }),
+      );
+      mockManager.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+      await expect(
+        service.update(1, { isGlobal: true } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockManager.save).not.toHaveBeenCalled();
+    });
+
+    it('should allow marking as global a coupon without targets', async () => {
+      const coupon = mockCoupon({ isGlobal: false });
+      mockManager.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.save.mockResolvedValueOnce(mockCoupon({ isGlobal: true }));
+
+      const result = await service.update(1, { isGlobal: true });
+      expect(result.isGlobal).toBe(true);
+    });
+
+    it('should not check targets when isGlobal is not changing', async () => {
+      const coupon = mockCoupon({ isGlobal: true });
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.save.mockResolvedValueOnce(coupon);
+
+      await service.update(1, { usageLimit: 50 });
+      expect(mockManager.count).not.toHaveBeenCalled();
     });
   });
 
   describe('remove', () => {
     it('should soft delete a coupon without usages', async () => {
       const coupon = mockCoupon();
-      repo().findOne.mockResolvedValue(coupon);
-      usageRepo().count.mockResolvedValue(0);
-      repo().softDelete.mockResolvedValue(undefined);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.count.mockResolvedValueOnce(0);
+      mockManager.softDelete.mockResolvedValue(undefined);
 
       await service.remove(1);
 
-      expect(repo().softDelete).toHaveBeenCalledWith(coupon.id);
+      expect(mockManager.softDelete).toHaveBeenCalledWith(
+        CouponEntity,
+        coupon.id,
+      );
     });
 
     it('should throw NotFoundException if coupon not found', async () => {
-      repo().findOne.mockResolvedValue(null);
+      mockManager.findOne.mockResolvedValueOnce(null);
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if the coupon was already used', async () => {
       const coupon = mockCoupon();
-      repo().findOne.mockResolvedValue(coupon);
-      usageRepo().count.mockResolvedValue(3);
+      mockManager.findOne.mockResolvedValueOnce(coupon);
+      mockManager.count.mockResolvedValueOnce(3);
 
       await expect(service.remove(1)).rejects.toThrow(ConflictException);
-      expect(repo().softDelete).not.toHaveBeenCalled();
+      expect(mockManager.softDelete).not.toHaveBeenCalled();
     });
   });
 

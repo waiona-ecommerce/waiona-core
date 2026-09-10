@@ -42,6 +42,7 @@ import { CouponEntity } from '../../src/modules/coupons/coupon/entities/coupon.e
 import { CouponProductTargetEntity } from '../../src/modules/coupons/coupon-product-target/entities/coupon-product-target.entity';
 import { CouponComboTargetEntity } from '../../src/modules/coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { CouponUsageEntity } from '../../src/modules/coupons/usage/entities/coupon-usage.entity';
+import { CouponUsageService } from '../../src/modules/coupons/usage/services/coupon-usage.service';
 
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { CalculationService } from '../../src/modules/pricing/calculation/services/calculation.service';
@@ -134,11 +135,13 @@ describe('Orders (e2e)', () => {
           CouponEntity,
           CouponProductTargetEntity,
           CouponComboTargetEntity,
+          CouponUsageEntity,
         ]),
       ],
       controllers: [OrdersController],
       providers: [
         OrdersService,
+        CouponUsageService,
         StockItemsService,
         { provide: CalculationService, useValue: mockCalcService },
         {
