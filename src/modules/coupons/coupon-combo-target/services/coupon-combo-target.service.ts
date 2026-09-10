@@ -23,6 +23,9 @@ export class CouponComboTargetService {
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
 
+    @InjectRepository(ComboEntity)
+    private readonly comboRepository: Repository<ComboEntity>,
+
     private readonly dataSource: DataSource,
   ) {}
 
@@ -34,14 +37,16 @@ export class CouponComboTargetService {
     couponId: number,
     dto: CreateCouponComboTargetDto,
   ): Promise<CouponComboTargetResponseDto> {
-    // Se lockea el cupón porque CouponService.update() compite por la misma
-    // fila al chequear "sin targets" antes de marcar el cupón como global.
+    // La existencia del combo y la unicidad del target no compiten con
+    // nada — solo lockeamos el cupón (y hacemos el insert final) dentro de
+    // la transacción, porque es la fila que CouponService.update() también
+    // lockea al chequear "sin targets" antes de marcar el cupón como global.
     const saved = await this.dataSource.transaction(async (manager) => {
       const coupon = await this.findCoupon(couponId, manager);
       this.validateCouponNotGlobal(coupon);
       this.validateCouponUsable(coupon);
-      await this.validateComboExists(dto.comboId, manager);
-      await this.validateUniqueTarget(couponId, dto.comboId, manager);
+      await this.validateComboExists(dto.comboId);
+      await this.validateUniqueTarget(couponId, dto.comboId);
 
       const entity = manager.create(CouponComboTargetEntity, {
         couponId,
@@ -130,11 +135,8 @@ export class CouponComboTargetService {
     return coupon;
   }
 
-  private async validateComboExists(
-    comboId: number,
-    manager: EntityManager,
-  ): Promise<void> {
-    const combo = await manager.findOne(ComboEntity, {
+  private async validateComboExists(comboId: number): Promise<void> {
+    const combo = await this.comboRepository.findOne({
       where: { id: comboId },
     });
 
@@ -172,9 +174,8 @@ export class CouponComboTargetService {
   private async validateUniqueTarget(
     couponId: number,
     comboId: number,
-    manager: EntityManager,
   ): Promise<void> {
-    const existing = await manager.findOne(CouponComboTargetEntity, {
+    const existing = await this.repo.findOne({
       where: { couponId, comboId },
     });
 

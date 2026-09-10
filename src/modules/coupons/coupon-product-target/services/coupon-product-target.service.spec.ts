@@ -9,6 +9,7 @@ import {
 import { CouponProductTargetService } from '../../../coupons/coupon-product-target/services/coupon-product-target.service';
 import { CouponProductTargetEntity } from '../../../coupons/coupon-product-target/entities/coupon-product-target.entity';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
+import { ProductEntity } from '../../../products/product/entities/product.entity';
 
 describe('CouponProductTargetService', () => {
   let service: CouponProductTargetService;
@@ -22,8 +23,11 @@ describe('CouponProductTargetService', () => {
     softDelete: jest.fn(),
   });
   const mockCouponRepo = () => ({ findOne: jest.fn() });
+  const mockProductRepo = () => ({ findOne: jest.fn() });
 
-  // create() ahora corre dentro de una transacción con lock sobre el cupón
+  // create() lockea el cupón dentro de una transacción; la existencia del
+  // producto y la unicidad del target siguen yendo por los repos inyectados
+  // (no compiten con nada, no necesitan la misma transacción/lock).
   const mockManager = {
     findOne: jest.fn(),
     create: jest.fn(),
@@ -61,6 +65,7 @@ describe('CouponProductTargetService', () => {
 
   let targetRepo: any;
   let couponRepo: any;
+  let productRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -74,6 +79,10 @@ describe('CouponProductTargetService', () => {
           provide: getRepositoryToken(CouponEntity),
           useFactory: mockCouponRepo,
         },
+        {
+          provide: getRepositoryToken(ProductEntity),
+          useFactory: mockProductRepo,
+        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -83,6 +92,7 @@ describe('CouponProductTargetService', () => {
     );
     targetRepo = module.get(getRepositoryToken(CouponProductTargetEntity));
     couponRepo = module.get(getRepositoryToken(CouponEntity));
+    productRepo = module.get(getRepositoryToken(ProductEntity));
   });
 
   afterEach(() => {
@@ -93,10 +103,9 @@ describe('CouponProductTargetService', () => {
   describe('create', () => {
     it('should create a product target', async () => {
       const target = mockTarget();
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon()) // coupon (locked)
-        .mockResolvedValueOnce(mockProduct()) // product exists
-        .mockResolvedValueOnce(null); // sin target previo
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon()); // coupon (locked)
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(null); // sin target previo
       mockManager.create.mockReturnValue(target);
       mockManager.save.mockResolvedValue(target);
 
@@ -137,29 +146,26 @@ describe('CouponProductTargetService', () => {
     });
 
     it('should throw NotFoundException if product not found', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(null);
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      productRepo.findOne.mockResolvedValue(null);
       await expect(
         service.create(1, { productId: 999 } as any),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if target already exists', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockProduct())
-        .mockResolvedValueOnce(mockTarget());
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(mockTarget());
       await expect(service.create(1, { productId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );
     });
 
     it('should throw ConflictException on a unique constraint race at save time', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockProduct())
-        .mockResolvedValueOnce(null); // pasó el chequeo previo
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(null); // pasó el chequeo previo
       mockManager.create.mockReturnValue(mockTarget());
       mockManager.save.mockRejectedValue({ code: '23505' });
 
@@ -169,10 +175,9 @@ describe('CouponProductTargetService', () => {
     });
 
     it('should rethrow unrelated database errors', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockProduct())
-        .mockResolvedValueOnce(null);
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      productRepo.findOne.mockResolvedValue(mockProduct());
+      targetRepo.findOne.mockResolvedValue(null);
       mockManager.create.mockReturnValue(mockTarget());
       mockManager.save.mockRejectedValue({ code: '08000' });
 
