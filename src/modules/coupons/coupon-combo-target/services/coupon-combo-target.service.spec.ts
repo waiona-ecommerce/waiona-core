@@ -9,6 +9,7 @@ import {
 import { CouponComboTargetService } from '../../../coupons/coupon-combo-target/services/coupon-combo-target.service';
 import { CouponComboTargetEntity } from '../../../coupons/coupon-combo-target/entities/coupon-combo-target.entity';
 import { CouponEntity } from '../../../coupons/coupon/entities/coupon.entity';
+import { ComboEntity } from '../../../products/combos/entities/combo.entity';
 
 describe('CouponComboTargetService', () => {
   let service: CouponComboTargetService;
@@ -22,8 +23,11 @@ describe('CouponComboTargetService', () => {
     softDelete: jest.fn(),
   });
   const mockCouponRepo = () => ({ findOne: jest.fn() });
+  const mockComboRepo = () => ({ findOne: jest.fn() });
 
-  // create() ahora corre dentro de una transacción con lock sobre el cupón
+  // create() lockea el cupón dentro de una transacción; la existencia del
+  // combo y la unicidad del target siguen yendo por los repos inyectados
+  // (no compiten con nada, no necesitan la misma transacción/lock).
   const mockManager = {
     findOne: jest.fn(),
     create: jest.fn(),
@@ -61,6 +65,7 @@ describe('CouponComboTargetService', () => {
 
   let targetRepo: any;
   let couponRepo: any;
+  let comboRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -74,6 +79,10 @@ describe('CouponComboTargetService', () => {
           provide: getRepositoryToken(CouponEntity),
           useFactory: mockCouponRepo,
         },
+        {
+          provide: getRepositoryToken(ComboEntity),
+          useFactory: mockComboRepo,
+        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -81,6 +90,7 @@ describe('CouponComboTargetService', () => {
     service = module.get<CouponComboTargetService>(CouponComboTargetService);
     targetRepo = module.get(getRepositoryToken(CouponComboTargetEntity));
     couponRepo = module.get(getRepositoryToken(CouponEntity));
+    comboRepo = module.get(getRepositoryToken(ComboEntity));
   });
 
   afterEach(() => {
@@ -91,10 +101,9 @@ describe('CouponComboTargetService', () => {
   describe('create', () => {
     it('should create a combo target', async () => {
       const target = mockTarget();
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon()) // coupon (locked)
-        .mockResolvedValueOnce(mockCombo()) // combo exists
-        .mockResolvedValueOnce(null); // sin target previo
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon()); // coupon (locked)
+      comboRepo.findOne.mockResolvedValue(mockCombo());
+      targetRepo.findOne.mockResolvedValue(null); // sin target previo
       mockManager.create.mockReturnValue(target);
       mockManager.save.mockResolvedValue(target);
 
@@ -135,29 +144,26 @@ describe('CouponComboTargetService', () => {
     });
 
     it('should throw NotFoundException if combo not found', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(null);
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      comboRepo.findOne.mockResolvedValue(null);
       await expect(service.create(1, { comboId: 999 } as any)).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('should throw ConflictException if target already exists', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockCombo())
-        .mockResolvedValueOnce(mockTarget());
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      comboRepo.findOne.mockResolvedValue(mockCombo());
+      targetRepo.findOne.mockResolvedValue(mockTarget());
       await expect(service.create(1, { comboId: 1 } as any)).rejects.toThrow(
         ConflictException,
       );
     });
 
     it('should throw ConflictException on a unique constraint race at save time', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockCombo())
-        .mockResolvedValueOnce(null); // pasó el chequeo previo
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      comboRepo.findOne.mockResolvedValue(mockCombo());
+      targetRepo.findOne.mockResolvedValue(null); // pasó el chequeo previo
       mockManager.create.mockReturnValue(mockTarget());
       mockManager.save.mockRejectedValue({ code: '23505' });
 
@@ -167,10 +173,9 @@ describe('CouponComboTargetService', () => {
     });
 
     it('should rethrow unrelated database errors', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce(mockCoupon())
-        .mockResolvedValueOnce(mockCombo())
-        .mockResolvedValueOnce(null);
+      mockManager.findOne.mockResolvedValueOnce(mockCoupon());
+      comboRepo.findOne.mockResolvedValue(mockCombo());
+      targetRepo.findOne.mockResolvedValue(null);
       mockManager.create.mockReturnValue(mockTarget());
       mockManager.save.mockRejectedValue({ code: '08000' });
 

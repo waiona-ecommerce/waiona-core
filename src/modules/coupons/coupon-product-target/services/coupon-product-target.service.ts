@@ -23,6 +23,9 @@ export class CouponProductTargetService {
     @InjectRepository(CouponEntity)
     private readonly couponRepository: Repository<CouponEntity>,
 
+    @InjectRepository(ProductEntity)
+    private readonly productRepository: Repository<ProductEntity>,
+
     private readonly dataSource: DataSource,
   ) {}
 
@@ -34,14 +37,16 @@ export class CouponProductTargetService {
     couponId: number,
     dto: CreateCouponProductTargetDto,
   ): Promise<CouponProductTargetResponseDto> {
-    // Se lockea el cupón porque CouponService.update() compite por la misma
-    // fila al chequear "sin targets" antes de marcar el cupón como global.
+    // La existencia del producto y la unicidad del target no compiten con
+    // nada — solo lockeamos el cupón (y hacemos el insert final) dentro de
+    // la transacción, porque es la fila que CouponService.update() también
+    // lockea al chequear "sin targets" antes de marcar el cupón como global.
     const saved = await this.dataSource.transaction(async (manager) => {
       const coupon = await this.findCoupon(couponId, manager);
       this.validateCouponNotGlobal(coupon);
       this.validateCouponUsable(coupon);
-      await this.validateProductExists(dto.productId, manager);
-      await this.validateUniqueTarget(couponId, dto.productId, manager);
+      await this.validateProductExists(dto.productId);
+      await this.validateUniqueTarget(couponId, dto.productId);
 
       const entity = manager.create(CouponProductTargetEntity, {
         couponId,
@@ -130,11 +135,8 @@ export class CouponProductTargetService {
     return coupon;
   }
 
-  private async validateProductExists(
-    productId: number,
-    manager: EntityManager,
-  ): Promise<void> {
-    const product = await manager.findOne(ProductEntity, {
+  private async validateProductExists(productId: number): Promise<void> {
+    const product = await this.productRepository.findOne({
       where: { id: productId },
     });
 
@@ -172,9 +174,8 @@ export class CouponProductTargetService {
   private async validateUniqueTarget(
     couponId: number,
     productId: number,
-    manager: EntityManager,
   ): Promise<void> {
-    const existing = await manager.findOne(CouponProductTargetEntity, {
+    const existing = await this.repo.findOne({
       where: { couponId, productId },
     });
 
