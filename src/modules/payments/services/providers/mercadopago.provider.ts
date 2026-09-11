@@ -40,7 +40,10 @@ export class MercadoPagoProvider {
             id: String(order.id),
             title: `Orden #${order.id}`,
             quantity: 1,
-            unit_price: Math.round(Number(order.total)),
+            // sin redondear — tiene que coincidir centavo a centavo con
+            // order.total/payment.amount, si no lo que MP cobra y lo que
+            // el sistema registra como cobrado quedan desincronizados.
+            unit_price: Number(order.total),
             currency_id: 'ARS',
           },
         ],
