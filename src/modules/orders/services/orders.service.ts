@@ -512,7 +512,12 @@ export class OrdersService {
       if (!order) return;
       order.status = OrderStatus.CANCELLED;
       await txManager.save(OrderEntity, order);
-      await this.handleCancellation(order, txManager);
+      // invalidatePendingPayments: false — quien nos llama (el webhook de
+      // MercadoPago) ya está resolviendo el estado del pago que disparó
+      // esta cancelación; no hace falta que lo pisemos acá también.
+      await this.handleCancellation(order, txManager, {
+        invalidatePendingPayments: false,
+      });
     };
 
     if (manager) return execute(manager);
@@ -592,7 +597,10 @@ export class OrdersService {
   private async handleCancellation(
     order: OrderEntity,
     manager: EntityManager,
+    options: { invalidatePendingPayments?: boolean } = {},
   ): Promise<void> {
+    const { invalidatePendingPayments = true } = options;
+
     for (const item of order.items) {
       if (item.product) {
         if (!item.locationId) continue;
@@ -622,6 +630,17 @@ export class OrdersService {
         order.couponId,
         order.id,
         manager,
+      );
+    }
+
+    if (invalidatePendingPayments) {
+      // Un checkout que quedó abierto (link de MercadoPago) no debe poder
+      // seguir pagando una orden ya cancelada — si no lo invalidamos acá,
+      // un webhook tardío podría aprobarlo igual (ver handleMercadoPagoWebhook).
+      await manager.update(
+        PaymentEntity,
+        { orderId: order.id, status: PaymentStatus.PENDING },
+        { status: PaymentStatus.CANCELLED },
       );
     }
   }

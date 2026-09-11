@@ -44,6 +44,8 @@ import { CouponComboTargetEntity } from '../../src/modules/coupons/coupon-combo-
 import { CouponUsageEntity } from '../../src/modules/coupons/usage/entities/coupon-usage.entity';
 import { CouponUsageService } from '../../src/modules/coupons/usage/services/coupon-usage.service';
 
+import { PaymentEntity } from '../../src/modules/payments/entities/payment.entity';
+
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { CalculationService } from '../../src/modules/pricing/calculation/services/calculation.service';
 import { MailService } from '../../src/modules/mail/services/mail.service';
@@ -117,6 +119,7 @@ describe('Orders (e2e)', () => {
               CouponProductTargetEntity,
               CouponComboTargetEntity,
               CouponUsageEntity,
+              PaymentEntity,
             ],
             synchronize: true,
             dropSchema: true,

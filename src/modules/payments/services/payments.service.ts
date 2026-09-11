@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -22,8 +23,14 @@ import { OrderStatus } from '../../orders/enums/order-status.enum';
 import { RoleType } from '../../../common/enums/role-type.enum';
 import { OrdersService } from '../../orders/services/orders.service';
 
+// Únicos providers con integración real hoy. El enum PaymentProvider puede
+// declarar otros a futuro sin que eso los habilite acá.
+const IMPLEMENTED_PROVIDERS: PaymentProvider[] = [PaymentProvider.MERCADOPAGO];
+
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     @InjectRepository(PaymentEntity)
     private readonly paymentRepo: Repository<PaymentEntity>,
@@ -45,52 +52,70 @@ export class PaymentsService {
     role: RoleType,
     dto: CreatePaymentDto,
   ): Promise<PaymentResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOne(OrderEntity, {
-        where: { id: dto.orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
+    if (!IMPLEMENTED_PROVIDERS.includes(dto.provider)) {
+      throw new BadRequestException(
+        `El proveedor de pago "${dto.provider}" todavía no está soportado`,
+      );
+    }
 
-      if (!order) throw new NotFoundException('Orden no encontrada');
+    // Fase 1 (con lock, rápida): validar la orden y reservar el intento de
+    // pago en la DB. Nunca hacemos la llamada externa a MercadoPago acá —
+    // si tardara o se colgara, dejaría la orden bloqueada para cancelar,
+    // aplicar cupón, etc. mientras dure el request.
+    const { payment, order } = await this.dataSource.transaction(
+      async (manager) => {
+        const order = await manager.findOne(OrderEntity, {
+          where: { id: dto.orderId },
+          lock: { mode: 'pessimistic_write' },
+        });
 
-      if (role === RoleType.CLIENT && order.userId !== userId) {
-        throw new ForbiddenException('Acceso denegado');
-      }
+        if (!order) throw new NotFoundException('Orden no encontrada');
 
-      if (order.status !== OrderStatus.PENDING) {
-        throw new BadRequestException('La orden no está en estado pagable');
-      }
+        if (role === RoleType.CLIENT && order.userId !== userId) {
+          throw new ForbiddenException('Acceso denegado');
+        }
 
-      const existingPayment = await manager.findOne(PaymentEntity, {
-        where: { orderId: dto.orderId, status: PaymentStatus.PENDING },
-      });
+        if (order.status !== OrderStatus.PENDING) {
+          throw new BadRequestException('La orden no está en estado pagable');
+        }
 
-      if (existingPayment) {
-        throw new BadRequestException('La orden ya tiene un pago pendiente');
-      }
+        const existingPayment = await manager.findOne(PaymentEntity, {
+          where: { orderId: dto.orderId, status: PaymentStatus.PENDING },
+        });
 
-      let externalId: string | null = null;
-      let checkoutUrl: string | null = null;
+        if (existingPayment) {
+          throw new BadRequestException('La orden ya tiene un pago pendiente');
+        }
 
-      if (dto.provider === PaymentProvider.MERCADOPAGO) {
-        const preference =
-          await this.mercadoPagoProvider.createPreference(order);
-        externalId = preference.id;
-        checkoutUrl = preference.checkoutUrl;
-      }
+        const payment = manager.create(PaymentEntity, {
+          orderId: dto.orderId,
+          provider: dto.provider,
+          status: PaymentStatus.PENDING,
+          externalId: null,
+          checkoutUrl: null,
+          amount: order.total,
+        });
 
-      const payment = manager.create(PaymentEntity, {
-        orderId: dto.orderId,
-        provider: dto.provider,
-        status: PaymentStatus.PENDING,
-        externalId,
-        checkoutUrl,
-        amount: order.total,
-      });
+        const saved = await manager.save(PaymentEntity, payment);
+        return { payment: saved, order };
+      },
+    );
 
-      const saved = await manager.save(PaymentEntity, payment);
+    // Fase 2 (sin lock): llamar a MercadoPago. Si falla, el intento
+    // reservado se marca REJECTED en vez de quedar como un PENDING
+    // fantasma que bloquee futuros intentos de pago sobre la orden.
+    try {
+      const preference = await this.mercadoPagoProvider.createPreference(order);
+      payment.externalId = preference.id;
+      payment.checkoutUrl = preference.checkoutUrl;
+      const saved = await this.paymentRepo.save(payment);
       return new PaymentResponseDto(saved);
-    });
+    } catch (err) {
+      await this.paymentRepo.update(payment.id, {
+        status: PaymentStatus.REJECTED,
+      });
+      throw err;
+    }
   }
 
   // ==========================
@@ -110,6 +135,10 @@ export class PaymentsService {
     try {
       let externalReference: string | null | undefined;
       let mpStatus: string | null | undefined;
+      // id de la preference (payment.externalId) — nos permite identificar a
+      // qué intento de pago puntual corresponde esta notificación, en vez de
+      // asumir que es sobre el más reciente de la orden (ver más abajo).
+      let preferenceId: string | null | undefined;
 
       if (topic === 'payment') {
         // topic=payment → usar Payment API para obtener la info del pago
@@ -124,6 +153,25 @@ export class PaymentsService {
         else if (s === 'in_process' || s === 'pending')
           mpStatus = 'payment_in_process';
         else mpStatus = 'expired';
+
+        // El recurso Payment no trae preference_id directo — lo resolvemos
+        // vía la merchant_order asociada. Si falla, seguimos sin
+        // preferenceId (ver fallback más abajo) en vez de perder la notificación.
+        if (paymentData.order?.id) {
+          try {
+            const merchantOrder = new MerchantOrder(
+              this.mercadoPagoProvider.getClient(),
+            );
+            const mpOrder = await merchantOrder.get({
+              merchantOrderId: Number(paymentData.order.id),
+            });
+            preferenceId = mpOrder.preference_id;
+          } catch {
+            this.logger.warn(
+              `No se pudo resolver preference_id para el pago MP ${id} (merchant_order ${paymentData.order.id})`,
+            );
+          }
+        }
       } else {
         // topic=merchant_order → usar MerchantOrder API
         const merchantOrder = new MerchantOrder(
@@ -134,6 +182,7 @@ export class PaymentsService {
         });
         externalReference = mpOrder.external_reference;
         mpStatus = mpOrder.order_status;
+        preferenceId = mpOrder.preference_id;
       }
 
       if (!externalReference) return;
@@ -141,15 +190,50 @@ export class PaymentsService {
       // 🔥 toda la lógica de DB dentro de la transacción con locks de fila —
       // evita race condition entre dos notificaciones simultáneas del mismo pago
       await this.dataSource.transaction(async (manager) => {
+        // No filtramos por status: PENDING acá — necesitamos poder ver un
+        // pago ya CANCELLED (por ejemplo, porque un admin canceló la orden
+        // mientras el link de checkout seguía abierto) para detectar el
+        // conflicto de abajo en vez de perderlo silenciosamente.
+        //
+        // Si tenemos preferenceId, filtramos también por externalId: una
+        // orden puede tener varios intentos de pago (uno REJECTED y otro
+        // PENDING más nuevo) y una notificación tardía sobre un intento
+        // viejo no debe terminar actualizando el intento más reciente solo
+        // por ser "el último de la orden". Sin preferenceId (no se pudo
+        // resolver) caemos al comportamiento anterior como fallback.
         const payment = await manager.findOne(PaymentEntity, {
-          where: {
-            orderId: Number(externalReference),
-            status: PaymentStatus.PENDING,
-          },
+          where: preferenceId
+            ? { orderId: Number(externalReference), externalId: preferenceId }
+            : { orderId: Number(externalReference) },
+          order: { createdAt: 'DESC' },
           lock: { mode: 'pessimistic_write' },
         });
 
         if (!payment) return;
+
+        if (payment.status !== PaymentStatus.PENDING) {
+          // Notificación repetida/tardía — el pago ya quedó resuelto.
+          // Caso especial: la orden se canceló (admin) mientras el link de
+          // pago seguía abierto y el cliente terminó pagando igual. No lo
+          // aprobamos en silencio — se cobró plata por una orden cancelada
+          // y necesita revisión manual (reembolso).
+          if (
+            payment.status === PaymentStatus.CANCELLED &&
+            mpStatus === 'paid'
+          ) {
+            this.logger.error(
+              `MercadoPago reportó como pagado el pago ${payment.id} (orden ${payment.orderId}) pero ya estaba CANCELLED — requiere revisión manual`,
+            );
+            payment.metadata = {
+              requiresManualReview: true,
+              mpStatus,
+              body,
+              query,
+            };
+            await manager.save(payment);
+          }
+          return;
+        }
 
         const order = await manager.findOne(OrderEntity, {
           where: { id: payment.orderId },

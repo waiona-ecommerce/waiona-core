@@ -18,6 +18,8 @@ import { StockItemsService } from '../../stocks/stock-item/services/stock-item.s
 import { CalculationService } from '../../pricing/calculation/services/calculation.service';
 import { MailService } from '../../mail/services/mail.service';
 import { CouponUsageService } from '../../coupons/usage/services/coupon-usage.service';
+import { PaymentEntity } from '../../payments/entities/payment.entity';
+import { PaymentStatus } from '../../payments/enums/payment-status.enum';
 import { OrderStatus } from '../enums/order-status.enum';
 import { DeliveryType } from '../enums/delivery-type.enum';
 
@@ -73,6 +75,7 @@ describe('OrdersService', () => {
     find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
     softDelete: jest.fn(),
     getRepository: jest.fn(() => mockManagerRepo),
   };
@@ -768,6 +771,23 @@ describe('OrdersService', () => {
       );
     });
 
+    it('should invalidate any pending payment when an admin cancels the order', async () => {
+      const order = mockOrder({ status: OrderStatus.CONFIRMED });
+      mockEntityManager.findOne.mockResolvedValue(order);
+      mockEntityManager.save.mockResolvedValue(
+        mockOrder({ status: OrderStatus.CANCELLED }),
+      );
+      stockService.releaseReservation.mockResolvedValue(undefined);
+
+      await service.updateStatus(1, { status: OrderStatus.CANCELLED });
+
+      expect(mockEntityManager.update).toHaveBeenCalledWith(
+        PaymentEntity,
+        { orderId: order.id, status: PaymentStatus.PENDING },
+        { status: PaymentStatus.CANCELLED },
+      );
+    });
+
     it('should release stock using comboReservations when status is CANCELLED (combo item)', async () => {
       const order = mockComboOrder({ status: OrderStatus.CONFIRMED });
       mockEntityManager.findOne.mockResolvedValue(order);
@@ -882,6 +902,16 @@ describe('OrdersService', () => {
         expect.objectContaining({ status: OrderStatus.CANCELLED }),
       );
       expect(stockService.releaseReservation).toHaveBeenCalled();
+    });
+
+    it('should not touch pending payments — the caller (payments webhook) already owns that update', async () => {
+      mockEntityManager.findOne.mockResolvedValue(
+        mockOrder({ status: OrderStatus.PENDING }),
+      );
+      mockEntityManager.save.mockResolvedValue(undefined);
+      stockService.releaseReservation.mockResolvedValue(undefined);
+      await service.releaseStockForOrder(1);
+      expect(mockEntityManager.update).not.toHaveBeenCalled();
     });
 
     it('should revert coupon usage when cancelling an order with a coupon', async () => {
